@@ -1,46 +1,60 @@
-import json
 import os
 import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from email.message import EmailMessage
 from pathlib import Path
 
-DATA_DIR = Path('data')
-REPORT_JSON = DATA_DIR / 'report.json'
-REPORT_HTML = DATA_DIR / 'report.html'
+SMTP_HOST = os.environ["SMTP_HOST"]
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "465"))
+SMTP_USER = os.environ["SMTP_USER"]
+SMTP_PASSWORD = os.environ["SMTP_PASSWORD"]
+
+REPORT_TO = os.environ["REPORT_TO"]
+REPORT_CC = os.environ.get("REPORT_CC", "")
+REPORT_BCC = os.environ.get("REPORT_BCC", "")
+
+SUBJECT = os.environ.get("REPORT_SUBJECT", "Reporte automático | Dashboard Communications")
+FROM_NAME = os.environ.get("REPORT_FROM_NAME", "Automatización Comms Internas")
+
+HTML_PATH = Path("output/report.html")
+TEXT_PATH = Path("output/report.txt")
 
 
-def main() -> None:
-    smtp_host = os.environ['SMTP_HOST']
-    smtp_port = int(os.environ.get('SMTP_PORT', '587'))
-    smtp_user = os.environ['SMTP_USERNAME']
-    smtp_password = os.environ['SMTP_PASSWORD']
-    report_to = os.environ['REPORT_TO']
-    report_cc = os.environ.get('REPORT_CC', '')
-    report_from = os.environ.get('REPORT_FROM') or smtp_user
-
-    payload = json.loads(REPORT_JSON.read_text(encoding='utf-8'))
-    html = REPORT_HTML.read_text(encoding='utf-8')
-    subject = payload.get('subject') or 'Informe automatico | Dashboard Communications'
-
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = subject
-    msg['From'] = report_from
-    msg['To'] = report_to
-    if report_cc:
-        msg['Cc'] = report_cc
-
-    msg.attach(MIMEText(html, 'html', 'utf-8'))
-
-    recipients = [x.strip() for x in (report_to + ',' + report_cc).split(',') if x.strip()]
-
-    with smtplib.SMTP(smtp_host, smtp_port) as server:
-        server.starttls()
-        server.login(smtp_user, smtp_password)
-        server.sendmail(report_from, recipients, msg.as_string())
-
-    print(f'Reporte enviado a: {", ".join(recipients)}')
+def load_body():
+    html = HTML_PATH.read_text(encoding="utf-8") if HTML_PATH.exists() else None
+    text = TEXT_PATH.read_text(encoding="utf-8") if TEXT_PATH.exists() else "No se generó versión texto del reporte."
+    return text, html
 
 
-if __name__ == '__main__':
+def build_message():
+    text_body, html_body = load_body()
+
+    msg = EmailMessage()
+    msg["Subject"] = SUBJECT
+    msg["From"] = f"{FROM_NAME} <{SMTP_USER}>"
+    msg["To"] = REPORT_TO
+
+    if REPORT_CC.strip():
+        msg["Cc"] = REPORT_CC
+    if REPORT_BCC.strip():
+        msg["Bcc"] = REPORT_BCC
+
+    msg.set_content(text_body)
+
+    if html_body:
+        msg.add_alternative(html_body, subtype="html")
+
+    return msg
+
+
+def main():
+    msg = build_message()
+
+    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.send_message(msg)
+
+    print("Reporte enviado correctamente por Gmail.")
+
+
+if __name__ == "__main__":
     main()

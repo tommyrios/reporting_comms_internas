@@ -1,107 +1,105 @@
-import json
 import os
 from pathlib import Path
 from openai import OpenAI
 
-DATA_DIR = Path('data')
-TEXT_PATH = DATA_DIR / 'pdf_text.txt'
-META_PATH = DATA_DIR / 'metadata.json'
-REPORT_JSON = DATA_DIR / 'report.json'
-REPORT_HTML = DATA_DIR / 'report.html'
+INPUT_PATH = Path("output/pdf_text.txt")
+OUTPUT_DIR = Path("output")
+TEXT_REPORT_PATH = OUTPUT_DIR / "report.txt"
+HTML_REPORT_PATH = OUTPUT_DIR / "report.html"
 
-SYSTEM_PROMPT = '''Sos un analista de datos senior de comunicaciones internas.
-Tu tarea es leer el texto extraido de un dashboard PDF y redactar un informe ejecutivo en espanol para BBVA Argentina.
+MODEL = os.environ.get("OPENAI_MODEL", "gpt-5-mini")
 
-Objetivos:
-- Resumir hallazgos del periodo.
-- Destacar KPIs de mailing cuando esten disponibles.
-- Destacar volumen de contenidos publicados y comunicaciones planificadas.
-- Marcar patrones, anomalias, oportunidades y recomendaciones.
-- No inventes datos. Si algo no esta claro, decilo.
+PROMPT = """
+Sos un analista de datos de comunicaciones internas de BBVA Argentina.
+Tu tarea es redactar un reporte ejecutivo claro, breve y accionable a partir
+del texto extraído de un dashboard PDF.
 
-Devolve JSON valido con esta estructura:
-{
-  "subject": "...",
-  "headline": "...",
-  "summary": "parrafo breve",
-  "kpis": [
-    {"label": "...", "value": "...", "comment": "..."}
-  ],
-  "insights": ["...", "...", "..."],
-  "risks": ["...", "..."],
-  "recommendations": ["...", "...", "..."],
-  "closing": "..."
-}
-'''
+Quiero que generes:
+1. Un resumen ejecutivo de no más de 15 líneas.
+2. Un bloque de KPIs clave en bullets.
+3. 3 insights relevantes.
+4. 2 alertas o limitaciones del análisis.
+5. 2 recomendaciones accionables.
+6. Un cierre breve.
 
-HTML_TEMPLATE = '''<html><body style="font-family:Arial,Helvetica,sans-serif;line-height:1.45;color:#111;">
-<h2>{headline}</h2>
-<p>{summary}</p>
-<h3>KPIs destacados</h3>
-<ul>
-{kpi_items}
-</ul>
-<h3>Insights</h3>
-<ul>
-{insight_items}
-</ul>
-<h3>Riesgos o alertas</h3>
-<ul>
-{risk_items}
-</ul>
-<h3>Recomendaciones</h3>
-<ul>
-{recommendation_items}
-</ul>
-<p>{closing}</p>
-<hr>
-<p style="font-size:12px;color:#666;">Reporte generado automaticamente a partir del PDF del dashboard recibido por mail.</p>
-</body></html>'''
+Reglas:
+- Escribí en español.
+- Usá tono ejecutivo, claro y profesional.
+- No inventes datos.
+- Si hay datos confusos o ambiguos, aclaralo.
+- Priorizá métricas como envíos, aperturas, clics, tasas y tendencias.
+- Si detectás una evolución mensual, mencionarla.
+- Si hay rankings o tablas de mails, destacá mejores y peores desempeños si se ven con claridad.
+
+Devolvé la respuesta en dos secciones exactamente así:
+
+===TEXT===
+[versión texto plano]
+
+===HTML===
+[versión HTML simple, prolija, con h2, ul, li y p]
+""".strip()
 
 
-def li(items):
-    return '\n'.join(f'<li>{x}</li>' for x in items)
+def load_pdf_text() -> str:
+    if not INPUT_PATH.exists():
+        raise FileNotFoundError(f"No existe el archivo de entrada: {INPUT_PATH}")
+    return INPUT_PATH.read_text(encoding="utf-8").strip()
 
 
-def main() -> None:
-    client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
-    model = os.environ.get('OPENAI_MODEL', 'gpt-5-mini')
-    text = TEXT_PATH.read_text(encoding='utf-8')
-    meta = json.loads(META_PATH.read_text(encoding='utf-8'))
-
-    user_prompt = f'''Metadatos del mail:
-{json.dumps(meta, ensure_ascii=False, indent=2)}
-
-Texto extraido del PDF:
-{text}
-'''
+def call_openai(pdf_text: str) -> str:
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
     response = client.responses.create(
-        model=model,
+        model=MODEL,
         input=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": PROMPT,
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": f"Texto extraído del dashboard:\n\n{pdf_text}",
+                    }
+                ],
+            },
         ],
-        text={"format": {"type": "json_object"}},
     )
 
-    payload = json.loads(response.output_text)
-    REPORT_JSON.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
-
-    html = HTML_TEMPLATE.format(
-        headline=payload['headline'],
-        summary=payload['summary'],
-        kpi_items='\n'.join(
-            f"<li><strong>{k['label']}:</strong> {k['value']} — {k['comment']}</li>" for k in payload.get('kpis', [])
-        ),
-        insight_items=li(payload.get('insights', [])),
-        risk_items=li(payload.get('risks', [])),
-        recommendation_items=li(payload.get('recommendations', [])),
-        closing=payload.get('closing', ''),
-    )
-    REPORT_HTML.write_text(html, encoding='utf-8')
-    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return response.output_text.strip()
 
 
-if __name__ == '__main__':
+def split_outputs(content: str) -> tuple[str, str]:
+    if "===TEXT===" not in content or "===HTML===" not in content:
+        raise ValueError("La respuesta del modelo no vino en el formato esperado.")
+
+    text_part = content.split("===TEXT===", 1)[1].split("===HTML===", 1)[0].strip()
+    html_part = content.split("===HTML===", 1)[1].strip()
+
+    return text_part, html_part
+
+
+def save_outputs(text_report: str, html_report: str) -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    TEXT_REPORT_PATH.write_text(text_report, encoding="utf-8")
+    HTML_REPORT_PATH.write_text(html_report, encoding="utf-8")
+
+
+def main():
+    pdf_text = load_pdf_text()
+    model_output = call_openai(pdf_text)
+    text_report, html_report = split_outputs(model_output)
+    save_outputs(text_report, html_report)
+    print("Reporte generado correctamente.")
+
+
+if __name__ == "__main__":
     main()
