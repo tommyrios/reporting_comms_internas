@@ -2,6 +2,7 @@ name: Comms Dashboard Report
 
 on:
   schedule:
+    # 08:18 Argentina = 11:18 UTC
     - cron: '18 11 1 * *'
   workflow_dispatch:
 
@@ -43,17 +44,15 @@ jobs:
         run: |
           python scripts/generate_report.py
 
-      - name: Send report by Gmail API
+      - name: Send email
         env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
-          GOOGLE_TOKEN_URI: ${{ secrets.GOOGLE_TOKEN_URI }}
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          REPORT_TO: ${{ secrets.REPORT_TO }}
-          REPORT_CC: ${{ secrets.REPORT_CC }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
+          EMAIL_CC: ${{ secrets.EMAIL_CC }}
+          EMAIL_SUBJECT: Reporte automático | Dashboard Communications
         run: |
-          python scripts/send_email_gmail_api.py
+          python scripts/send_email.py
 
       - name: Upload generated artifacts
         uses: actions/upload-artifact@v4

@@ -11,8 +11,8 @@ DATA_DIR = Path("data")
 PDF_PATH = DATA_DIR / "latest_dashboard.pdf"
 META_PATH = DATA_DIR / "metadata.json"
 
-EMAIL_SUBJECT = 'Dashboard Communications | Comunicación interna'
-PDF_FILENAME_CONTAINS = 'Dashboard Communications | Comunicación interna'
+EMAIL_SUBJECT = "Dashboard Communications | Comunicación interna"
+PDF_FILENAME_CONTAINS = "Dashboard Communications | Comunicación interna"
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
@@ -30,22 +30,20 @@ def build_gmail_service():
 
 
 def find_attachment_part(payload: dict) -> Optional[dict]:
-    parts = payload.get("parts", [])
-    for part in parts:
-        filename = part.get("filename", "") or ""
-        body = part.get("body", {}) or {}
+    filename = payload.get("filename", "") or ""
+    body = payload.get("body", {}) or {}
 
-        if filename.lower().endswith(".pdf") and PDF_FILENAME_CONTAINS.lower() in filename.lower():
-            if body.get("attachmentId"):
-                return part
+    if (
+        filename.lower().endswith(".pdf")
+        and PDF_FILENAME_CONTAINS.lower() in filename.lower()
+        and body.get("attachmentId")
+    ):
+        return payload
 
-        nested_parts = part.get("parts", [])
-        for nested in nested_parts:
-            nested_filename = nested.get("filename", "") or ""
-            nested_body = nested.get("body", {}) or {}
-            if nested_filename.lower().endswith(".pdf") and PDF_FILENAME_CONTAINS.lower() in nested_filename.lower():
-                if nested_body.get("attachmentId"):
-                    return nested
+    for part in payload.get("parts", []) or []:
+        found = find_attachment_part(part)
+        if found:
+            return found
 
     return None
 
@@ -96,7 +94,7 @@ def main():
         id=attachment_id
     ).execute()
 
-    file_data = base64.urlsafe_b64decode(attachment["data"].encode("UTF-8"))
+    file_data = base64.urlsafe_b64decode(attachment["data"].encode("utf-8"))
     PDF_PATH.write_bytes(file_data)
 
     headers = selected_message.get("payload", {}).get("headers", [])
@@ -113,7 +111,11 @@ def main():
         "pdf_path": str(PDF_PATH),
     }
 
-    META_PATH.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+    META_PATH.write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2),
+        encoding="utf-8"
+    )
+
     print(json.dumps(metadata, ensure_ascii=False, indent=2))
 
 

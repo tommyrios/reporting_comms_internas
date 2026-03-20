@@ -36,7 +36,6 @@ def main() -> None:
 
     meta["page_count"] = len(reader.pages)
     meta["text_chars"] = len(full_text)
-    meta["pdf_path"] = str(PDF_PATH)
     meta["text_path"] = str(TEXT_PATH)
 
     META_PATH.write_text(

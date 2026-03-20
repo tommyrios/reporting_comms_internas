@@ -67,7 +67,7 @@ def call_openai(pdf_text: str) -> str:
                 "content": [
                     {
                         "type": "input_text",
-                        "text": f"Texto extraído del dashboard:\n\n{pdf_text}",
+                        "text": f"Texto extraído del dashboard:\n\n{pdf_text[:120000]}",
                     }
                 ],
             },
