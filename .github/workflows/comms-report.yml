@@ -37,10 +37,9 @@ jobs:
         run: |
           python scripts/extract_pdf_text.py
 
-      - name: Generate AI report
+      - name: Generate AI report (Gemini)
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: gpt-5-mini
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           python scripts/generate_report.py
 
