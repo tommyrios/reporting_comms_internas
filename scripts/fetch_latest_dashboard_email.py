@@ -37,8 +37,8 @@ def attachment_matches(part: Message) -> tuple[bool, str]:
 def main() -> None:
     host = os.environ['IMAP_HOST']
     port = int(os.environ.get('IMAP_PORT', '993'))
-    username = os.environ['EMAIL_USERNAME']
-    password = os.environ['EMAIL_PASSWORD']
+    username = os.environ['IMAP_USER']
+    password = os.environ['IMAP_PASSWORD']
 
     mail = imaplib.IMAP4_SSL(host, port)
     mail.login(username, password)
