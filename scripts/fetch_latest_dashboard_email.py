@@ -11,8 +11,7 @@ DATA_DIR = Path("data")
 PDF_PATH = DATA_DIR / "latest_dashboard.pdf"
 META_PATH = DATA_DIR / "metadata.json"
 
-EMAIL_SUBJECT = "Dashboard Communications | Comunicación interna"
-PDF_FILENAME_CONTAINS = "Dashboard Communications | Comunicación interna"
+TARGET_PHRASE = "dashboard communications"
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
@@ -29,23 +28,25 @@ def build_gmail_service():
     return build("gmail", "v1", credentials=creds)
 
 
-def find_attachment_part(payload: dict) -> Optional[dict]:
+def find_pdf_part(payload: dict) -> Optional[dict]:
+    """Busca recursivamente un adjunto PDF"""
     filename = payload.get("filename", "") or ""
-    body = payload.get("body", {}) or {}
+    body = payload.get("body", {}) or ""
 
-    if (
-        filename.lower().endswith(".pdf")
-        and PDF_FILENAME_CONTAINS.lower() in filename.lower()
-        and body.get("attachmentId")
-    ):
+    if filename.lower().endswith(".pdf") and body.get("attachmentId"):
         return payload
 
     for part in payload.get("parts", []) or []:
-        found = find_attachment_part(part)
+        found = find_pdf_part(part)
         if found:
             return found
 
     return None
+
+
+def extract_headers(payload: dict) -> dict:
+    headers = payload.get("headers", [])
+    return {h["name"]: h["value"] for h in headers}
 
 
 def main():
@@ -53,19 +54,23 @@ def main():
 
     service = build_gmail_service()
 
-    query = f'subject:"{EMAIL_SUBJECT}" has:attachment filename:pdf'
+    # 🔥 Query amplia (no restrictiva)
+    query = 'has:attachment filename:pdf'
+
     result = service.users().messages().list(
         userId="me",
         q=query,
-        maxResults=10
+        maxResults=20
     ).execute()
 
     messages = result.get("messages", [])
-    if not messages:
-        raise RuntimeError("No se encontraron mails que coincidan con la búsqueda.")
 
-    selected_message = None
-    selected_attachment_part = None
+    if not messages:
+        raise RuntimeError("No se encontraron mails con PDFs.")
+
+    print(f"Se encontraron {len(messages)} mails con adjuntos PDF")
+
+    candidates = []
 
     for msg in messages:
         full_msg = service.users().messages().get(
@@ -75,39 +80,57 @@ def main():
         ).execute()
 
         payload = full_msg.get("payload", {})
-        attachment_part = find_attachment_part(payload)
+        headers = extract_headers(payload)
 
-        if attachment_part:
-            selected_message = full_msg
-            selected_attachment_part = attachment_part
-            break
+        subject = (headers.get("Subject") or "").lower()
 
-    if not selected_message or not selected_attachment_part:
-        raise RuntimeError("No se encontró un adjunto PDF válido en los mails encontrados.")
+        print(f"Mail evaluado: {subject}")
 
-    attachment_id = selected_attachment_part["body"]["attachmentId"]
-    filename = selected_attachment_part.get("filename", "latest_dashboard.pdf")
+        # 🔥 filtro flexible por contenido
+        if TARGET_PHRASE in subject:
+            pdf_part = find_pdf_part(payload)
+
+            if pdf_part:
+                candidates.append({
+                    "msg": full_msg,
+                    "pdf_part": pdf_part,
+                    "subject": subject,
+                })
+
+    if not candidates:
+        raise RuntimeError("No se encontró ningún mail con el subject esperado.")
+
+    # 🔥 tomar el más reciente
+    selected = max(
+        candidates,
+        key=lambda x: int(x["msg"].get("internalDate", 0))
+    )
+
+    message = selected["msg"]
+    pdf_part = selected["pdf_part"]
+
+    attachment_id = pdf_part["body"]["attachmentId"]
+    filename = pdf_part.get("filename", "latest_dashboard.pdf")
+
+    print(f"Seleccionado: {selected['subject']}")
 
     attachment = service.users().messages().attachments().get(
         userId="me",
-        messageId=selected_message["id"],
+        messageId=message["id"],
         id=attachment_id
     ).execute()
 
     file_data = base64.urlsafe_b64decode(attachment["data"].encode("utf-8"))
     PDF_PATH.write_bytes(file_data)
 
-    headers = selected_message.get("payload", {}).get("headers", [])
-    header_map = {h["name"]: h["value"] for h in headers}
+    headers = extract_headers(message["payload"])
 
     metadata = {
-        "message_id": selected_message["id"],
-        "thread_id": selected_message.get("threadId"),
-        "internal_date": selected_message.get("internalDate"),
-        "subject": header_map.get("Subject"),
-        "from": header_map.get("From"),
-        "date": header_map.get("Date"),
-        "attachment_filename": filename,
+        "message_id": message["id"],
+        "subject": headers.get("Subject"),
+        "from": headers.get("From"),
+        "date": headers.get("Date"),
+        "filename": filename,
         "pdf_path": str(PDF_PATH),
     }
 
@@ -116,6 +139,7 @@ def main():
         encoding="utf-8"
     )
 
+    print("PDF descargado correctamente")
     print(json.dumps(metadata, ensure_ascii=False, indent=2))
 
 
