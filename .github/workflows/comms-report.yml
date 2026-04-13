@@ -7,11 +7,14 @@ on:
   workflow_dispatch:
     inputs:
       report_mode:
-        description: 'auto | quarter | year | quarter_and_year'
+        description: 'auto | month | month_and_quarter | quarter | year | quarter_and_year'
         required: false
-        default: 'auto'
+        default: 'month'
       report_year:
         description: 'Año del período (si aplica)'
+        required: false
+      report_month:
+        description: 'Mes 1-12 (si aplica)'
         required: false
       report_quarter:
         description: 'Trimestre 1-4 (si aplica)'
@@ -56,6 +59,7 @@ jobs:
           REPORT_TIMEZONE: America/Argentina/Buenos_Aires
           REPORT_MODE: ${{ github.event.inputs.report_mode || 'auto' }}
           REPORT_YEAR: ${{ github.event.inputs.report_year }}
+          REPORT_MONTH: ${{ github.event.inputs.report_month }}
           REPORT_QUARTER: ${{ github.event.inputs.report_quarter }}
           ALLOW_PARTIAL_PERIOD: ${{ github.event.inputs.allow_partial_period || 'false' }}
         run: |

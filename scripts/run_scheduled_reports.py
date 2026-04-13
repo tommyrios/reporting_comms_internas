@@ -26,7 +26,7 @@ def main() -> None:
     if not schedule.periods:
         payload = {
             "status": "skipped",
-            "reason": "No hay cierres trimestrales o anuales para este run.",
+            "reason": "No hay períodos configurados para este run.",
             "periods": [],
         }
         DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -44,6 +44,7 @@ def main() -> None:
         sent_periods.append(
             {
                 "period_slug": period.slug,
+                "kind": period.kind,
                 "email_subject": result["report"].get("email_subject", period.email_subject),
                 "report_dir": result["report_dir"],
             }

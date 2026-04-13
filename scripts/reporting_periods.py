@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import asdict, dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Iterable, List, Optional
 from zoneinfo import ZoneInfo
@@ -87,6 +87,30 @@ def _quarter_label(year: int, quarter: int) -> str:
     return f"Q{quarter} {year} ({month_span})"
 
 
+def build_month_period(year: int, month: int) -> ReportingPeriod:
+    start_date = date(year, month, 1)
+    if month == 12:
+        end_date_exclusive = date(year + 1, 1, 1)
+    else:
+        end_date_exclusive = date(year, month + 1, 1)
+
+    month_name = SPANISH_MONTH_SHORT[month]
+    slug_month = month_name
+    return ReportingPeriod(
+        kind="month",
+        year=year,
+        quarter=None,
+        months=[_month_slug(year, month)],
+        start_date=start_date.isoformat(),
+        end_date_exclusive=end_date_exclusive.isoformat(),
+        label=f"{month_name.capitalize()} {year}",
+        slug=f"month_{year}_{month:02d}",
+        email_subject=f"Informe mensual CI | {month_name.capitalize()} {year}",
+        title=f"Informe mensual de Comunicaciones Internas - {month_name.capitalize()} {year}",
+        subtitle=f"Período {month_name} {year}",
+    )
+
+
 def build_quarter_period(year: int, quarter: int) -> ReportingPeriod:
     months = QUARTER_TO_MONTHS[quarter]
     month_slugs = [_month_slug(year, month) for month in months]
@@ -129,24 +153,45 @@ def build_year_period(year: int) -> ReportingPeriod:
     )
 
 
+def _append_unique(periods: List[ReportingPeriod], period: ReportingPeriod) -> None:
+    if all(existing.slug != period.slug for existing in periods):
+        periods.append(period)
+
+
 def resolve_schedule_from_env() -> ReportingSchedule:
     tz_name = os.environ.get("REPORT_TIMEZONE", DEFAULT_TZ)
     reference_date = _parse_reference_date(os.environ.get("REPORT_REFERENCE_DATE"), tz_name)
     report_mode = (os.environ.get("REPORT_MODE") or "auto").strip().lower()
+    include_monthly = (os.environ.get("REPORT_INCLUDE_MONTHLY") or "false").strip().lower() == "true"
 
-    periods: List[ReportingPeriod]
+    periods: List[ReportingPeriod] = []
+    previous_month_last_day = reference_date.replace(day=1) - timedelta(days=1)
+    previous_month_year = previous_month_last_day.year
+    previous_month = previous_month_last_day.month
 
     if report_mode == "auto":
-        previous_month_last_day = reference_date.replace(day=1) - timedelta(days=1)
-        if previous_month_last_day.month in {3, 6, 9}:
-            periods = [build_quarter_period(previous_month_last_day.year, _quarter_for_month(previous_month_last_day.month))]
-        elif previous_month_last_day.month == 12:
-            periods = [
-                build_quarter_period(previous_month_last_day.year, 4),
-                build_year_period(previous_month_last_day.year),
-            ]
-        else:
-            periods = []
+        if include_monthly:
+            _append_unique(periods, build_month_period(previous_month_year, previous_month))
+
+        if previous_month in {3, 6, 9}:
+            _append_unique(periods, build_quarter_period(previous_month_year, _quarter_for_month(previous_month)))
+        elif previous_month == 12:
+            _append_unique(periods, build_quarter_period(previous_month_year, 4))
+            _append_unique(periods, build_year_period(previous_month_year))
+    elif report_mode == "month":
+        year = int(os.environ.get("REPORT_YEAR") or previous_month_year)
+        month = int(os.environ.get("REPORT_MONTH") or previous_month)
+        if month not in set(range(1, 13)):
+            raise ValueError("REPORT_MONTH debe ser un valor entre 1 y 12")
+        periods = [build_month_period(year, month)]
+    elif report_mode == "month_and_quarter":
+        year = int(os.environ["REPORT_YEAR"])
+        quarter = int(os.environ["REPORT_QUARTER"])
+        if quarter not in {1, 2, 3, 4}:
+            raise ValueError("REPORT_QUARTER debe ser 1, 2, 3 o 4")
+        quarter_period = build_quarter_period(year, quarter)
+        last_month = QUARTER_TO_MONTHS[quarter][-1]
+        periods = [build_month_period(year, last_month), quarter_period]
     elif report_mode == "quarter":
         year = int(os.environ["REPORT_YEAR"])
         quarter = int(os.environ["REPORT_QUARTER"])
@@ -162,7 +207,7 @@ def resolve_schedule_from_env() -> ReportingSchedule:
         periods = [build_quarter_period(year, quarter), build_year_period(year)]
     else:
         raise ValueError(
-            "REPORT_MODE inválido. Usá uno de: auto, quarter, year, quarter_and_year"
+            "REPORT_MODE inválido. Usá uno de: auto, month, month_and_quarter, quarter, year, quarter_and_year"
         )
 
     return ReportingSchedule(
