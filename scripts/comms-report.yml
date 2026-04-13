@@ -1,0 +1,70 @@
+name: Comms Period Report
+
+on:
+  schedule:
+    # 08:18 Argentina = 11:18 UTC
+    - cron: '18 11 1 * *'
+  workflow_dispatch:
+    inputs:
+      report_mode:
+        description: 'auto | quarter | year | quarter_and_year'
+        required: false
+        default: 'auto'
+      report_year:
+        description: 'Año del período (si aplica)'
+        required: false
+      report_quarter:
+        description: 'Trimestre 1-4 (si aplica)'
+        required: false
+      allow_partial_period:
+        description: 'Permitir período incompleto (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  generate-and-send-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run period pipeline
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GOOGLE_TOKEN_URI: ${{ secrets.GOOGLE_TOKEN_URI }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          REPORT_TO: ${{ secrets.REPORT_TO }}
+          REPORT_CC: ${{ secrets.REPORT_CC }}
+          REPORT_FROM: ${{ secrets.REPORT_FROM }}
+          REPORT_TIMEZONE: America/Argentina/Buenos_Aires
+          REPORT_MODE: ${{ github.event.inputs.report_mode || 'auto' }}
+          REPORT_YEAR: ${{ github.event.inputs.report_year }}
+          REPORT_QUARTER: ${{ github.event.inputs.report_quarter }}
+          ALLOW_PARTIAL_PERIOD: ${{ github.event.inputs.allow_partial_period || 'false' }}
+        run: |
+          python scripts/run_scheduled_reports.py
+
+      - name: Upload generated artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: comms-period-report-output
+          path: |
+            output/
+            data/
