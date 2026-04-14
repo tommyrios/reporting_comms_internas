@@ -151,14 +151,28 @@ def _env_int(name: str, default: int) -> int:
 
 
 def _get_period_definition(period_slug: str) -> dict[str, Any]:
-    path = DATA_DIR / "selected_periods.json"
-    if not path.exists():
-        raise FileNotFoundError(f"No existe {path}")
-    payload = _safe_load_json(path)
-    for period in payload.get("periods", []):
+    candidate_paths = [
+        DATA_DIR / "selected_periods.json",
+        DATA_DIR / "fetch_result.json",
+    ]
+
+    payload = None
+    for path in candidate_paths:
+        if path.exists():
+            payload = _safe_load_json(path)
+            break
+
+    if payload is None:
+        raise FileNotFoundError(
+            f"No existe {DATA_DIR / 'selected_periods.json'} ni {DATA_DIR / 'fetch_result.json'}"
+        )
+
+    periods = payload.get("periods", [])
+    for period in periods:
         if period.get("slug") == period_slug:
             return period
-    raise KeyError(f"No se encontró el período {period_slug} en selected_periods.json")
+
+    raise KeyError(f"No se encontró el período {period_slug} en los archivos de períodos")
 
 
 def _load_extracted_text(month_key: str) -> str:
