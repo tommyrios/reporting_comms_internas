@@ -154,8 +154,13 @@ def send_period_report(period_slug: str) -> None:
     plain_text, html_body = _build_email_bodies(metadata)
 
     attachments: list[Path] = []
-    if pdf_path:
-        attachments.append(pdf_path)
+
+if pdf_path and pdf_path.exists():
+    attachments.append(pdf_path)
+else:
+    html_path = REPORTS_DIR / period_slug / "report.html"
+    if html_path.exists():
+        attachments.append(html_path)
 
     sender = EmailSender()
     sender.send_email(
