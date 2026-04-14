@@ -49,15 +49,21 @@ jobs:
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           GOOGLE_TOKEN_URI: ${{ secrets.GOOGLE_TOKEN_URI }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          REPORT_TO: ${{ secrets.REPORT_TO }}
-          REPORT_CC: ${{ secrets.REPORT_CC }}
-          REPORT_FROM: ${{ secrets.REPORT_FROM }}
+
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
+
           REPORT_TIMEZONE: America/Argentina/Buenos_Aires
           REPORT_MODE: ${{ github.event.inputs.report_mode || 'auto' }}
           REPORT_YEAR: ${{ github.event.inputs.report_year }}
           REPORT_MONTH: ${{ github.event.inputs.report_month }}
           REPORT_QUARTER: ${{ github.event.inputs.report_quarter }}
           ALLOW_PARTIAL_PERIOD: ${{ github.event.inputs.allow_partial_period || 'false' }}
+
+          ALLOW_HEURISTIC_FALLBACK: 'true'
+          GEMINI_MAX_RETRIES: '4'
+          GEMINI_INITIAL_BACKOFF_SECONDS: '3'
         run: |
           python scripts/run_scheduled_reports.py
 
