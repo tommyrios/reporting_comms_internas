@@ -9,6 +9,7 @@ from send_email import send_period_report
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_DIR / "data"
 REPORTS_DIR = BASE_DIR / "output" / "reports"
 
 
@@ -17,18 +18,35 @@ def report_exists(period_slug: str) -> bool:
     return (period_dir / "metadata.json").exists() and (period_dir / "report.html").exists()
 
 
+def _load_fetch_payload(fetch_result):
+    if isinstance(fetch_result, dict):
+        return fetch_result
+
+    if isinstance(fetch_result, str):
+        try:
+            return json.loads(fetch_result)
+        except json.JSONDecodeError:
+            pass
+
+    candidates = [
+        DATA_DIR / "fetch_result.json",
+        DATA_DIR / "selected_periods.json",
+    ]
+
+    for path in candidates:
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+
+    raise RuntimeError(
+        "fetch_dashboard_pdfs no devolvió resultado y no existe ni data/fetch_result.json ni data/selected_periods.json"
+    )
+
+
 def main() -> None:
     fetch_result = fetch_step.main()
+    fetch_payload = _load_fetch_payload(fetch_result)
 
-    if fetch_result is None:
-        periods_path = BASE_DIR / "data" / "selected_periods.json"
-        if not periods_path.exists():
-            raise RuntimeError("fetch_dashboard_pdfs no devolvió resultado y no existe selected_periods.json")
-        fetch_result = json.loads(periods_path.read_text(encoding="utf-8"))
-    elif isinstance(fetch_result, str):
-        fetch_result = json.loads(fetch_result)
-
-    periods = fetch_result.get("periods", [])
+    periods = fetch_payload.get("periods", [])
     if not periods:
         raise RuntimeError("No se detectaron períodos a procesar.")
 

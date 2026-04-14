@@ -92,24 +92,26 @@ def download_attachment(service, message_id: str, attachment_id: str) -> bytes:
     return base64.urlsafe_b64decode(attachment["data"].encode("utf-8"))
 
 
-def main() -> None:
+def main() -> dict:
     schedule = resolve_schedule_from_env()
     save_schedule(schedule)
 
     if not schedule.periods:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
+        manifest = {
+            "status": "skipped",
+            "reason": "No hay períodos para generar en esta corrida.",
+            "periods": [],
+            "months_requested": [],
+            "files": [],
+        }
         MANIFEST_PATH.write_text(
-            json.dumps({
-                "status": "skipped",
-                "reason": "No hay períodos para generar en esta corrida.",
-                "periods": [],
-                "months_requested": [],
-                "files": [],
-            }, ensure_ascii=False, indent=2),
+            json.dumps(manifest, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
         print("No hay períodos para generar en esta corrida.")
-        return
+        print(json.dumps(manifest, ensure_ascii=False, indent=2))
+        return manifest
 
     subject_contains = (os.environ.get("GMAIL_SUBJECT_CONTAINS") or DEFAULT_SUBJECT_CONTAINS).lower()
     query = os.environ.get("GMAIL_SEARCH_QUERY", DEFAULT_QUERY)
@@ -208,12 +210,20 @@ def main() -> None:
         encoding="utf-8",
     )
 
+    # Opcional: dejar también un alias más explícito
+    (DATA_DIR / "fetch_result.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
     print(json.dumps(manifest, ensure_ascii=False, indent=2))
 
     if missing_months and not allow_partial:
         raise RuntimeError(
             "Faltan PDFs para completar el período: " + ", ".join(missing_months)
         )
+
+    return manifest
 
 
 if __name__ == "__main__":
