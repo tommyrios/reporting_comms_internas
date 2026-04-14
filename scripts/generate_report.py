@@ -4,6 +4,7 @@ import json
 import os
 import re
 import time
+from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
 from typing import List
@@ -11,24 +12,25 @@ from typing import List
 import sys
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+BASE_DIR = SCRIPT_DIR.parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.append(str(SCRIPT_DIR))
 
 from reporting_periods import load_schedule
 
-OUTPUT_DIR = Path("output")
+OUTPUT_DIR = BASE_DIR / "output"
 CORPUS_PATH = OUTPUT_DIR / "monthly_corpus.json"
 MONTHLY_AI_DIR = OUTPUT_DIR / "monthly_ai_summaries"
 REPORTS_DIR = OUTPUT_DIR / "reports"
 
-DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+DEFAULT_MODEL = (os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash").strip()
 FALLBACK_MODELS = [
-    model.strip()
-    for model in os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-2.5-flash-lite,gemini-2.0-flash").split(",")
-    if model.strip()
+    item.strip()
+    for item in (os.environ.get("GEMINI_FALLBACK_MODELS") or "gemini-2.5-flash-lite,gemini-2.0-flash").split(",")
+    if item.strip()
 ]
-MAX_MODEL_RETRIES = int(os.environ.get("GEMINI_MAX_RETRIES", "4"))
-INITIAL_BACKOFF_SECONDS = float(os.environ.get("GEMINI_INITIAL_BACKOFF_SECONDS", "3"))
+MAX_RETRIES = int((os.environ.get("GEMINI_MAX_RETRIES") or "4").strip())
+INITIAL_BACKOFF_SECONDS = float((os.environ.get("GEMINI_INITIAL_BACKOFF_SECONDS") or "3").strip())
 ALLOW_HEURISTIC_FALLBACK = (os.environ.get("ALLOW_HEURISTIC_FALLBACK") or "true").lower() == "true"
 
 
@@ -140,7 +142,7 @@ Límites:
 
 
 def get_client():
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
     if not api_key:
         raise ValueError("Falta GEMINI_API_KEY")
 
@@ -150,24 +152,27 @@ def get_client():
 
 
 def _clean_json_string(text: str) -> str:
-    cleaned = text.strip()
+    cleaned = (text or "").strip()
     if cleaned.startswith("```"):
         cleaned = re.sub(r"^```(?:json)?", "", cleaned).strip()
         cleaned = re.sub(r"```$", "", cleaned).strip()
     return cleaned
 
 
+def _is_retryable_model_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    retry_tokens = ["503", "unavailable", "deadline", "timeout", "temporarily", "resource exhausted", "429"]
+    return any(token in message for token in retry_tokens)
+
+
 def _call_gemini_for_json(client, prompt: str, payload: dict) -> dict:
-    from google.genai import errors, types
+    from google.genai import types
 
-    models_to_try = []
-    for model in [DEFAULT_MODEL, *FALLBACK_MODELS]:
-        if model and model not in models_to_try:
-            models_to_try.append(model)
+    models_to_try = [DEFAULT_MODEL] + [item for item in FALLBACK_MODELS if item != DEFAULT_MODEL]
+    last_error: Exception | None = None
 
-    last_error = None
     for model_name in models_to_try:
-        for attempt in range(1, MAX_MODEL_RETRIES + 1):
+        for attempt in range(1, MAX_RETRIES + 1):
             try:
                 response = client.models.generate_content(
                     model=model_name,
@@ -175,30 +180,23 @@ def _call_gemini_for_json(client, prompt: str, payload: dict) -> dict:
                     config=types.GenerateContentConfig(response_mime_type="application/json"),
                 )
                 raw_text = _clean_json_string(response.text or "")
-                parsed = json.loads(raw_text)
-                parsed["_meta_model"] = model_name
-                parsed["_meta_attempt"] = attempt
-                return parsed
-            except (errors.ServerError, errors.APIError, json.JSONDecodeError, ValueError) as exc:
+                return json.loads(raw_text)
+            except Exception as exc:  # noqa: BLE001
                 last_error = exc
-                is_retryable = False
-                status_code = getattr(exc, "status_code", None)
-                message = str(exc)
-                if status_code in {429, 500, 502, 503, 504}:
-                    is_retryable = True
-                if "UNAVAILABLE" in message or "high demand" in message.lower():
-                    is_retryable = True
-
-                if attempt < MAX_MODEL_RETRIES and is_retryable:
-                    sleep_seconds = INITIAL_BACKOFF_SECONDS * (2 ** (attempt - 1))
-                    print(f"Gemini saturado con {model_name}. Reintento {attempt}/{MAX_MODEL_RETRIES} en {sleep_seconds:.1f}s")
-                    time.sleep(sleep_seconds)
+                if _is_retryable_model_error(exc) and attempt < MAX_RETRIES:
+                    backoff = INITIAL_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                    print(
+                        f"Gemini saturado con {model_name}. Reintento {attempt}/{MAX_RETRIES} en {backoff:.1f}s"
+                    )
+                    time.sleep(backoff)
                     continue
 
                 print(f"Fallo Gemini con modelo {model_name} en intento {attempt}: {exc}")
                 break
 
-    raise RuntimeError(f"Gemini no respondió después de probar {', '.join(models_to_try)}") from last_error
+    if last_error is None:
+        raise RuntimeError("No se pudo invocar Gemini y no se recibió detalle del error")
+    raise last_error
 
 
 def load_corpus() -> dict:
@@ -216,110 +214,13 @@ def load_period_by_slug(period_slug: str) -> dict:
 
 
 def build_month_payload(item: dict) -> dict:
-    max_chars = int(os.environ.get("MONTH_TEXT_MAX_CHARS", "70000"))
+    max_chars = int((os.environ.get("MONTH_TEXT_MAX_CHARS") or "70000").strip())
     return {
         "month": item["month"],
         "filename": item.get("filename"),
         "subject": item.get("subject"),
         "page_count": item.get("page_count"),
         "text": (item.get("text") or "")[:max_chars],
-    }
-
-
-def _extract_evidence_numbers(text: str, limit: int = 8) -> List[str]:
-    matches = re.findall(r"\b\d+[\d\.,%]*\b", text or "")
-    seen = []
-    for value in matches:
-        if value not in seen:
-            seen.append(value)
-        if len(seen) >= limit:
-            break
-    return seen
-
-
-def build_month_fallback_summary(item: dict, error_message: str) -> dict:
-    text = item.get("text") or ""
-    evidence = _extract_evidence_numbers(text, limit=8)
-    return {
-        "month": item["month"],
-        "headline": f"Resumen automático limitado para {item['month']}",
-        "kpis": [
-            {
-                "label": "Páginas extraídas",
-                "value": str(item.get("page_count") or "s/d"),
-                "note": "Resumen heurístico por indisponibilidad temporal del modelo",
-            },
-            {
-                "label": "Caracteres extraídos",
-                "value": str(len(text)),
-                "note": "Base textual disponible para el informe",
-            },
-        ],
-        "highlights": [
-            "Se extrajo correctamente el PDF mensual.",
-            "La generación IA falló por saturación temporal del modelo.",
-        ],
-        "alerts": [
-            "Revisar nuevamente más tarde para enriquecer insights automáticos.",
-        ],
-        "top_contents": [],
-        "evidence_numbers": evidence,
-        "source_gaps": [error_message[:180]],
-        "_meta_fallback": True,
-    }
-
-
-def build_period_fallback_deck(period: dict, monthly_summaries: List[dict], error_message: str) -> dict:
-    hero_metrics = []
-    for summary in monthly_summaries[:3]:
-        evidence = summary.get("evidence_numbers") or []
-        hero_metrics.append({
-            "label": summary.get("month", "Mes"),
-            "value": evidence[0] if evidence else "s/d",
-            "note": summary.get("headline", "Resumen disponible"),
-        })
-
-    bullets_resumen = [summary.get("headline", f"Mes {summary.get('month', '')}") for summary in monthly_summaries]
-    bullets_alertas = []
-    for summary in monthly_summaries:
-        bullets_alertas.extend(summary.get("alerts") or [])
-    bullets_alertas = bullets_alertas[:4] or ["El modelo IA estuvo temporalmente no disponible."]
-
-    bullets_reco = [
-        "Reintentar la generación automática para obtener insights enriquecidos.",
-        "Mantener el almacenamiento mensual de PDFs para consolidaciones futuras.",
-    ]
-
-    return {
-        "email_subject": period.get("email_subject", period.get("title", "Informe CI")),
-        "preheader": "Informe generado con fallback por indisponibilidad temporal del modelo.",
-        "title": period.get("title", "Informe CI"),
-        "subtitle": period.get("subtitle", ""),
-        "hero_metrics": hero_metrics[:5],
-        "slides": [
-            {
-                "title": "Resumen del período",
-                "bullets": bullets_resumen[:5],
-                "callout": "Salida de contingencia: el texto fuente fue procesado, pero la capa generativa estuvo saturada.",
-            },
-            {
-                "title": "KPIs disponibles",
-                "kpis": hero_metrics[:5],
-                "callout": "Los valores se muestran tal como fueron detectados en la extracción textual.",
-            },
-            {
-                "title": "Alertas operativas",
-                "bullets": bullets_alertas,
-                "callout": error_message[:180],
-            },
-            {
-                "title": "Siguiente acción",
-                "bullets": bullets_reco,
-                "callout": "El pipeline no se interrumpe: se entrega una versión mínima y se puede regenerar luego.",
-            },
-        ],
-        "footer_note": "Fuente: dashboards mensuales de CI. Informe emitido en modo contingencia.",
-        "_meta_fallback": True,
     }
 
 
@@ -331,13 +232,7 @@ def summarize_month(client, item: dict, force_regenerate: bool = False) -> dict:
         return json.loads(output_path.read_text(encoding="utf-8"))
 
     payload = build_month_payload(item)
-    try:
-        summary = _call_gemini_for_json(client, MONTHLY_SUMMARY_PROMPT, payload)
-    except Exception as exc:
-        if not ALLOW_HEURISTIC_FALLBACK:
-            raise
-        print(f"Usando fallback heurístico para {item['month']}: {exc}")
-        summary = build_month_fallback_summary(item, str(exc))
+    summary = _call_gemini_for_json(client, MONTHLY_SUMMARY_PROMPT, payload)
     output_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     return summary
 
@@ -519,6 +414,103 @@ def render_text(period: dict, deck: dict) -> str:
     return "\n".join(str(line) for line in lines if line is not None)
 
 
+def _extract_candidate_numbers(text: str, limit: int = 8) -> List[str]:
+    seen: List[str] = []
+    for match in re.findall(r"\b\d[\d\.,%]*\b", text or ""):
+        value = match.strip()
+        if len(value) < 2:
+            continue
+        if value not in seen:
+            seen.append(value)
+        if len(seen) >= limit:
+            break
+    return seen
+
+
+def _fallback_month_summary(item: dict) -> dict:
+    text = item.get("text") or ""
+    numbers = _extract_candidate_numbers(text, limit=8)
+    highlights = [
+        f"Se procesó el dashboard del mes {item['month']}",
+        f"Texto extraído: {item.get('text_chars', 0)} caracteres en {item.get('page_count', 0)} páginas",
+    ]
+    if numbers:
+        highlights.append(f"Números visibles en fuente: {', '.join(numbers[:4])}")
+
+    return {
+        "month": item["month"],
+        "headline": f"Resumen de contingencia {item['month']}",
+        "kpis": [
+            {"label": "Páginas", "value": str(item.get("page_count", "-")), "note": "PDF procesado"},
+            {"label": "Texto extraído", "value": str(item.get("text_chars", "-")), "note": "Caracteres recuperados"},
+        ],
+        "highlights": highlights[:5],
+        "alerts": ["Gemini no estuvo disponible; se usó resumen heurístico."],
+        "top_contents": [],
+        "evidence_numbers": numbers,
+        "source_gaps": ["Resumen generado sin interpretación del modelo."] if numbers else ["No se detectaron suficientes números confiables en el texto."],
+    }
+
+
+def _fallback_deck(period: dict, monthly_summaries: List[dict], error: str) -> dict:
+    hero_metrics = []
+    months_list = ", ".join(period["months"])
+    hero_metrics.append({"label": "Meses", "value": str(len(monthly_summaries)), "note": months_list})
+    hero_metrics.append({"label": "Modo", "value": "Contingencia", "note": "Gemini no disponible"})
+
+    evidence_pool: List[str] = []
+    for item in monthly_summaries:
+        for value in item.get("evidence_numbers") or []:
+            if value not in evidence_pool:
+                evidence_pool.append(value)
+    if evidence_pool:
+        hero_metrics.append({"label": "Datos visibles", "value": evidence_pool[0], "note": "Primer dato detectado en fuente"})
+
+    highlights = []
+    alerts = []
+    for item in monthly_summaries:
+        highlights.extend(item.get("highlights") or [])
+        alerts.extend(item.get("alerts") or [])
+
+    slides = [
+        {
+            "title": "Resumen ejecutivo",
+            "bullets": (highlights or ["Se procesó el material del período sin análisis del modelo."])[:5],
+            "callout": "Salida mínima para no cortar el pipeline.",
+        },
+        {
+            "title": "KPIs del período",
+            "kpis": hero_metrics[:5],
+            "callout": "Validar manualmente los números críticos antes de reenviar.",
+        },
+        {
+            "title": "Alertas",
+            "bullets": (alerts or ["Gemini respondió con alta demanda o indisponibilidad."])[:5],
+            "callout": str(error)[:220],
+        },
+        {
+            "title": "Recomendación operativa",
+            "bullets": [
+                "Reintentar el workflow más tarde.",
+                "Conservar el PDF mensual para histórico.",
+                "Usar esta versión solo como contingencia interna.",
+            ],
+            "callout": "El pipeline quedó estable aun con caída del modelo.",
+        },
+    ]
+
+    return {
+        "email_subject": period.get("email_subject") or f"Informe CI | {period['label']}",
+        "preheader": "Versión de contingencia generada sin IA por indisponibilidad temporal del modelo.",
+        "title": period["title"],
+        "subtitle": f"{period['subtitle']} | Modo contingencia",
+        "hero_metrics": hero_metrics[:5],
+        "slides": slides,
+        "footer_note": "Fuente: dashboards mensuales de CI. Salida en modo contingencia.",
+        "generation_mode": "fallback",
+    }
+
+
 def save_outputs(period: dict, deck: dict, html_report: str, text_report: str) -> dict:
     report_dir = REPORTS_DIR / period["slug"]
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -526,16 +518,29 @@ def save_outputs(period: dict, deck: dict, html_report: str, text_report: str) -
     json_path = report_dir / "report.json"
     html_path = report_dir / "report.html"
     text_path = report_dir / "report.txt"
+    metadata_path = report_dir / "metadata.json"
+
+    metadata = {
+        "period_slug": period["slug"],
+        "title": deck.get("title", period["title"]),
+        "subtitle": deck.get("subtitle", period["subtitle"]),
+        "email_subject": deck.get("email_subject", period.get("email_subject", f"Informe CI | {period['slug']}")),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generation_mode": deck.get("generation_mode", "ai"),
+        "months": period.get("months", []),
+    }
 
     json_path.write_text(json.dumps(deck, ensure_ascii=False, indent=2), encoding="utf-8")
     html_path.write_text(html_report, encoding="utf-8")
     text_path.write_text(text_report, encoding="utf-8")
+    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
 
     return {
         "report_dir": str(report_dir),
         "json_path": str(json_path),
         "html_path": str(html_path),
         "text_path": str(text_path),
+        "metadata_path": str(metadata_path),
     }
 
 
@@ -550,22 +555,35 @@ def generate_period_report(period_slug: str) -> dict:
     if not selected_files:
         raise RuntimeError(f"No hay textos disponibles para el período {period_slug}")
 
-    client = get_client()
     force_regenerate = (os.environ.get("FORCE_REGENERATE_AI") or "false").lower() == "true"
-
-    monthly_summaries = []
-    for item in selected_files:
-        summary = summarize_month(client, item, force_regenerate=force_regenerate)
-        monthly_summaries.append(summary)
-        print(f"Resumen IA generado: {item['month']}")
+    monthly_summaries: List[dict] = []
+    deck: dict | None = None
+    client = None
+    generation_mode = "ai"
+    deck_error = None
 
     try:
+        client = get_client()
+        for item in selected_files:
+            summary = summarize_month(client, item, force_regenerate=force_regenerate)
+            monthly_summaries.append(summary)
+            print(f"Resumen IA generado: {item['month']}")
+
         deck = generate_deck(client, period, monthly_summaries)
-    except Exception as exc:
+        deck["generation_mode"] = "ai"
+    except Exception as exc:  # noqa: BLE001
+        deck_error = exc
         if not ALLOW_HEURISTIC_FALLBACK:
             raise
-        print(f"Usando fallback de deck para {period_slug}: {exc}")
-        deck = build_period_fallback_deck(period, monthly_summaries, str(exc))
+
+        print(f"Fallo generación IA para {period_slug}. Se usa fallback local: {exc}")
+        generation_mode = "fallback"
+        if not monthly_summaries:
+            monthly_summaries = [_fallback_month_summary(item) for item in selected_files]
+        deck = _fallback_deck(period, monthly_summaries, str(exc))
+
+    assert deck is not None
+    deck["generation_mode"] = generation_mode
     html_report = render_html(period, deck)
     text_report = render_text(period, deck)
     paths = save_outputs(period, deck, html_report, text_report)
@@ -575,13 +593,16 @@ def generate_period_report(period_slug: str) -> dict:
         "period": period,
         "report": deck,
         "monthly_summaries": monthly_summaries,
+        "generation_mode": generation_mode,
         **paths,
     }
+    if deck_error is not None:
+        result["warning"] = str(deck_error)
     return result
 
 
 def main() -> None:
-    period_slug = os.environ.get("TARGET_PERIOD_SLUG")
+    period_slug = (os.environ.get("TARGET_PERIOD_SLUG") or "").strip()
     if not period_slug:
         raise ValueError("Falta TARGET_PERIOD_SLUG")
 
@@ -590,9 +611,11 @@ def main() -> None:
         json.dumps(
             {
                 "period_slug": result["period_slug"],
+                "generation_mode": result.get("generation_mode"),
                 "report_dir": result["report_dir"],
                 "html_path": result["html_path"],
                 "text_path": result["text_path"],
+                "metadata_path": result["metadata_path"],
             },
             ensure_ascii=False,
             indent=2,
