@@ -57,9 +57,9 @@ class EmailSender:
                 continue
 
             content_type, _ = mimetypes.guess_type(str(attachment_path))
-            maintype, subtype = ("application", "octet-stream")
+            subtype = "octet-stream"
             if content_type and "/" in content_type:
-                maintype, subtype = content_type.split("/", 1)
+                _, subtype = content_type.split("/", 1)
 
             with open(attachment_path, "rb") as f:
                 part = MIMEApplication(f.read(), _subtype=subtype)
@@ -92,15 +92,19 @@ def _resolve_report_paths(period_slug: str) -> tuple[Path, Path, Path | None]:
     pdf_path = period_dir / "report.pdf"
 
     if not metadata_path.exists():
-        raise FileNotFoundError(f"No existe metadata.json para el período {period_slug}: {metadata_path}")
+        raise FileNotFoundError(
+            f"No existe metadata.json para el período {period_slug}: {metadata_path}"
+        )
 
     if not html_path.exists():
-        raise FileNotFoundError(f"No existe report.html para el período {period_slug}: {html_path}")
+        raise FileNotFoundError(
+            f"No existe report.html para el período {period_slug}: {html_path}"
+        )
 
     return metadata_path, html_path, (pdf_path if pdf_path.exists() else None)
 
 
-def _build_email_bodies(metadata: dict) -> tuple[str, str]:
+def _build_email_bodies(metadata: dict, attachment_label: str) -> tuple[str, str]:
     title = metadata.get("title") or "Informe de Comunicaciones Internas"
     subtitle = metadata.get("subtitle") or ""
     warning = metadata.get("warning")
@@ -109,7 +113,7 @@ def _build_email_bodies(metadata: dict) -> tuple[str, str]:
         f"{title}",
         subtitle,
         "",
-        "Adjuntamos el informe en PDF.",
+        f"Adjuntamos el informe en {attachment_label}.",
         "Este envío fue generado automáticamente.",
     ]
     if warning:
@@ -130,7 +134,7 @@ def _build_email_bodies(metadata: dict) -> tuple[str, str]:
       <body style="font-family:Arial,Helvetica,sans-serif;color:#111827;">
         <p style="font-size:18px;font-weight:700;margin-bottom:6px;">{title}</p>
         <p style="margin-top:0;color:#6b7280;">{subtitle}</p>
-        <p>Adjuntamos el informe en PDF.</p>
+        <p>Adjuntamos el informe en {attachment_label}.</p>
         <p>Este envío fue generado automáticamente.</p>
         {warning_block}
       </body>
@@ -141,7 +145,7 @@ def _build_email_bodies(metadata: dict) -> tuple[str, str]:
 
 
 def send_period_report(period_slug: str) -> None:
-    metadata_path, _html_path, pdf_path = _resolve_report_paths(period_slug)
+    metadata_path, html_path, pdf_path = _resolve_report_paths(period_slug)
 
     metadata = _load_json(metadata_path)
     subject = (
@@ -151,16 +155,21 @@ def send_period_report(period_slug: str) -> None:
         or f"Informe CI | {period_slug}"
     )
 
-    plain_text, html_body = _build_email_bodies(metadata)
-
     attachments: list[Path] = []
+    attachment_label = "PDF"
 
-if pdf_path and pdf_path.exists():
-    attachments.append(pdf_path)
-else:
-    html_path = REPORTS_DIR / period_slug / "report.html"
-    if html_path.exists():
-        attachments.append(html_path)
+    if pdf_path and pdf_path.exists():
+        attachments.append(pdf_path)
+    else:
+        if html_path.exists():
+            attachments.append(html_path)
+            attachment_label = "HTML"
+        else:
+            raise FileNotFoundError(
+                f"No existe ningún adjunto para el período {period_slug}: ni PDF ni HTML"
+            )
+
+    plain_text, html_body = _build_email_bodies(metadata, attachment_label)
 
     sender = EmailSender()
     sender.send_email(
