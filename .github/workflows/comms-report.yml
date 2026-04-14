@@ -49,6 +49,9 @@ jobs:
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           GOOGLE_TOKEN_URI: ${{ secrets.GOOGLE_TOKEN_URI }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          REPORT_TO: ${{ secrets.REPORT_TO }}
+          REPORT_CC: ${{ secrets.REPORT_CC }}
+          REPORT_FROM: ${{ secrets.REPORT_FROM }}
           REPORT_TIMEZONE: America/Argentina/Buenos_Aires
           REPORT_MODE: ${{ github.event.inputs.report_mode || 'auto' }}
           REPORT_YEAR: ${{ github.event.inputs.report_year }}
