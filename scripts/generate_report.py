@@ -72,8 +72,8 @@ Objetivo:
 Formato JSON estricto requerido:
 {
   "slide_1_cover": {
-    "area": "Área/Departamento de...",
-    "period": "Periodo (ej. Año 2024)"
+    "area": "Comunicaciones Internas",
+    "period": "Q1 2026"
   },
   "slide_2_overview": {
     "volume_current": "xx",
@@ -119,13 +119,12 @@ Formato JSON estricto requerido:
     "total_views": "xxx.xxx"
   },
   "slide_6_hitos": [
-    {"quarter": "Q1", "description": "Resumen sintético hitos Q1"},
-    {"quarter": "Q2", "description": "Resumen sintético hitos Q2"}
+    {"quarter": "Q1", "description": "Resumen sintético hitos Q1"}
   ],
   "slide_7_events": {
     "total_events": "xx",
     "total_participants": "xx.xxx",
-    "conclusion": "Mensaje de cierre anual de eventos."
+    "conclusion": "Mensaje de cierre del período de eventos."
   }
 }
 
@@ -156,6 +155,25 @@ def _env_int(name: str, default: int) -> int:
     if not raw:
         return default
     return int(raw)
+
+
+def _get_period_definition(period_slug: str) -> dict[str, Any]:
+    path = DATA_DIR / "selected_periods.json"
+    if not path.exists():
+        raise FileNotFoundError(f"No existe {path}")
+    payload = _safe_load_json(path)
+    for period in payload.get("periods", []):
+        if period.get("slug") == period_slug:
+            return period
+    raise KeyError(f"No se encontró el período {period_slug} en selected_periods.json")
+
+
+def _clean_json_response(text: str) -> str:
+    text = text.strip()
+    text = re.sub(r"^```json\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"^```\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    return text.strip()
 
 
 def _build_genai_client() -> genai.Client:
@@ -252,7 +270,7 @@ def _fallback_period_report(period: dict[str, Any]) -> dict[str, Any]:
 def _escape(text: Any) -> str:
     return html.escape(str(text or ""))
 
-# Ayudante para gráficos de barras CSS simples
+
 def _css_bar(value_percent: int, color: str = "#1464A5") -> str:
     return f"""
     <div style="width: 100%; background: #e5e7eb; border-radius: 4px; height: 10px; margin-top: 5px;">
@@ -260,17 +278,17 @@ def _css_bar(value_percent: int, color: str = "#1464A5") -> str:
     </div>
     """
 
-# Ayudante para gráficos circulares CSS simples (falsos)
+
 def _css_pie(value_percent: int, color: str = "#1464A5") -> str:
     return f"""
     <div style="width: 50px; height: 50px; border-radius: 50%; background: conic-gradient({color} {value_percent}%, #e5e7eb 0%); margin: auto;"></div>
     """
 
+
 def _render_report_html(report: dict[str, Any]) -> str:
     warning = report.get("warning")
     warning_block = f'<div class="warning-box">{_escape(warning)}</div>' if warning else ""
     
-    # Comunes
     header_html = f'<div class="header"><img src="{BBVA_LOGO_URL}" class="logo-top"></div>'
     footer_html = '<div class="footer-bar"></div>'
 
@@ -358,11 +376,11 @@ def _render_report_html(report: dict[str, Any]) -> str:
           <div class="box balance-box">
             <h3>Balance del Canal</h3>
             <div class="balance-item">
-              <div class="percent navy">{balance.get('institutional')}%</div>
+              <div class="percent navy">{balance.get('institutional', 0)}%</div>
               <div>Institucional</div>
             </div>
             <div class="balance-item">
-              <div class="percent blue">{balance.get('transactional_talent')}%</div>
+              <div class="percent blue">{balance.get('transactional_talent', 0)}%</div>
               <div>Transaccional / Talento</div>
             </div>
           </div>
@@ -381,8 +399,8 @@ def _render_report_html(report: dict[str, Any]) -> str:
           <div class="rank-number">#{i+1}</div>
           <div class="rank-visual">[INSERTAR CAPTURA PIEZA GRÁFICA]</div>
           <div class="rank-data">
-            <strong>{_escape(comm['name'])}</strong><br>
-            Clicks: {comm['clicks']} | Interacción: {comm['interaction']}
+            <strong>{_escape(comm.get('name'))}</strong><br>
+            Clicks: {comm.get('clicks')} | Interacción: {comm.get('interaction')}
           </div>
         </div>
         """
@@ -403,7 +421,7 @@ def _render_report_html(report: dict[str, Any]) -> str:
     s5 = report.get("slide_5_pull_performance", {})
     notes_rows = ""
     for note in s5.get("top_notes", []):
-        notes_rows += f"<tr><td>{_escape(note['title'])}</td><td>{note['unique_reads']}</td><td>{note['total_reads']}</td></tr>"
+        notes_rows += f"<tr><td>{_escape(note.get('title'))}</td><td>{note.get('unique_reads')}</td><td>{note.get('total_reads')}</td></tr>"
 
     slide_5 = f"""
     <div class="slide">
@@ -412,7 +430,7 @@ def _render_report_html(report: dict[str, Any]) -> str:
         <h2 class="slide-title">5. Desempeño del Canal Pull (Intranet / App)</h2>
         <div class="two-col-uneven">
           <div class="box">
-            <h3>Volumen de Publicación (vs Año Anterior)</h3>
+            <h3>Volumen de Publicación (vs Anterior)</h3>
             <table class="data-table small">
               <thead><tr><th>Periodo</th><th>Notas Publicadas</th></tr></thead>
               <tbody>
@@ -444,8 +462,8 @@ def _render_report_html(report: dict[str, Any]) -> str:
     for hit in hitos:
         hitos_blocks += f"""
         <div class="hito-block box">
-          <h3>{_escape(hit['quarter'])}</h3>
-          <p>{_escape(hit['description'])}</p>
+          <h3>{_escape(hit.get('quarter', ''))}</h3>
+          <p>{_escape(hit.get('description', ''))}</p>
           <div class="visual-placeholder">[COLLAGE / CAPTURAS DEL TRIMESTRE]</div>
         </div>
         """
@@ -469,24 +487,23 @@ def _render_report_html(report: dict[str, Any]) -> str:
       <div class="slide-content">
         <h2 class="slide-title">7. Métricas de Eventos y Transmisiones</h2>
         <div class="box events-main">
-          <h3>Tabla de Asistencia (Muestra - *Insertar desglose detallado*)</h3>
+          <h3>Tabla de Asistencia (Muestra representativa)</h3>
           <table class="data-table events-table small">
             <thead><tr><th>Nombre Evento</th><th>Presencial</th><th>Virtual</th><th>Total</th></tr></thead>
             <tbody>
-              <tr><td>Ejemplo Evento 1</td><td>xxx</td><td>xxx</td><td><strong>x.xxx</strong></td></tr>
-              <tr><td>Ejemplo Evento 2</td><td>xxx</td><td>xxx</td><td><strong>x.xxx</strong></td></tr>
+              <tr><td>Ejemplo de Evento Q1</td><td>xxx</td><td>xxx</td><td><strong>x.xxx</strong></td></tr>
             </tbody>
           </table>
+          <p style="font-size: 11px; color: #6b7280; font-style: italic; margin-top: 15px;">* Insertar tabla completa de eventos desde la fuente original.</p>
         </div>
         <div class="conclusion-box footer-summarynavy">
-          <strong>Resumen Anual:</strong> Cerramos el período con <strong>{s7.get('total_events')}</strong> eventos gestionados y un acumulado de <strong>{s7.get('total_participants')}</strong> participaciones.
+          <strong>Resumen del Período:</strong> Cerramos con <strong>{s7.get('total_events', '0')}</strong> eventos gestionados y un acumulado de <strong>{s7.get('total_participants', '0')}</strong> participaciones.
         </div>
       </div>
       {footer_html}
     </div>
     """
 
-    # HTML Final consolidado
     return f"""
 <!DOCTYPE html>
 <html lang="es">
@@ -499,7 +516,6 @@ def _render_report_html(report: dict[str, Any]) -> str:
     .bg-navy {{ background-color: #072146; color: white; }}
     .slide-content {{ padding: 40px 60px; height: calc(100% - 100px); display: flex; flex-direction: column; }}
     
-    /* Portada */
     .slide-content-cover {{ padding: 100px 80px; }}
     .cover-title {{ font-size: 60px; font-weight: 300; margin: 0; }}
     .cover-title-area {{ font-size: 60px; font-weight: 700; margin: 0 0 40px 0; }}
@@ -508,13 +524,11 @@ def _render_report_html(report: dict[str, Any]) -> str:
     .logo-cover {{ position: absolute; bottom: 50px; right: 80px; width: 150px; }}
     .spacer {{ height: 80px; }}
 
-    /* Cabecera Interna */
     .header {{ height: 60px; padding: 15px 60px 0 60px; display: flex; align-items: center; border-bottom: 1px solid #e5e7eb; }}
     .logo-top {{ width: 100px; }}
-    .slide-title {{ font-size: 28px; font-weight: 700; color: #072146; margin: 0; flex-grow: 1; }}
+    .slide-title {{ font-size: 28px; font-weight: 700; color: #072146; margin: 0; flex-grow: 1; margin-top: 10px; }}
     .slide-title.light {{ color: white; }}
 
-    /* Layouts */
     .box {{ background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }}
     .box h3 {{ font-size: 16px; color: #1464A5; margin: 0 0 15px 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; }}
     .two-col {{ display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 20px; }}
@@ -524,7 +538,6 @@ def _render_report_html(report: dict[str, Any]) -> str:
     .footer-bar {{ position: absolute; bottom: 0; left: 0; width: 100%; height: 8px; background: linear-gradient(90deg, #072146 0%, #1464A5 50%, #4bd4ff 100%); }}
     .warning-box {{ position: absolute; bottom: 20px; right: 20px; background: #fff7ed; border: 1px solid #fdba74; padding: 8px 12px; border-radius: 4px; font-size: 11px; color: #9a3412; }}
 
-    /* Tablas */
     .data-table {{ width: 100%; border-collapse: collapse; font-size: 14px; }}
     .data-table th {{ text-align: left; color: #6b7280; padding-bottom: 10px; border-bottom: 1px solid #e5e7eb; }}
     .data-table td {{ padding: 12px 0; border-bottom: 1px solid #f3f4f6; }}
@@ -534,12 +547,10 @@ def _render_report_html(report: dict[str, Any]) -> str:
     .data-table.small td {{ padding: 6px 0; font-size: 12px; }}
     .ranking-table td {{ vertical-align: top; }}
 
-    /* Audiencia (CSS Pies) */
     .audience-grid {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; text-align: center; }}
     .segment-item {{ padding: 10px; }}
     .segment-label {{ font-size: 12px; margin-top: 8px; color: #374151; }}
 
-    /* Ejes y Bar lists */
     .bar-list {{ list-style: none; padding: 0; margin: 0; font-size: 13px; }}
     .bar-list li {{ margin-bottom: 12px; }}
     .balance-box {{ display: flex; flex-direction: column; justify-content: center; text-align: center; }}
@@ -548,28 +559,24 @@ def _render_report_html(report: dict[str, Any]) -> str:
     .percent.navy {{ color: #072146; }}
     .percent.blue {{ color: #1464A5; }}
 
-    /* Ranking */
-    .rank-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex-grow: 1; }}
+    .rank-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex-grow: 1; margin-top: 20px; }}
     .rank-itembox {{ background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; display: flex; align-items: center; }}
     .rank-number {{ font-size: 24px; font-weight: bold; color: #1464A5; margin-right: 15px; }}
     .rank-visual {{ width: 100px; height: 60px; background: #f3f4f6; border: 1px dashed #d1d5db; color: #9ca3af; font-size: 9px; text-align: center; display: flex; align-items: center; justify-content: center; border-radius: 4px; margin-right: 15px; padding: 5px; box-sizing: border-box; }}
     .rank-data {{ font-size: 12px; color: #374151; flex-grow: 1; }}
     .learning-quote {{ background: #072146; color: white; padding: 15px; border-radius: 4px; font-size: 14px; margin-top: auto; }}
 
-    /* Pull */
     .kpi-pull-row {{ display: flex; gap: 10px; margin-top: 15px; }}
     .kpi-pull-card {{ flex: 1; background: #f0f7fb; padding: 10px; border-radius: 4px; font-size: 11px; }}
 
-    /* Hitos */
     .hitos-slide .slide-content {{ flex-direction: row; flex-wrap: wrap; gap: 20px; padding-top: 20px; }}
-    .hitos-slide .box {{ background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; }}
-    .hitos-slide .box h3 {{ color: #4bd4ff; border-bottom: 1px solid rgba(255,255,255,0.1); }}
+    .hitos-slide .box {{ background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 15px; }}
+    .hitos-slide .box h3 {{ color: #4bd4ff; border-bottom: 1px solid rgba(255,255,255,0.1); margin-top: 0; }}
     .hito-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; height: 100%; }}
     .hito-block {{ font-size: 12px; display: flex; flex-direction: column; }}
     .hito-block p {{ margin: 0 0 10px 0; flex-grow: 1; }}
-    .visual-placeholder {{ height: 100px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.2); border-radius: 4px; color: rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center; font-size: 10px; text-align: center; padding: 10px; }}
+    .visual-placeholder {{ height: 120px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.2); border-radius: 4px; color: rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center; font-size: 10px; text-align: center; padding: 10px; }}
 
-    /* Eventos */
     .events-main {{ flex-grow: 1; margin-bottom: 20px; }}
     .footer-summarynavy {{ background: #072146; color: white; }}
     .footer-summarynavy strong {{ color: #4bd4ff; }}
