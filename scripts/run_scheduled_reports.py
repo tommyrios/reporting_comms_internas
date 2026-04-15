@@ -2,7 +2,6 @@ import json
 import sys
 from pathlib import Path
 
-import extract_pdf_text as extract_step
 import fetch_dashboard_pdfs as fetch_step
 from generate_report import generate_period_report
 from send_email import send_period_report
@@ -49,8 +48,6 @@ def main() -> None:
     periods = fetch_payload.get("periods", [])
     if not periods:
         raise RuntimeError("No se detectaron períodos a procesar.")
-
-    extract_step.main()
 
     results = []
 

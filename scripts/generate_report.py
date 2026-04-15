@@ -13,23 +13,14 @@ from google import genai
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 OUTPUT_DIR = BASE_DIR / "output"
-EXTRACTED_DIR = DATA_DIR / "extracted_text"
+PDF_DIR = DATA_DIR / "monthly_pdfs"
 REPORTS_DIR = OUTPUT_DIR / "reports"
 
 
 MONTH_NAMES_SHORT = {
-    1: "ene",
-    2: "feb",
-    3: "mar",
-    4: "abr",
-    5: "may",
-    6: "jun",
-    7: "jul",
-    8: "ago",
-    9: "sep",
-    10: "oct",
-    11: "nov",
-    12: "dic",
+    1: "ene", 2: "feb", 3: "mar", 4: "abr",
+    5: "may", 6: "jun", 7: "jul", 8: "ago",
+    9: "sep", 10: "oct", 11: "nov", 12: "dic",
 }
 
 
@@ -37,26 +28,28 @@ MONTHLY_SUMMARY_PROMPT = """
 Sos analista senior de comunicaciones internas en BBVA Argentina.
 
 Contexto:
-- BBVA prioriza claridad ejecutiva, foco en negocio y lectura rápida
-- Las conclusiones deben ser accionables y comparables
-- Evitar texto largo, pensar en slides
+- BBVA prioriza claridad ejecutiva, foco en negocio y lectura rápida.
+- Estás analizando VISUALMENTE el Dashboard de métricas adjunto en formato PDF.
+- Presta especial atención a gráficos de tendencias, variaciones marcadas en colores (ej. verde/rojo para subidas/bajadas), y distribución en gráficos circulares.
+- Las conclusiones deben ser accionables y comparables.
+- Evitar texto largo, pensar en slides.
 
 Objetivo:
-- sintetizar el mes con mirada gerencial
-- identificar qué funcionó, qué no y por qué
-- conectar métricas con comportamiento
+- Sintetizar el mes con mirada gerencial interpretando los datos del dashboard.
+- Identificar qué funcionó, qué no y por qué.
+- Conectar métricas con comportamiento.
 
-Formato JSON:
+Formato JSON estricto requerido:
 {
   "period_label": "Mar 2026",
-  "executive_summary": "2 frases máximo con lectura negocio.",
+  "executive_summary": "2 frases máximo con lectura de negocio basada en tendencias.",
   "headline_metrics": [
     {"label": "Apertura", "value": "75%", "insight": "Alta vs benchmark interno"},
-    {"label": "CTR", "value": "8.9%", "insight": "Disparidad entre piezas"},
+    {"label": "CTR", "value": "8.9%", "insight": "Disparidad entre piezas detectada en gráficos"},
     {"label": "Envíos", "value": "94k", "insight": "Volumen alto"}
   ],
   "highlights": [
-    "Insight claro basado en datos",
+    "Insight claro basado en datos y gráficos visuales",
     "Patrón de comportamiento",
     "Contenido que performó mejor"
   ],
@@ -65,16 +58,16 @@ Formato JSON:
     "Optimización de canal o contenido"
   ],
   "content_focus": [
-    {"theme": "Beneficios", "detail": "Mayor engagement"},
+    {"theme": "Beneficios", "detail": "Mayor engagement según barras"},
     {"theme": "Institucional", "detail": "Menor interacción"}
   ]
 }
 
 Reglas:
-- estilo BBVA: corto, directo, accionable
-- no más de 12-15 palabras por bullet
-- priorizar insights, no descripción
-- no inventar métricas
+- estilo BBVA: corto, directo, accionable.
+- no más de 12-15 palabras por bullet.
+- priorizar insights analíticos, no descripción.
+- No inventar métricas: extrae los números directamente de las tablas y gráficos del PDF.
 """.strip()
 
 
@@ -91,7 +84,7 @@ Objetivo:
 - mostrar evolución y patrones
 - marcar qué escalar y qué corregir
 
-Formato JSON:
+Formato JSON estricto requerido:
 {
   "title": "Informe Comunicaciones Internas BBVA",
   "subtitle": "Período ...",
@@ -161,13 +154,6 @@ def _get_period_definition(period_slug: str) -> dict[str, Any]:
     raise KeyError(f"No se encontró el período {period_slug} en selected_periods.json")
 
 
-def _load_extracted_text(month_key: str) -> str:
-    path = EXTRACTED_DIR / f"{month_key}.txt"
-    if not path.exists():
-        raise FileNotFoundError(f"No existe el texto extraído para {month_key}: {path}")
-    return path.read_text(encoding="utf-8", errors="ignore")
-
-
 def _clean_json_response(text: str) -> str:
     text = text.strip()
     text = re.sub(r"^```json\s*", "", text, flags=re.IGNORECASE)
@@ -194,7 +180,7 @@ def _candidate_models() -> list[str]:
     return seen
 
 
-def _call_gemini_for_json(client: genai.Client, prompt: str, payload: dict[str, Any]) -> dict[str, Any]:
+def _call_gemini_for_json(client: genai.Client, contents: list) -> dict[str, Any]:
     max_retries = _env_int("GEMINI_MAX_RETRIES", 4)
     initial_backoff = float((os.environ.get("GEMINI_INITIAL_BACKOFF_SECONDS") or "3").strip())
     models = _candidate_models()
@@ -206,7 +192,7 @@ def _call_gemini_for_json(client: genai.Client, prompt: str, payload: dict[str, 
             try:
                 response = client.models.generate_content(
                     model=model_name,
-                    contents=f"{prompt}\n\nINPUT:\n{json.dumps(payload, ensure_ascii=False)}",
+                    contents=contents,
                 )
                 text = getattr(response, "text", "") or ""
                 parsed = json.loads(_clean_json_response(text))
@@ -243,27 +229,40 @@ def summarize_month(client: genai.Client, month_key: str, force_regenerate: bool
     if summary_path.exists() and not force_regenerate:
         return _safe_load_json(summary_path)
 
-    raw_text = _load_extracted_text(month_key)
-    payload = {
-        "month": month_key,
-        "text": raw_text[:50000],
-    }
+    pdf_path = PDF_DIR / f"{month_key}.pdf"
+    if not pdf_path.exists():
+        raise FileNotFoundError(f"No existe el archivo PDF para {month_key}: {pdf_path}")
 
-    summary = _call_gemini_for_json(client, MONTHLY_SUMMARY_PROMPT, payload)
-    summary["month"] = month_key
+    uploaded_file = None
+    try:
+        print(f"Subiendo PDF multimodal a Gemini: {month_key}")
+        uploaded_file = client.files.upload(
+            file=str(pdf_path),
+            config={'display_name': f"Dashboard_CI_{month_key}"}
+        )
 
-    summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    print(f"Resumen IA generado: {month_key}")
-    return summary
+        prompt_text = f"{MONTHLY_SUMMARY_PROMPT}\n\nPor favor, analiza el dashboard adjunto correspondiente al período {month_key}."
+        contents = [uploaded_file, prompt_text]
+
+        summary = _call_gemini_for_json(client, contents)
+        summary["month"] = month_key
+
+        summary_path.write_text(
+            json.dumps(summary, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        print(f"Resumen IA generado exitosamente: {month_key}")
+        return summary
+    finally:
+        if uploaded_file:
+            try:
+                client.files.delete(name=uploaded_file.name)
+                print(f"Archivo temporal {uploaded_file.name} eliminado de Gemini.")
+            except Exception as e:
+                print(f"Aviso: No se pudo eliminar el archivo temporal de Gemini: {e}")
 
 
 def _fallback_month_summary(month_key: str) -> dict[str, Any]:
-    text = _load_extracted_text(month_key)
-    preview = " ".join(text.split())[:800]
-
     label = month_key
     try:
         year, month = month_key.split("-")
@@ -276,21 +275,20 @@ def _fallback_month_summary(month_key: str) -> dict[str, Any]:
         "period_label": label,
         "executive_summary": "Resumen generado en modo contingencia por indisponibilidad temporal del modelo.",
         "headline_metrics": [
-            {"label": "Estado del procesamiento", "value": "OK", "insight": "Se recuperó el contenido mensual del PDF."},
-            {"label": "Fuente", "value": "Dashboard PDF", "insight": "Se trabajó sobre el archivo enviado por Looker Studio."},
-            {"label": "Modo", "value": "Fallback", "insight": "Se sugiere regenerar con IA cuando el servicio esté disponible."},
+            {"label": "Estado del archivo", "value": "OK", "insight": "El PDF fue descargado correctamente."},
+            {"label": "Fuente", "value": "Dashboard PDF", "insight": "Se recomienda revisión manual visual."},
+            {"label": "Modo", "value": "Fallback", "insight": "No se pudo realizar el análisis multimodal."},
         ],
         "highlights": [
-            "Se logró recuperar el contenido fuente del período.",
-            "El resumen visual se generó en modo de contingencia.",
-            "Conviene reintentar la generación IA para mejorar el insight ejecutivo.",
+            "Se logró descargar el dashboard del período.",
+            "Conviene reintentar la generación IA para mejorar el insight ejecutivo."
         ],
         "opportunities": [
             "Reprocesar el período cuando Gemini normalice disponibilidad.",
-            "Validar manualmente los principales indicadores del dashboard.",
+            "Validar manualmente los principales indicadores visuales del dashboard."
         ],
         "content_focus": [
-            {"theme": "Contenido recuperado", "detail": preview or "No se pudo recuperar texto suficiente."}
+            {"theme": "Dashboard", "detail": "Análisis IA pendiente."}
         ],
     }
 
@@ -302,7 +300,7 @@ def _fallback_period_report(period: dict[str, Any], monthly_summaries: list[dict
         executive = summary.get("executive_summary") or "Resumen no disponible."
         snapshots.append({"month": month, "summary": executive})
 
-    warning = "Reporte generado en modo contingencia por indisponibilidad temporal del modelo."
+    warning = "Reporte generado en modo contingencia por falla del modelo."
     if error_message:
         warning = f"{warning} Error original: {error_message}"
 
@@ -314,22 +312,19 @@ def _fallback_period_report(period: dict[str, Any], monthly_summaries: list[dict
         "headline_metrics": [
             {"label": "Período", "value": period.get("label", "-"), "insight": "Período procesado correctamente."},
             {"label": "Meses incluidos", "value": str(len(period.get('months', []))), "insight": "Cantidad de PDFs consolidados."},
-            {"label": "Modo", "value": "Fallback", "insight": "Conviene regenerar con IA cuando haya disponibilidad."},
+            {"label": "Modo", "value": "Fallback", "insight": "Conviene regenerar con IA visual."},
         ],
         "key_wins": [
-            "Se descargaron y procesaron los PDFs del período.",
-            "Se generó salida HTML y PDF para distribución.",
-            "El envío no se interrumpe ante una caída temporal del modelo.",
+            "Se descargaron los PDFs del período.",
+            "El envío no se interrumpe ante una caída de la API."
         ],
         "watchouts": [
-            "El contenido ejecutivo puede ser menos rico que la versión IA.",
-            "Revisar luego una regeneración con Gemini para mejorar insights.",
+            "El contenido ejecutivo carece del análisis visual del dashboard.",
         ],
         "monthly_snapshots": snapshots,
         "next_steps": [
             "Reintentar generación IA más tarde.",
-            "Validar los hallazgos con el dashboard fuente.",
-            "Usar esta salida como contingencia operativa.",
+            "Validar los gráficos del dashboard fuente manualmente.",
         ],
         "warning": warning,
     }
@@ -388,7 +383,6 @@ def _render_report_html(report: dict[str, Any]) -> str:
       size: A4;
       margin: 18mm;
     }}
-
     body {{
       font-family: Arial, Helvetica, sans-serif;
       color: #111827;
@@ -397,11 +391,9 @@ def _render_report_html(report: dict[str, Any]) -> str:
       font-size: 12px;
       line-height: 1.45;
     }}
-
     h1, h2, h3, p {{
       margin-top: 0;
     }}
-
     .cover {{
       padding: 28px 24px;
       border: 1px solid #dbe3f0;
@@ -410,24 +402,20 @@ def _render_report_html(report: dict[str, Any]) -> str:
       background: linear-gradient(135deg, #072146 0%, #0a3a8c 100%);
       color: white;
     }}
-
     .title {{
       font-size: 28px;
       font-weight: 700;
       margin-bottom: 8px;
       color: #072146;
     }}
-
     .subtitle {{
       font-size: 14px;
       color: #4b5563;
       margin-bottom: 14px;
     }}
-
     .summary {{
       font-size: 14px;
     }}
-
     .warning-box {{
       margin-top: 12px;
       padding: 10px 12px;
@@ -437,12 +425,10 @@ def _render_report_html(report: dict[str, Any]) -> str:
       color: #9a3412;
       font-size: 11px;
     }}
-
     .section {{
       margin-bottom: 20px;
       page-break-inside: avoid;
     }}
-
     .section-title {{
       font-size: 18px;
       font-weight: 700;
@@ -451,20 +437,17 @@ def _render_report_html(report: dict[str, Any]) -> str:
       border-bottom: 2px solid #dbe3f0;
       padding-bottom: 6px;
     }}
-
     .metrics-grid {{
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
       gap: 10px;
     }}
-
     .metric-card {{
       border: 1px solid #dbe3f0;
       border-radius: 14px;
       padding: 14px;
       background: #ffffff;
     }}
-
     .metric-label {{
       font-size: 11px;
       color: #6b7280;
@@ -472,76 +455,63 @@ def _render_report_html(report: dict[str, Any]) -> str:
       text-transform: uppercase;
       letter-spacing: 0.4px;
     }}
-
     .metric-value {{
       font-size: 22px;
       font-weight: 700;
       color: #072146;
       margin-bottom: 6px;
     }}
-
     .metric-insight {{
       font-size: 12px;
       color: #374151;
     }}
-
     .two-col {{
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 16px;
     }}
-
     .box {{
       border: 1px solid #dbe3f0;
       border-radius: 14px;
       padding: 14px;
       background: #ffffff;
     }}
-
     .box h3 {{
       font-size: 14px;
       color: #072146;
       margin-bottom: 8px;
     }}
-
     ul {{
       margin: 0;
       padding-left: 18px;
     }}
-
     li {{
       margin-bottom: 6px;
     }}
-
     .snapshots {{
       display: grid;
       grid-template-columns: 1fr;
       gap: 10px;
     }}
-
     .snapshot-card {{
       border: 1px solid #dbe3f0;
       border-radius: 12px;
       padding: 12px;
       background: #ffffff;
     }}
-
     .snapshot-month {{
       font-weight: 700;
       color: #072146;
       margin-bottom: 4px;
     }}
-
     .snapshot-summary {{
       color: #374151;
     }}
-
     .footer {{
       margin-top: 18px;
       font-size: 10px;
       color: #6b7280;
     }}
-
     .muted {{
       color: #6b7280;
     }}
@@ -577,7 +547,7 @@ def _render_report_html(report: dict[str, Any]) -> str:
   </div>
 
   <div class="section">
-    <div class="section-title">Apertura por período</div>
+    <div class="section-title">Evolución del período</div>
     <div class="snapshots">
       {snapshots}
     </div>
@@ -658,7 +628,7 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
         except Exception as e:
             if not allow_heuristic_fallback:
                 raise
-            print(f"Fallo resumen IA para {month_key}. Se usa fallback local: {e}")
+            print(f"Fallo resumen visual IA para {month_key}. Se usa fallback local: {e}")
             summary = _fallback_month_summary(month_key)
         monthly_summaries.append(summary)
 
@@ -667,18 +637,20 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
         "monthly_summaries": monthly_summaries,
     }
 
-    generation_mode = "ai"
+    generation_mode = "ai_multimodal"
     warning = None
 
     try:
-        report = _call_gemini_for_json(client, PERIOD_REPORT_PROMPT, payload)
+        # El reporte maestro que unifica consolida texto, así que este prompt sí va sin archivo adjunto
+        contents = [PERIOD_REPORT_PROMPT + "\n\nINPUT:\n" + json.dumps(payload, ensure_ascii=False)]
+        report = _call_gemini_for_json(client, contents)
         report["title"] = report.get("title") or period.get("title")
         report["subtitle"] = report.get("subtitle") or period.get("subtitle")
         report["email_subject"] = report.get("email_subject") or period.get("email_subject")
     except Exception as e:
         if not allow_heuristic_fallback:
             raise
-        print(f"Fallo generación IA para {period_slug}. Se usa fallback local: {e}")
+        print(f"Fallo generación consolidada IA para {period_slug}. Se usa fallback local: {e}")
         report = _fallback_period_report(period, monthly_summaries, str(e))
         generation_mode = "fallback"
         warning = str(e)
