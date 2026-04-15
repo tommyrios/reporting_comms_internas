@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,9 +29,24 @@ DATA_DIR = Path("data")
 PDF_DIR = DATA_DIR / "monthly_pdfs"
 MANIFEST_PATH = DATA_DIR / "monthly_pdf_manifest.json"
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
-DEFAULT_SUBJECT_CONTAINS = "dashboard communications"
+DEFAULT_SUBJECT_CONTAINS = "dashboard" # Relajamos un poco el filtro
 DEFAULT_QUERY = 'has:attachment filename:pdf newer_than:450d'
 
+# Diccionario para mapear nombres de meses a su número
+MONTHS_MAP = {
+    "enero": "01", "january": "01", "jan": "01", "ene": "01",
+    "febrero": "02", "february": "02", "feb": "02",
+    "marzo": "03", "march": "03", "mar": "03",
+    "abril": "04", "april": "04", "abr": "04", "apr": "04",
+    "mayo": "05", "may": "05",
+    "junio": "06", "june": "06", "jun": "06",
+    "julio": "07", "july": "07", "jul": "07",
+    "agosto": "08", "august": "08", "ago": "08", "aug": "08",
+    "septiembre": "09", "september": "09", "sep": "09",
+    "octubre": "10", "october": "10", "oct": "10",
+    "noviembre": "11", "november": "11", "nov": "11",
+    "diciembre": "12", "december": "12", "dic": "12", "dec": "12"
+}
 
 def build_gmail_service():
     creds = Credentials(
@@ -62,6 +78,26 @@ def extract_headers(payload: dict) -> dict:
     headers = payload.get("headers", []) or []
     return {item["name"]: item["value"] for item in headers}
 
+
+def extract_month_from_text(text: str, default_year: int) -> str | None:
+    """Busca menciones explícitas de un mes en el texto (ej. 'Enero', '01-2026')"""
+    text = text.lower()
+    
+    # 1. Busca formato explícito numérico (ej. 2026-01, 01/2026)
+    match = re.search(r'(20\d{2})[-/](0[1-9]|1[0-2])', text)
+    if match: return f"{match.group(1)}-{match.group(2)}"
+    match = re.search(r'(0[1-9]|1[0-2])[-/](20\d{2})', text)
+    if match: return f"{match.group(2)}-{match.group(1)}"
+    
+    # 2. Busca nombre del mes en texto
+    for word, num in MONTHS_MAP.items():
+        if word in text:
+            # Si encuentra el mes, busca si hay un año cerca, si no usa el default
+            year_match = re.search(r'(20\d{2})', text)
+            year = year_match.group(1) if year_match else str(default_year)
+            return f"{year}-{num}"
+            
+    return None
 
 def month_slug_from_internal_date(internal_date_ms: str, tz_name: str) -> str:
     dt = datetime.fromtimestamp(int(internal_date_ms) / 1000, tz=timezone.utc)
@@ -105,12 +141,8 @@ def main() -> dict:
             "months_requested": [],
             "files": [],
         }
-        MANIFEST_PATH.write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        MANIFEST_PATH.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         print("No hay períodos para generar en esta corrida.")
-        print(json.dumps(manifest, ensure_ascii=False, indent=2))
         return manifest
 
     subject_contains = (os.environ.get("GMAIL_SUBJECT_CONTAINS") or DEFAULT_SUBJECT_CONTAINS).lower()
@@ -118,6 +150,7 @@ def main() -> dict:
     allow_partial = (os.environ.get("ALLOW_PARTIAL_PERIOD") or "false").lower() == "true"
 
     months_needed = unique_months_from_periods(schedule.periods)
+    current_year = schedule.periods[0].year if schedule.periods else 2026
 
     service = build_gmail_service()
     message_ids = iter_message_ids(service, query=query)
@@ -126,11 +159,7 @@ def main() -> dict:
     candidates_by_month: Dict[str, List[dict]] = defaultdict(list)
 
     for message_id in message_ids:
-        full_message = service.users().messages().get(
-            userId="me",
-            id=message_id,
-            format="full",
-        ).execute()
+        full_message = service.users().messages().get(userId="me", id=message_id, format="full").execute()
 
         payload = full_message.get("payload", {}) or {}
         headers = extract_headers(payload)
@@ -144,23 +173,28 @@ def main() -> dict:
         if not pdf_parts:
             continue
 
-        month_slug = month_slug_from_internal_date(full_message.get("internalDate", "0"), schedule.timezone)
-        if month_slug not in months_needed:
-            continue
-
         for pdf_part in pdf_parts:
-            filename = pdf_part.get("filename") or f"dashboard_{month_slug}.pdf"
-            candidates_by_month[month_slug].append(
-                {
-                    "message": full_message,
-                    "message_id": full_message.get("id"),
-                    "internal_date": int(full_message.get("internalDate", "0")),
-                    "headers": headers,
-                    "subject": subject,
-                    "filename": filename,
-                    "attachment_id": pdf_part["body"]["attachmentId"],
-                }
-            )
+            filename = pdf_part.get("filename") or "dashboard.pdf"
+            
+            # MAGIA: Intentamos sacar el mes del Asunto o del Filename ANTES de usar la fecha del correo
+            month_slug = extract_month_from_text(subject_normalized, current_year)
+            if not month_slug:
+                month_slug = extract_month_from_text(filename.lower(), current_year)
+            if not month_slug:
+                month_slug = month_slug_from_internal_date(full_message.get("internalDate", "0"), schedule.timezone)
+
+            if month_slug not in months_needed:
+                continue
+
+            candidates_by_month[month_slug].append({
+                "message": full_message,
+                "message_id": full_message.get("id"),
+                "internal_date": int(full_message.get("internalDate", "0")),
+                "headers": headers,
+                "subject": subject,
+                "filename": filename,
+                "attachment_id": pdf_part["body"]["attachmentId"],
+            })
 
     selected_files = []
     missing_months = []
@@ -182,19 +216,14 @@ def main() -> dict:
         output_path = PDF_DIR / f"{month_slug}.pdf"
         output_path.write_bytes(file_bytes)
 
-        selected_files.append(
-            {
-                "month": month_slug,
-                "pdf_path": str(output_path),
-                "message_id": selected["message_id"],
-                "subject": selected["subject"],
-                "date": selected["headers"].get("Date"),
-                "from": selected["headers"].get("From"),
-                "filename": selected["filename"],
-            }
-        )
-
-        print(f"Descargado {month_slug}: {selected['filename']}")
+        selected_files.append({
+            "month": month_slug,
+            "pdf_path": str(output_path),
+            "message_id": selected["message_id"],
+            "subject": selected["subject"],
+            "filename": selected["filename"],
+        })
+        print(f"Descargado {month_slug}: {selected['filename']} (Extraído de: {selected['subject']})")
 
     manifest = {
         "status": "ok" if not missing_months or allow_partial else "error",
@@ -205,31 +234,14 @@ def main() -> dict:
     }
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    MANIFEST_PATH.write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-
-    (DATA_DIR / "fetch_result.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-
-    (DATA_DIR / "selected_periods.json").write_text(
-        json.dumps(
-            {"periods": manifest["periods"]},
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+    MANIFEST_PATH.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    (DATA_DIR / "fetch_result.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    (DATA_DIR / "selected_periods.json").write_text(json.dumps({"periods": manifest["periods"]}, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print(json.dumps(manifest, ensure_ascii=False, indent=2))
 
     if missing_months and not allow_partial:
-        raise RuntimeError(
-            "Faltan PDFs para completar el período: " + ", ".join(missing_months)
-        )
+        raise RuntimeError("Faltan PDFs para completar el período: " + ", ".join(missing_months))
 
     return manifest
 
