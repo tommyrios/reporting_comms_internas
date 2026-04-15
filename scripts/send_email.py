@@ -89,7 +89,7 @@ def _resolve_report_paths(period_slug: str) -> tuple[Path, Path, Path | None]:
     period_dir = REPORTS_DIR / period_slug
     metadata_path = period_dir / "metadata.json"
     html_path = period_dir / "report.html"
-    pdf_path = period_dir / "report.pdf"
+    pptx_path = period_dir / "report.pptx"
 
     if not metadata_path.exists():
         raise FileNotFoundError(
@@ -101,7 +101,7 @@ def _resolve_report_paths(period_slug: str) -> tuple[Path, Path, Path | None]:
             f"No existe report.html para el período {period_slug}: {html_path}"
         )
 
-    return metadata_path, html_path, (pdf_path if pdf_path.exists() else None)
+    return metadata_path, html_path, (pptx_path if pptx_path.exists() else None)
 
 
 def _build_email_bodies(metadata: dict, attachment_label: str) -> tuple[str, str]:
@@ -145,7 +145,7 @@ def _build_email_bodies(metadata: dict, attachment_label: str) -> tuple[str, str
 
 
 def send_period_report(period_slug: str) -> None:
-    metadata_path, html_path, pdf_path = _resolve_report_paths(period_slug)
+    metadata_path, html_path, pptx_path = _resolve_report_paths(period_slug)
 
     metadata = _load_json(metadata_path)
     subject = (
@@ -156,17 +156,17 @@ def send_period_report(period_slug: str) -> None:
     )
 
     attachments: list[Path] = []
-    attachment_label = "PDF"
+    attachment_label = "PPTX"
 
-    if pdf_path and pdf_path.exists():
-        attachments.append(pdf_path)
+    if pptx_path and pptx_path.exists():
+        attachments.append(pptx_path)
     else:
         if html_path.exists():
             attachments.append(html_path)
             attachment_label = "HTML"
         else:
             raise FileNotFoundError(
-                f"No existe ningún adjunto para el período {period_slug}: ni PDF ni HTML"
+                f"No existe ningún adjunto para el período {period_slug}: ni PPTX ni HTML"
             )
 
     plain_text, html_body = _build_email_bodies(metadata, attachment_label)
