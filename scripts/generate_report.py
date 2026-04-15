@@ -105,28 +105,57 @@ def _build_genai_client() -> genai.Client:
 
 def _call_gemini_for_json(client: genai.Client, contents: list) -> dict[str, Any]:
     models = [(os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash").strip()]
+    last_error = None
+    
     for model_name in models:
-        try:
-            res = client.models.generate_content(model=model_name, contents=contents)
-            return json.loads(_clean_json_response(getattr(res, "text", "")))
-        except Exception as e:
-            time.sleep(3)
-    raise RuntimeError("Fallo Gemini")
+        for attempt in range(1, 4):  # 3 intentos
+            try:
+                # Usamos response_mime_type para forzar que Gemini devuelva JSON puro
+                res = client.models.generate_content(
+                    model=model_name, 
+                    contents=contents,
+                    config={'response_mime_type': 'application/json'}
+                )
+                text = getattr(res, "text", "") or ""
+                return json.loads(_clean_json_response(text))
+            except Exception as e:
+                last_error = e
+                print(f"⚠️ Intento {attempt} fallido con modelo {model_name}: {e}")
+                time.sleep(4)  # Esperamos 4 segundos antes del siguiente intento
+                
+    raise RuntimeError(f"Fallo Gemini definitivo. Último error: {last_error}")
+
 
 def summarize_month(client: genai.Client, month_key: str, force_regenerate: bool = False) -> dict[str, Any]:
     path = _ensure_dir(OUTPUT_DIR / "monthly_summaries") / f"{month_key}.json"
-    if path.exists() and not force_regenerate: return _safe_load_json(path)
+    if path.exists() and not force_regenerate: 
+        return _safe_load_json(path)
     
     pdf_path = PDF_DIR / f"{month_key}.pdf"
+    print(f"Subiendo PDF {month_key} a Gemini...")
     uploaded = client.files.upload(file=str(pdf_path))
+    
     try:
+        # MAGIA: Esperamos a que Gemini termine de procesar el PDF antes de preguntar
+        print(f"Esperando a que Gemini lea el archivo {uploaded.name}...")
+        while uploaded.state.name == "PROCESSING":
+            print(".", end="", flush=True)
+            time.sleep(2)
+            uploaded = client.files.get(name=uploaded.name)
+        
+        print("\nArchivo listo. Generando análisis...")
+        if uploaded.state.name == "FAILED":
+            raise RuntimeError(f"El archivo {uploaded.name} falló al procesarse en Gemini.")
+            
         summary = _call_gemini_for_json(client, [uploaded, MONTHLY_SUMMARY_PROMPT])
         summary["month"] = month_key
         path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
         return summary
     finally:
-        try: client.files.delete(name=uploaded.name)
-        except: pass
+        try: 
+            client.files.delete(name=uploaded.name)
+        except: 
+            pass
 
 def _create_pptx(report: dict[str, Any], output_path: Path):
     prs = Presentation()
