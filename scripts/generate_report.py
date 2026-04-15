@@ -28,45 +28,38 @@ MONTHLY_SUMMARY_PROMPT = """
 Sos analista senior de comunicaciones internas en BBVA Argentina.
 
 Contexto:
-- BBVA prioriza claridad ejecutiva, foco en negocio y lectura rápida.
 - Estás analizando VISUALMENTE el Dashboard de métricas adjunto en formato PDF.
-- Presta especial atención a gráficos de tendencias, variaciones marcadas en colores (ej. verde/rojo para subidas/bajadas), y distribución en gráficos circulares.
-- Las conclusiones deben ser accionables y comparables.
-- Evitar texto largo, pensar en slides.
+- El equipo de CI consume la información en formato "Slides" ejecutivas.
+- Presta especial atención a gráficos de tendencias, variaciones marcadas en colores (ej. verde/rojo para subidas/bajadas), NPS, y distribución en gráficos circulares.
 
 Objetivo:
-- Sintetizar el mes con mirada gerencial interpretando los datos del dashboard.
+- Sintetizar el mes con mirada gerencial interpretando los datos visuales.
 - Identificar qué funcionó, qué no y por qué.
-- Conectar métricas con comportamiento.
 
 Formato JSON estricto requerido:
 {
   "period_label": "Mar 2026",
   "executive_summary": "2 frases máximo con lectura de negocio basada en tendencias.",
   "headline_metrics": [
-    {"label": "Apertura", "value": "75%", "insight": "Alta vs benchmark interno"},
-    {"label": "CTR", "value": "8.9%", "insight": "Disparidad entre piezas detectada en gráficos"},
-    {"label": "Envíos", "value": "94k", "insight": "Volumen alto"}
+    {"label": "Apertura Mail", "value": "81%", "insight": "Alta vs benchmark interno"},
+    {"label": "Interacción", "value": "14.1%", "insight": "Disparidad detectada en gráficos"},
+    {"label": "NPS", "value": "61", "insight": "Subida significativa"}
   ],
   "highlights": [
     "Insight claro basado en datos y gráficos visuales",
-    "Patrón de comportamiento",
-    "Contenido que performó mejor"
+    "Patrón de comportamiento"
   ],
   "opportunities": [
-    "Mejora concreta accionable",
-    "Optimización de canal o contenido"
+    "Mejora concreta accionable"
   ],
   "content_focus": [
-    {"theme": "Beneficios", "detail": "Mayor engagement según barras"},
-    {"theme": "Institucional", "detail": "Menor interacción"}
+    {"theme": "Beneficios", "detail": "Mayor engagement según barras"}
   ]
 }
 
 Reglas:
 - estilo BBVA: corto, directo, accionable.
 - no más de 12-15 palabras por bullet.
-- priorizar insights analíticos, no descripción.
 - No inventar métricas: extrae los números directamente de las tablas y gráficos del PDF.
 """.strip()
 
@@ -75,48 +68,44 @@ PERIOD_REPORT_PROMPT = """
 Sos analista senior de comunicaciones internas en BBVA Argentina.
 
 Contexto:
-- Reporte tipo comité / dirección
-- Debe leerse en 2 minutos
-- Foco en decisiones
+- Estás creando el contenido para una PRESENTACIÓN EJECUTIVA (Slides) de Dirección.
+- Debe poder leerse en 2 minutos.
+- Estilo BBVA: Azul marino, números grandes, textos hiper-cortos, foco en la acción.
 
 Objetivo:
-- consolidar insights del período
-- mostrar evolución y patrones
-- marcar qué escalar y qué corregir
+- Consolidar los insights de los meses procesados.
+- Armar la estructura exacta para las diapositivas de reporte.
 
 Formato JSON estricto requerido:
 {
-  "title": "Informe Comunicaciones Internas BBVA",
-  "subtitle": "Período ...",
-  "executive_summary": "2-3 frases con lectura global del período.",
-  "headline_metrics": [
-    {"label": "Apertura promedio", "value": "xx%", "insight": "Evolución vs período anterior"},
-    {"label": "CTR promedio", "value": "xx%", "insight": "Nivel de engagement"},
-    {"label": "Volumen envíos", "value": "xx", "insight": "Impacto en saturación"}
+  "cover": {
+    "title": "Informe Gestión",
+    "subtitle": "Comunicaciones Internas",
+    "period": "Período..."
+  },
+  "executive_summary": "2 frases contundentes con la lectura global del período para abrir la presentación.",
+  "slide_kpis": [
+    {"label": "Tasa Apertura", "value": "xx%", "insight": "Evolución positiva vs anterior"},
+    {"label": "Interacción", "value": "xx%", "insight": "Canales digitales lideran"},
+    {"label": "Volumen", "value": "xx", "insight": "Foco en reducción de saturación"}
   ],
-  "key_wins": [
-    "Qué funcionó y por qué",
-    "Contenido con mayor impacto",
-    "Mejora respecto período anterior"
+  "slide_fortalezas": [
+    "Qué funcionó muy bien y por qué (max 10 palabras).",
+    "Contenido estrella del período."
   ],
-  "watchouts": [
-    "Riesgo o caída detectada",
-    "Tema con bajo rendimiento"
+  "slide_alertas": [
+    "Riesgo, saturación o caída detectada.",
+    "Canal o tema con bajo rendimiento."
   ],
-  "monthly_snapshots": [
-    {"month": "Mes", "summary": "1 línea insight"}
-  ],
-  "next_steps": [
-    "Acción concreta 1",
-    "Acción concreta 2",
-    "Acción concreta 3"
+  "slide_next_steps": [
+    "Acción concreta a implementar 1",
+    "Ajuste táctico 2"
   ]
 }
 
 Reglas:
-- estilo ejecutivo BBVA
-- bullets cortos
-- foco en decisión, no descripción
+- Máxima capacidad de síntesis.
+- Sin verbosidad, directo al grano.
 """.strip()
 
 
@@ -241,7 +230,7 @@ def summarize_month(client: genai.Client, month_key: str, force_regenerate: bool
             config={'display_name': f"Dashboard_CI_{month_key}"}
         )
 
-        prompt_text = f"{MONTHLY_SUMMARY_PROMPT}\n\nPor favor, analiza el dashboard adjunto correspondiente al período {month_key}."
+        prompt_text = f"{MONTHLY_SUMMARY_PROMPT}\n\nAnaliza visualmente el dashboard adjunto del período {month_key}."
         contents = [uploaded_file, prompt_text]
 
         summary = _call_gemini_for_json(client, contents)
@@ -257,9 +246,8 @@ def summarize_month(client: genai.Client, month_key: str, force_regenerate: bool
         if uploaded_file:
             try:
                 client.files.delete(name=uploaded_file.name)
-                print(f"Archivo temporal {uploaded_file.name} eliminado de Gemini.")
             except Exception as e:
-                print(f"Aviso: No se pudo eliminar el archivo temporal de Gemini: {e}")
+                pass
 
 
 def _fallback_month_summary(month_key: str) -> dict[str, Any]:
@@ -273,59 +261,35 @@ def _fallback_month_summary(month_key: str) -> dict[str, Any]:
     return {
         "month": month_key,
         "period_label": label,
-        "executive_summary": "Resumen generado en modo contingencia por indisponibilidad temporal del modelo.",
+        "executive_summary": "Modo contingencia activo. Análisis visual no disponible.",
         "headline_metrics": [
-            {"label": "Estado del archivo", "value": "OK", "insight": "El PDF fue descargado correctamente."},
-            {"label": "Fuente", "value": "Dashboard PDF", "insight": "Se recomienda revisión manual visual."},
-            {"label": "Modo", "value": "Fallback", "insight": "No se pudo realizar el análisis multimodal."},
+            {"label": "Modo", "value": "Fallback", "insight": "Regenerar cuando IA esté lista."}
         ],
-        "highlights": [
-            "Se logró descargar el dashboard del período.",
-            "Conviene reintentar la generación IA para mejorar el insight ejecutivo."
-        ],
-        "opportunities": [
-            "Reprocesar el período cuando Gemini normalice disponibilidad.",
-            "Validar manualmente los principales indicadores visuales del dashboard."
-        ],
-        "content_focus": [
-            {"theme": "Dashboard", "detail": "Análisis IA pendiente."}
-        ],
+        "highlights": ["Se recuperaron los PDFs."],
+        "opportunities": ["Revisar dashboard original."],
+        "content_focus": []
     }
 
 
 def _fallback_period_report(period: dict[str, Any], monthly_summaries: list[dict[str, Any]], error_message: str | None = None) -> dict[str, Any]:
-    snapshots = []
-    for summary in monthly_summaries:
-        month = summary.get("period_label") or summary.get("month") or "Mes"
-        executive = summary.get("executive_summary") or "Resumen no disponible."
-        snapshots.append({"month": month, "summary": executive})
-
-    warning = "Reporte generado en modo contingencia por falla del modelo."
+    warning = "Reporte en modo contingencia."
     if error_message:
-        warning = f"{warning} Error original: {error_message}"
+        warning = f"{warning} Error: {error_message}"
 
     return {
-        "title": period.get("title") or f"Informe CI | {period.get('slug')}",
-        "subtitle": period.get("subtitle") or period.get("label") or period.get("slug"),
-        "email_subject": period.get("email_subject") or f"Informe CI | {period.get('slug')}",
-        "executive_summary": "Se generó una versión mínima del reporte para no interrumpir el pipeline de envío.",
-        "headline_metrics": [
-            {"label": "Período", "value": period.get("label", "-"), "insight": "Período procesado correctamente."},
-            {"label": "Meses incluidos", "value": str(len(period.get('months', []))), "insight": "Cantidad de PDFs consolidados."},
-            {"label": "Modo", "value": "Fallback", "insight": "Conviene regenerar con IA visual."},
+        "cover": {
+            "title": "Informe Gestión Fallback",
+            "subtitle": "Comunicaciones Internas",
+            "period": period.get("label", period.get("slug"))
+        },
+        "executive_summary": "Se generó una versión base por caída temporal del servicio de IA.",
+        "slide_kpis": [
+            {"label": "Meses", "value": str(len(period.get('months', []))), "insight": "Consolidados correctamente."},
+            {"label": "Modo", "value": "Manual", "insight": "Revisar tableros fuente."}
         ],
-        "key_wins": [
-            "Se descargaron los PDFs del período.",
-            "El envío no se interrumpe ante una caída de la API."
-        ],
-        "watchouts": [
-            "El contenido ejecutivo carece del análisis visual del dashboard.",
-        ],
-        "monthly_snapshots": snapshots,
-        "next_steps": [
-            "Reintentar generación IA más tarde.",
-            "Validar los gráficos del dashboard fuente manualmente.",
-        ],
+        "slide_fortalezas": ["Continuidad operativa garantizada."],
+        "slide_alertas": ["Faltan insights cualitativos."],
+        "slide_next_steps": ["Reintentar generación IA más tarde."],
         "warning": warning,
     }
 
@@ -334,235 +298,227 @@ def _escape(text: Any) -> str:
     return html.escape(str(text or ""))
 
 
-def _html_list(items: list[str]) -> str:
-    rows = "".join(f"<li>{_escape(item)}</li>" for item in items if str(item).strip())
-    return f"<ul>{rows}</ul>" if rows else "<p class='muted'>Sin datos.</p>"
+def _html_list(items: list[str], icon: str = "▪") -> str:
+    rows = "".join(f"<li style='margin-bottom: 12px;'><span style='color: #1464A5; margin-right: 10px;'>{icon}</span>{_escape(item)}</li>" for item in items if str(item).strip())
+    return f"<ul style='list-style-type: none; padding-left: 0; margin-top: 15px; font-size: 16px; color: #374151;'>{rows}</ul>" if rows else "<p>Sin datos.</p>"
 
 
 def _render_report_html(report: dict[str, Any]) -> str:
-    title = _escape(report.get("title"))
-    subtitle = _escape(report.get("subtitle"))
+    cover = report.get("cover", {})
+    title = _escape(cover.get("title", "Informe de Gestión"))
+    subtitle = _escape(cover.get("subtitle", "Comunicaciones Internas"))
+    period = _escape(cover.get("period", ""))
+    
     executive_summary = _escape(report.get("executive_summary"))
     warning = report.get("warning")
 
-    headline_cards = ""
-    for item in report.get("headline_metrics", []):
-        headline_cards += f"""
-        <div class="metric-card">
-          <div class="metric-label">{_escape(item.get("label"))}</div>
-          <div class="metric-value">{_escape(item.get("value"))}</div>
-          <div class="metric-insight">{_escape(item.get("insight"))}</div>
+    # Slide 2: KPIs
+    kpi_cards = ""
+    for item in report.get("slide_kpis", []):
+        kpi_cards += f"""
+        <div class="kpi-card">
+          <div class="kpi-label">{_escape(item.get("label"))}</div>
+          <div class="kpi-value">{_escape(item.get("value"))}</div>
+          <div class="kpi-insight">{_escape(item.get("insight"))}</div>
         </div>
         """
 
-    snapshots = ""
-    for item in report.get("monthly_snapshots", []):
-        snapshots += f"""
-        <div class="snapshot-card">
-          <div class="snapshot-month">{_escape(item.get("month"))}</div>
-          <div class="snapshot-summary">{_escape(item.get("summary"))}</div>
-        </div>
-        """
-
-    warning_block = ""
-    if warning:
-        warning_block = f"""
-        <div class="warning-box">
-          {_escape(warning)}
-        </div>
-        """
+    warning_block = f'<div class="warning-box">{_escape(warning)}</div>' if warning else ""
 
     return f"""
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>{title}</title>
+  <title>{title} - {period}</title>
   <style>
     @page {{
-      size: A4;
-      margin: 18mm;
+      size: A4 landscape;
+      margin: 0;
     }}
     body {{
-      font-family: Arial, Helvetica, sans-serif;
-      color: #111827;
+      font-family: "Segoe UI", Arial, Helvetica, sans-serif;
       margin: 0;
-      background: #ffffff;
-      font-size: 12px;
-      line-height: 1.45;
+      padding: 0;
+      background: #f4f4f4;
+      color: #111827;
+      -webkit-print-color-adjust: exact;
     }}
-    h1, h2, h3, p {{
-      margin-top: 0;
+    .slide {{
+      width: 100vw;
+      height: 100vh;
+      box-sizing: border-box;
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+      background: white;
     }}
-    .cover {{
-      padding: 28px 24px;
-      border: 1px solid #dbe3f0;
-      border-radius: 16px;
-      margin-bottom: 18px;
-      background: linear-gradient(135deg, #072146 0%, #0a3a8c 100%);
+    /* SLIDE 1: COVER */
+    .bg-navy {{
+      background-color: #072146;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 80px;
+    }}
+    .brand-logo {{
+      position: absolute;
+      top: 50px;
+      left: 80px;
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: 2px;
       color: white;
     }}
-    .title {{
-      font-size: 28px;
+    .cover-title {{ font-size: 64px; font-weight: 300; margin: 0 0 10px 0; line-height: 1.1; }}
+    .cover-subtitle {{ font-size: 64px; font-weight: 700; margin: 0 0 40px 0; line-height: 1.1; color: #4bd4ff; }}
+    .cover-period {{ font-size: 24px; color: #dbe3f0; border-left: 4px solid #1464A5; padding-left: 15px; }}
+    
+    /* SLIDES INTERNAS */
+    .slide-content {{
+      padding: 50px 80px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }}
+    .header {{
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }}
+    .slide-title {{
+      font-size: 32px;
       font-weight: 700;
-      margin-bottom: 8px;
       color: #072146;
+      margin: 0;
     }}
-    .subtitle {{
-      font-size: 14px;
-      color: #4b5563;
-      margin-bottom: 14px;
-    }}
-    .summary {{
-      font-size: 14px;
-    }}
-    .warning-box {{
-      margin-top: 12px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: #fff7ed;
-      border: 1px solid #fdba74;
-      color: #9a3412;
-      font-size: 11px;
-    }}
-    .section {{
-      margin-bottom: 20px;
-      page-break-inside: avoid;
-    }}
-    .section-title {{
+    .bbva-tag {{ font-weight: bold; color: #1464A5; font-size: 20px; }}
+    
+    .executive-box {{
+      background: #f0f7fb;
+      border-left: 6px solid #1464A5;
+      padding: 25px;
+      border-radius: 0 8px 8px 0;
       font-size: 18px;
-      font-weight: 700;
       color: #072146;
-      margin-bottom: 10px;
-      border-bottom: 2px solid #dbe3f0;
-      padding-bottom: 6px;
+      margin-bottom: 40px;
+      line-height: 1.5;
     }}
-    .metrics-grid {{
+
+    .kpi-grid {{
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 30px;
+      margin-top: 10px;
     }}
-    .metric-card {{
-      border: 1px solid #dbe3f0;
-      border-radius: 14px;
-      padding: 14px;
-      background: #ffffff;
+    .kpi-card {{
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-top: 6px solid #4bd4ff;
+      border-radius: 12px;
+      padding: 30px 20px;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.02);
     }}
-    .metric-label {{
-      font-size: 11px;
-      color: #6b7280;
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-    }}
-    .metric-value {{
-      font-size: 22px;
-      font-weight: 700;
-      color: #072146;
-      margin-bottom: 6px;
-    }}
-    .metric-insight {{
-      font-size: 12px;
-      color: #374151;
-    }}
+    .kpi-value {{ font-size: 56px; font-weight: 800; color: #072146; margin: 10px 0; }}
+    .kpi-label {{ font-size: 14px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; }}
+    .kpi-insight {{ font-size: 14px; color: #1464A5; font-weight: 600; margin-top: 10px; background: #f0f7fb; padding: 6px; border-radius: 4px; }}
+
     .two-col {{
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
+      gap: 40px;
+      flex-grow: 1;
     }}
-    .box {{
-      border: 1px solid #dbe3f0;
-      border-radius: 14px;
-      padding: 14px;
-      background: #ffffff;
-    }}
-    .box h3 {{
-      font-size: 14px;
-      color: #072146;
-      margin-bottom: 8px;
-    }}
-    ul {{
-      margin: 0;
-      padding-left: 18px;
-    }}
-    li {{
-      margin-bottom: 6px;
-    }}
-    .snapshots {{
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }}
-    .snapshot-card {{
-      border: 1px solid #dbe3f0;
+    .content-box {{
+      background: white;
+      border: 1px solid #e5e7eb;
       border-radius: 12px;
-      padding: 12px;
-      background: #ffffff;
+      padding: 30px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.02);
     }}
-    .snapshot-month {{
-      font-weight: 700;
-      color: #072146;
-      margin-bottom: 4px;
+    .content-box h3 {{ font-size: 20px; color: #072146; margin-top: 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }}
+    
+    .warning-box {{
+      position: absolute; bottom: 20px; right: 20px;
+      background: #fff7ed; border: 1px solid #fdba74; color: #9a3412;
+      padding: 8px 15px; border-radius: 6px; font-size: 12px;
     }}
-    .snapshot-summary {{
-      color: #374151;
-    }}
-    .footer {{
-      margin-top: 18px;
-      font-size: 10px;
-      color: #6b7280;
-    }}
-    .muted {{
-      color: #6b7280;
+    .footer-bar {{
+      position: absolute; bottom: 0; left: 0; width: 100%; height: 12px;
+      background: linear-gradient(90deg, #072146 0%, #1464A5 50%, #4bd4ff 100%);
     }}
   </style>
 </head>
 <body>
-  <div class="cover">
-    <div class="title">{title}</div>
-    <div class="subtitle">{subtitle}</div>
-    <div class="summary">{executive_summary}</div>
+
+  <div class="slide bg-navy">
+    <div class="brand-logo">BBVA</div>
+    <div style="margin-top: 80px;">
+      <h1 class="cover-title">{title}</h1>
+      <h2 class="cover-subtitle">{subtitle}</h2>
+      <div class="cover-period">{period}</div>
+    </div>
     {warning_block}
+    <div class="footer-bar"></div>
   </div>
 
-  <div class="section">
-    <div class="section-title">KPIs destacados</div>
-    <div class="metrics-grid">
-      {headline_cards}
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Lectura ejecutiva</div>
-    <div class="two-col">
-      <div class="box">
-        <h3>Fortalezas</h3>
-        {_html_list(report.get("key_wins", []))}
+  <div class="slide">
+    <div class="slide-content">
+      <div class="header">
+        <h2 class="slide-title">Lectura Ejecutiva</h2>
+        <span class="bbva-tag">BBVA</span>
       </div>
-      <div class="box">
-        <h3>Alertas y oportunidades</h3>
-        {_html_list(report.get("watchouts", []))}
+      <div class="executive-box">
+        <strong>Síntesis del período:</strong><br>
+        {executive_summary}
+      </div>
+      <h3 style="color: #6b7280; font-size: 16px; text-transform: uppercase; margin-bottom: 10px;">KPIs Destacados</h3>
+      <div class="kpi-grid">
+        {kpi_cards}
       </div>
     </div>
+    <div class="footer-bar"></div>
   </div>
 
-  <div class="section">
-    <div class="section-title">Evolución del período</div>
-    <div class="snapshots">
-      {snapshots}
+  <div class="slide">
+    <div class="slide-content">
+      <div class="header">
+        <h2 class="slide-title">Análisis de Gestión</h2>
+        <span class="bbva-tag">BBVA</span>
+      </div>
+      <div class="two-col">
+        <div class="content-box" style="border-top: 4px solid #10b981;">
+          <h3 style="color: #10b981;">Fortalezas e Hitos</h3>
+          {_html_list(report.get("slide_fortalezas", []), "✓")}
+        </div>
+        <div class="content-box" style="border-top: 4px solid #f59e0b;">
+          <h3 style="color: #f59e0b;">Alertas y Puntos de Atención</h3>
+          {_html_list(report.get("slide_alertas", []), "⚠")}
+        </div>
+      </div>
     </div>
+    <div class="footer-bar"></div>
   </div>
 
-  <div class="section">
-    <div class="section-title">Próximos pasos</div>
-    <div class="box">
-      {_html_list(report.get("next_steps", []))}
+  <div class="slide">
+    <div class="slide-content">
+      <div class="header">
+        <h2 class="slide-title">Próximos Pasos</h2>
+        <span class="bbva-tag">BBVA</span>
+      </div>
+      <div class="content-box" style="flex-grow: 1; border-top: 4px solid #1464A5;">
+        <h3>Acciones a implementar</h3>
+        {_html_list(report.get("slide_next_steps", []), "➔")}
+      </div>
     </div>
+    <div class="footer-bar"></div>
   </div>
 
-  <div class="footer">
-    Generado automáticamente el {datetime.now().strftime("%d/%m/%Y %H:%M")}
-  </div>
 </body>
 </html>
 """.strip()
@@ -572,9 +528,9 @@ def _write_report_artifacts(period_slug: str, report: dict[str, Any]) -> Path:
     report_dir = _report_dir(period_slug)
 
     metadata = {
-        "title": report.get("title"),
-        "subtitle": report.get("subtitle"),
-        "email_subject": report.get("email_subject"),
+        "title": report.get("cover", {}).get("title"),
+        "subtitle": report.get("cover", {}).get("subtitle"),
+        "email_subject": f"Informe Ejecutivo CI | {period_slug}",
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "period_slug": period_slug,
         "warning": report.get("warning"),
@@ -605,7 +561,7 @@ def _render_pdf_if_possible(html_path: Path, pdf_path: Path) -> None:
 
     try:
         HTML(filename=str(html_path)).write_pdf(str(pdf_path))
-        print(f"PDF generado: {pdf_path}")
+        print(f"PDF generado exitosamente (Modo Slide): {pdf_path}")
     except Exception as e:
         print(f"No se pudo generar PDF desde HTML: {e}")
 
@@ -628,7 +584,7 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
         except Exception as e:
             if not allow_heuristic_fallback:
                 raise
-            print(f"Fallo resumen visual IA para {month_key}. Se usa fallback local: {e}")
+            print(f"Fallo resumen visual IA para {month_key}. Fallback local: {e}")
             summary = _fallback_month_summary(month_key)
         monthly_summaries.append(summary)
 
@@ -641,16 +597,12 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
     warning = None
 
     try:
-        # El reporte maestro que unifica consolida texto, así que este prompt sí va sin archivo adjunto
-        contents = [PERIOD_REPORT_PROMPT + "\n\nINPUT:\n" + json.dumps(payload, ensure_ascii=False)]
+        contents = [PERIOD_REPORT_PROMPT + "\n\nINPUT PARA LA PRESENTACIÓN:\n" + json.dumps(payload, ensure_ascii=False)]
         report = _call_gemini_for_json(client, contents)
-        report["title"] = report.get("title") or period.get("title")
-        report["subtitle"] = report.get("subtitle") or period.get("subtitle")
-        report["email_subject"] = report.get("email_subject") or period.get("email_subject")
     except Exception as e:
         if not allow_heuristic_fallback:
             raise
-        print(f"Fallo generación consolidada IA para {period_slug}. Se usa fallback local: {e}")
+        print(f"Fallo generación consolidada IA para {period_slug}. Fallback local: {e}")
         report = _fallback_period_report(period, monthly_summaries, str(e))
         generation_mode = "fallback"
         warning = str(e)
