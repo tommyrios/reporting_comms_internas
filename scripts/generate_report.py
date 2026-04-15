@@ -108,9 +108,8 @@ def _call_gemini_for_json(client: genai.Client, contents: list) -> dict[str, Any
     last_error = None
     
     for model_name in models:
-        for attempt in range(1, 4):  # 3 intentos
+        for attempt in range(1, 6): 
             try:
-                # Usamos response_mime_type para forzar que Gemini devuelva JSON puro
                 res = client.models.generate_content(
                     model=model_name, 
                     contents=contents,
@@ -120,11 +119,19 @@ def _call_gemini_for_json(client: genai.Client, contents: list) -> dict[str, Any
                 return json.loads(_clean_json_response(text))
             except Exception as e:
                 last_error = e
-                print(f"⚠️ Intento {attempt} fallido con modelo {model_name}: {e}")
-                time.sleep(4)  # Esperamos 4 segundos antes del siguiente intento
+                error_str = str(e)
+                print(f"⚠️ Intento {attempt} fallido con modelo {model_name}: {error_str}")
                 
-    raise RuntimeError(f"Fallo Gemini definitivo. Último error: {last_error}")
-
+                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                    print("⏳ Cuota gratuita al límite. Pausando 65 segundos por reloj...")
+                    time.sleep(65)
+                elif "503" in error_str:
+                    print("⏳ Servidor de Google saturado. Pausando 15 segundos...")
+                    time.sleep(15)
+                else:
+                    time.sleep(5)
+                    
+    raise RuntimeError(f"Fallo Gemini definitivo tras 5 intentos. Último error: {last_error}")
 
 def summarize_month(client: genai.Client, month_key: str, force_regenerate: bool = False) -> dict[str, Any]:
     path = _ensure_dir(OUTPUT_DIR / "monthly_summaries") / f"{month_key}.json"
@@ -136,8 +143,7 @@ def summarize_month(client: genai.Client, month_key: str, force_regenerate: bool
     uploaded = client.files.upload(file=str(pdf_path))
     
     try:
-        # MAGIA: Esperamos a que Gemini termine de procesar el PDF antes de preguntar
-        print(f"Esperando a que Gemini lea el archivo {uploaded.name}...")
+        print(f"Esperando a que Gemini procese el archivo {uploaded.name}...")
         while uploaded.state.name == "PROCESSING":
             print(".", end="", flush=True)
             time.sleep(2)
