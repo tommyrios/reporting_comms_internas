@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "warning": "Este período incluye hitos completados manualmente.",
+    "email_subject": "Informe CI | Marzo 2026"
+  },
+  "slide_5_push_ranking": {
+    "top_communications": [
+      {"name": "Comunicación 1", "thumbnail_path": "assets/demo/push_1.png"},
+      {"name": "Comunicación 2", "thumbnail_path": "assets/demo/push_2.png"},
+      {"name": "Comunicación 3", "thumbnail_path": "assets/demo/push_3.png"}
+    ]
+  },
+  "slide_7_hitos": [
+    {
+      "period": "Marzo 2026",
+      "title": "Hito 1",
+      "description": "Resumen ejecutivo del hito.",
+      "bullets": ["Bullet 1", "Bullet 2"],
+      "thumbnail_path": "assets/demo/hito_1.png"
+    }
+  ],
+  "slide_8_events": {
+    "total_events": "3",
+    "total_participants": "2964",
+    "secondary_message": "Módulo completado manualmente con datos consolidados.",
+    "conclusion": "Los eventos reforzaron la visibilidad del período.",
+    "event_breakdown": [
+      {"name": "Evento 1", "participants": 993},
+      {"name": "Evento 2", "participants": 1045},
+      {"name": "Evento 3", "participants": 926}
+    ]
+  },
+  "slide_9_closure": {
+    "bullets": ["Conclusión 1", "Conclusión 2", "Conclusión 3"]
+  }
+}
