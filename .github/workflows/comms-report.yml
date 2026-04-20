@@ -83,4 +83,5 @@ jobs:
           name: comms-period-report-output
           path: |
             output/
-            data/
+            data/reporting_periods.json
+            data/fetch_result.json

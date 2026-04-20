@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import re
+import unicodedata
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,6 +49,29 @@ MONTHS_MAP = {
     "diciembre": "12", "december": "12", "dic": "12", "dec": "12"
 }
 
+MONTH_NAME_PATTERN = re.compile(
+    r"(?<![a-z0-9])(" + "|".join(sorted(MONTHS_MAP.keys(), key=len, reverse=True)) + r")(?![a-z0-9])"
+)
+
+
+def normalize_text(value: str) -> str:
+    value = (value or "").strip().lower()
+    normalized = unicodedata.normalize("NFD", value)
+    return "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+
+
+def _keyword_to_pattern(keyword: str) -> re.Pattern[str]:
+    escaped = re.escape(keyword.strip())
+    escaped = escaped.replace(r"\ ", r"\s+")
+    return re.compile(rf"(?<![a-z0-9]){escaped}(?![a-z0-9])")
+
+
+def _has_expected_keywords(subject: str, filename: str, keywords: List[str]) -> bool:
+    haystack = normalize_text(f"{subject} {filename}")
+    if not keywords:
+        return True
+    return any(_keyword_to_pattern(normalize_text(keyword)).search(haystack) for keyword in keywords if keyword.strip())
+
 def build_gmail_service():
     creds = Credentials(
         token=None,
@@ -81,22 +105,28 @@ def extract_headers(payload: dict) -> dict:
 
 def extract_month_from_text(text: str, default_year: int) -> str | None:
     """Busca menciones explícitas de un mes en el texto (ej. 'Enero', '01-2026')"""
-    text = text.lower()
-    
+    text = normalize_text(text)
+
     # 1. Busca formato explícito numérico (ej. 2026-01, 01/2026)
-    match = re.search(r'(20\d{2})[-/](0[1-9]|1[0-2])', text)
-    if match: return f"{match.group(1)}-{match.group(2)}"
-    match = re.search(r'(0[1-9]|1[0-2])[-/](20\d{2})', text)
-    if match: return f"{match.group(2)}-{match.group(1)}"
-    
+    match = re.search(r'(?<!\d)(20\d{2})[\-_/](0[1-9]|1[0-2])(?!\d)', text)
+    if match:
+        return f"{match.group(1)}-{match.group(2)}"
+    match = re.search(r'(?<!\d)(0[1-9]|1[0-2])[\-_/](20\d{2})(?!\d)', text)
+    if match:
+        return f"{match.group(2)}-{match.group(1)}"
+
     # 2. Busca nombre del mes en texto
-    for word, num in MONTHS_MAP.items():
-        if word in text:
-            # Si encuentra el mes, busca si hay un año cerca, si no usa el default
-            year_match = re.search(r'(20\d{2})', text)
-            year = year_match.group(1) if year_match else str(default_year)
-            return f"{year}-{num}"
-            
+    month_match = MONTH_NAME_PATTERN.search(text)
+    if month_match:
+        word = month_match.group(1)
+        num = MONTHS_MAP[word]
+        context_start = max(0, month_match.start() - 24)
+        context_end = min(len(text), month_match.end() + 24)
+        local_context = text[context_start:context_end]
+        year_match = re.search(r'(20\d{2})', local_context) or re.search(r'(20\d{2})', text)
+        year = year_match.group(1) if year_match else str(default_year)
+        return f"{year}-{num}"
+
     return None
 
 def month_slug_from_internal_date(internal_date_ms: str, tz_name: str) -> str:
@@ -145,7 +175,13 @@ def main() -> dict:
         print("No hay períodos para generar en esta corrida.")
         return manifest
 
-    subject_contains = (os.environ.get("GMAIL_SUBJECT_CONTAINS") or DEFAULT_SUBJECT_CONTAINS).lower()
+    subject_contains = normalize_text(os.environ.get("GMAIL_SUBJECT_CONTAINS") or DEFAULT_SUBJECT_CONTAINS)
+    expected_sender = normalize_text(os.environ.get("GMAIL_EXPECTED_SENDER") or "")
+    expected_keywords = [
+        item.strip()
+        for item in (os.environ.get("GMAIL_EXPECTED_KEYWORDS") or subject_contains).split(",")
+        if item.strip()
+    ]
     query = os.environ.get("GMAIL_SEARCH_QUERY", DEFAULT_QUERY)
     allow_partial = (os.environ.get("ALLOW_PARTIAL_PERIOD") or "false").lower() == "true"
 
@@ -164,9 +200,13 @@ def main() -> dict:
         payload = full_message.get("payload", {}) or {}
         headers = extract_headers(payload)
         subject = (headers.get("Subject") or "").strip()
-        subject_normalized = subject.lower()
+        subject_normalized = normalize_text(subject)
+        sender_normalized = normalize_text(headers.get("From") or "")
 
-        if subject_contains not in subject_normalized:
+        if subject_contains and not _has_expected_keywords(subject, "", [subject_contains]):
+            continue
+
+        if expected_sender and expected_sender not in sender_normalized:
             continue
 
         pdf_parts = find_pdf_parts(payload)
@@ -175,11 +215,13 @@ def main() -> dict:
 
         for pdf_part in pdf_parts:
             filename = pdf_part.get("filename") or "dashboard.pdf"
+            if not _has_expected_keywords(subject, filename, expected_keywords):
+                continue
             
             # MAGIA: Intentamos sacar el mes del Asunto o del Filename ANTES de usar la fecha del correo
             month_slug = extract_month_from_text(subject_normalized, current_year)
             if not month_slug:
-                month_slug = extract_month_from_text(filename.lower(), current_year)
+                month_slug = extract_month_from_text(filename, current_year)
             if not month_slug:
                 month_slug = month_slug_from_internal_date(full_message.get("internalDate", "0"), schedule.timezone)
 

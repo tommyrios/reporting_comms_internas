@@ -56,11 +56,15 @@ npm install
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_REFRESH_TOKEN`
 - `GOOGLE_TOKEN_URI` (opcional, default Google OAuth)
+- `GMAIL_EXPECTED_SENDER` (opcional, para filtrar remitente esperado)
+- `GMAIL_EXPECTED_KEYWORDS` (opcional, lista separada por coma para validar subject/filename)
 
 ### Gemini
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL` (opcional, default `gemini-2.5-flash`)
 - `GEMINI_FALLBACK_MODELS` (opcional, separados por coma)
+- `GEMINI_UPLOAD_PROCESS_TIMEOUT_SECONDS` (opcional, default `300`)
+- `GEMINI_UPLOAD_RETRIES` (opcional, default `3`)
 
 ### Mail de salida
 - `EMAIL_USER`
@@ -104,7 +108,7 @@ REPORT_SLUG=month_2026_03 python scripts/send_email.py
 ### 4) Probar el renderer con la demo incluida
 
 ```bash
-node scripts/pptx_renderer.js sample_report_definitive.json sample_bbva_report_definitive.pptx
+node scripts/pptx_renderer.js templates/sample_report_definitive.json sample_bbva_report_definitive.pptx
 ```
 
 ## Contexto manual opcional
