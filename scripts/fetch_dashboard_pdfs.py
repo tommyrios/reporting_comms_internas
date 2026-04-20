@@ -108,10 +108,10 @@ def extract_month_from_text(text: str, default_year: int) -> str | None:
     text = normalize_text(text)
 
     # 1. Busca formato explícito numérico (ej. 2026-01, 01/2026)
-    match = re.search(r'(?<!\d)(20\d{2})[\s\-_/](0[1-9]|1[0-2])(?!\d)', text)
+    match = re.search(r'(?<!\d)(20\d{2})[\-_/](0[1-9]|1[0-2])(?!\d)', text)
     if match:
         return f"{match.group(1)}-{match.group(2)}"
-    match = re.search(r'(?<!\d)(0[1-9]|1[0-2])[\s\-_/](20\d{2})(?!\d)', text)
+    match = re.search(r'(?<!\d)(0[1-9]|1[0-2])[\-_/](20\d{2})(?!\d)', text)
     if match:
         return f"{match.group(2)}-{match.group(1)}"
 

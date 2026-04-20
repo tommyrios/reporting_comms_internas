@@ -37,8 +37,6 @@ def _upload_with_retries(client: genai.Client, pdf_path: str, month_key: str):
             )
             time.sleep(sleep_for)
 
-    raise RuntimeError(f"No se pudo subir archivo para {month_key}")
-
 
 def _wait_until_processed(client: genai.Client, uploaded, month_key: str):
     timeout_seconds = max(1, int((os.environ.get("GEMINI_UPLOAD_PROCESS_TIMEOUT_SECONDS") or "300").strip()))
