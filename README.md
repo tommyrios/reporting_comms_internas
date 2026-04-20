@@ -151,3 +151,16 @@ El dashboard es la fuente principal del reporte, pero los módulos de `hitos`, `
 ## Presentación
 
 El renderer incorpora ajuste automático de texto y límites por caja para evitar superposición entre textos, gráficos y paneles cuando cambian los datos del período.
+
+### Plantilla corporativa base
+
+Para renderizar con plantilla corporativa usando `python-pptx`, colocá un archivo base en:
+
+- `assets/plantilla_bbva.pptx`
+
+Ese archivo debe tener el Slide Master configurado y layouts nombrados como:
+
+- `Portada`
+- `Título y Contenido`
+
+El pipeline mapea los layouts por nombre (no por índice) para evitar desalineaciones cuando la plantilla personalizada cambia el orden de `slide_layouts`.
