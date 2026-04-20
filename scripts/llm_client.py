@@ -84,13 +84,14 @@ def call_gemini_for_json(client: genai.Client, contents: list[Any]) -> dict[str,
                 last_error = exc
                 if not _is_retryable_error(exc):
                     raise
+                error_message = str(exc)
                 logger.warning(
                     "event=gemini_retry model=%s attempt=%s/%s backoff_seconds=%s reason=%s",
                     model_name,
                     attempt,
                     max_retries,
                     backoff,
-                    exc,
+                    error_message,
                 )
                 if attempt < max_retries:
                     time.sleep(backoff)
