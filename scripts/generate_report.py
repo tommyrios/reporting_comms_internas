@@ -272,11 +272,11 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
         warning = f"Se generó el reporte sin redacción del LLM: {exc}"
         report = build_fallback_report(period, kpis_calculados)
 
-    warnings = []
+    all_warnings = []
     if warning:
-        warnings.append(warning)
-    warnings.extend(summary_warnings)
-    warning = " | ".join(warnings) if warnings else None
+        all_warnings.append(warning)
+    all_warnings.extend(summary_warnings)
+    combined_warning = " | ".join(all_warnings) if all_warnings else None
 
     manual_context = load_manual_context(period_slug)
     if manual_context:
@@ -284,7 +284,7 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
 
     report = validate_report_json(report)
     metadata_extra = {
-        "warning": warning or manual_context.get("metadata", {}).get("warning"),
+        "warning": combined_warning or manual_context.get("metadata", {}).get("warning"),
         "email_subject": manual_context.get("metadata", {}).get("email_subject") or period.get("email_subject"),
         "generation_mode": generation_mode,
     }
@@ -294,7 +294,7 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
         "period_slug": period_slug,
         "report_dir": report_dir,
         "generation_mode": generation_mode,
-        "warning": warning,
+        "warning": combined_warning,
     }
 
 
