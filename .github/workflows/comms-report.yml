@@ -57,7 +57,7 @@ jobs:
           GOOGLE_TOKEN_URI: ${{ secrets.GOOGLE_TOKEN_URI }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || 'gemini-2.5-flash' }}
-          GEMINI_FALLBACK_MODELS: ${{ secrets.GEMINI_FALLBACK_MODELS }}
+          GEMINI_FALLBACK_MODELS: ${{ secrets.GEMINI_FALLBACK_MODELS || 'gemini-2.5-pro,gemini-2.0-flash' }}
           GEMINI_ENABLE_MODEL_FALLBACK: ${{ secrets.GEMINI_ENABLE_MODEL_FALLBACK || 'true' }}
           GEMINI_MAX_RETRIES_PER_MODEL: ${{ secrets.GEMINI_MAX_RETRIES_PER_MODEL || '3' }}
           GEMINI_INITIAL_BACKOFF_SECONDS: ${{ secrets.GEMINI_INITIAL_BACKOFF_SECONDS || '3' }}
