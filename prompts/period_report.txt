@@ -6,7 +6,7 @@ Reglas obligatorias:
 - Todos los valores numéricos deben salir del INPUT `KPI_CALCULADOS`.
 - No copies literales del esquema JSON de ejemplo.
 - `RESUMENES_MENSUALES` se usa solo para redacción ejecutiva (titulares, aprendizajes, mensajes).
-- Escribí en español corporativo, breve, claro y apto para management.
+- Escribe en español corporativo, breve, claro y apto para management.
 - Cada slide debe cerrar con una lectura ejecutiva.
 - Si falta un dato, usá "-" o lista vacía según corresponda.
 - No repitas la misma idea en todas las slides.

@@ -19,8 +19,8 @@ DEFAULT_TEMPLATE_PATH = ASSETS_DIR / "plantilla_bbva.pptx"
 
 
 def _normalize(value: str) -> str:
-    no_accents = "".join(ch for ch in unicodedata.normalize("NFKD", value) if not unicodedata.combining(ch))
-    return no_accents.strip().lower()
+    normalized_text = "".join(ch for ch in unicodedata.normalize("NFKD", value) if not unicodedata.combining(ch))
+    return normalized_text.strip().lower()
 
 
 def _find_layout(prs: Presentation, aliases: list[str], fallback_index: int = 0):
@@ -67,10 +67,12 @@ def _as_bullets(value: Any) -> list[str]:
         lines = []
         for item in value:
             if isinstance(item, dict):
-                lines.append(", ".join(f"{k}: {v}" for k, v in item.items()))
+                text = ", ".join(f"{k}: {v}" for k, v in item.items()).strip()
             else:
-                lines.append(str(item))
-        return [line for line in lines if line.strip()]
+                text = str(item).strip()
+            if text:
+                lines.append(text)
+        return lines
     if isinstance(value, dict):
         return [f"{k}: {v}" for k, v in value.items()]
     if value in (None, ""):
@@ -101,7 +103,11 @@ def _render_content_slide(slide, title: str, body_sections: list[tuple[str, Any]
 def _render_with_template(report: dict[str, Any], output_path: Path, template_path: Path) -> None:
     prs = Presentation(str(template_path))
     portada_layout = _find_layout(prs, ["Portada", "Cover", "Title Slide"], fallback_index=0)
-    contenido_layout = _find_layout(prs, ["Título y Contenido", "Titulo y Contenido", "Title and Content"], fallback_index=1 if len(prs.slide_layouts) > 1 else 0)
+    contenido_layout = _find_layout(
+        prs,
+        ["Título y Contenido", "Titulo y Contenido", "Title and Content"],
+        fallback_index=1 if len(prs.slide_layouts) > 1 else 0,
+    )
 
     cover_slide = prs.slides.add_slide(portada_layout)
     _render_cover(cover_slide, report.get("slide_1_cover", {}))

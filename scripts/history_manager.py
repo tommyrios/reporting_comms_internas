@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -99,9 +100,20 @@ def _to_float(value: Any) -> float | None:
         return None
     if isinstance(value, (int, float)):
         return float(value)
-    text = str(value).replace("%", "").replace(".", "").replace(",", ".").strip()
+    text = str(value).replace("%", "").strip()
+    if "." in text and "," in text:
+        text = text.replace(".", "").replace(",", ".")
+    elif "," in text:
+        text = text.replace(",", ".")
+
+    normalized = "".join(ch for ch in text if ch.isdigit() or ch in ".-")
+    if not normalized:
+        return None
+    match = re.search(r"-?\d+(?:\.\d+)?", normalized)
+    if not match:
+        return None
     try:
-        return float(text)
+        return float(match.group(0))
     except Exception:
         return None
 
@@ -109,8 +121,10 @@ def _to_float(value: Any) -> float | None:
 def _safe_pct_change(current: Any, previous: Any) -> str:
     current_num = _to_float(current)
     previous_num = _to_float(previous)
-    if current_num is None or previous_num in (None, 0):
+    if current_num is None or previous_num is None:
         return "Sin datos previos"
+    if previous_num == 0:
+        return "No comparable (previo=0)"
     return f"{round(((current_num - previous_num) / previous_num) * 100, 1)}%"
 
 
