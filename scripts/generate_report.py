@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from analyzer import BASE_STRUCTURE, compute_kpis, validate_report_json
-from config import DATA_DIR, MANUAL_CONTEXT_DIR, REPORTS_DIR, SUMMARIES_DIR, ensure_dir
+from config import DATA_DIR, MANUAL_CONTEXT_DIR, REPORTS_DIR, ensure_dir
 from llm_client import build_genai_client, call_gemini_for_json, load_prompt
 from pdf_processor import summarize_month
 from pptx_renderer import create_pptx
@@ -237,20 +237,12 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
     summaries = []
     summary_warnings = []
     for month_key in period.get("months", []):
-        try:
-            summaries.append(summarize_month(client, month_key, force_regenerate))
-        except Exception as exc:
-            cached_summary_path = SUMMARIES_DIR / f"{month_key}.json"
-            if cached_summary_path.exists():
-                cached_summary = json.loads(cached_summary_path.read_text(encoding="utf-8"))
-                summaries.append(cached_summary)
-                summary_warnings.append(
-                    f"Se reutilizó el summary cacheado de {month_key} porque Gemini falló: {str(exc)}"
-                )
-            else:
-                raise RuntimeError(
-                    f"No se pudo generar el resumen mensual de {month_key} y no existe caché previa. Error: {str(exc)}"
-                ) from exc
+        summary = summarize_month(client, month_key, force_regenerate)
+        summaries.append(summary)
+        if summary.get("generation_mode") == "local_fallback":
+            summary_warnings.append(
+                summary.get("warning") or f"Se usó summary local_fallback para {month_key} por falla del LLM."
+            )
 
     kpis_calculados = compute_kpis(summaries)
 

@@ -2,10 +2,12 @@ import json
 import logging
 import os
 import time
+from copy import deepcopy
+from pathlib import Path
 
 from google import genai
 
-from config import PDF_DIR, SUMMARIES_DIR, ensure_dir
+from config import LEGACY_SUMMARIES_DIR, PDF_DIR, SUMMARIES_DIR, ensure_dir
 from llm_client import call_gemini_for_json, load_prompt
 
 logger = logging.getLogger(__name__)
@@ -51,11 +53,59 @@ def _wait_until_processed(client: genai.Client, uploaded, month_key: str):
     return uploaded
 
 
+def _build_local_fallback_summary(month_key: str, warning: str) -> dict:
+    return {
+        "month": month_key,
+        "headline": f"Resumen operativo disponible para {month_key}",
+        "summary_text": "No se pudo generar resumen con LLM; se creó una salida mínima para continuar el pipeline.",
+        "generation_mode": "local_fallback",
+        "warning": warning,
+        "data": {
+            "push_volume": 0,
+            "pull_notes": 0,
+            "pull_reads": 0,
+            "push_opens_pct": 0,
+            "push_interaction_pct": 0,
+        },
+        "insights": {
+            "audience_segmentation": [],
+            "strategic_axes": [],
+            "internal_clients": [],
+            "top_push_comm": {},
+            "top_pull_note": {},
+            "hitos_mes": "",
+        },
+        "sections": {},
+    }
+
+
+def _cache_candidates(month_key: str) -> list[Path]:
+    return [
+        ensure_dir(SUMMARIES_DIR) / f"{month_key}.json",
+        ensure_dir(LEGACY_SUMMARIES_DIR) / f"{month_key}.json",
+    ]
+
+
+def _read_cached_summary(month_key: str):
+    for cache_path in _cache_candidates(month_key):
+        if cache_path.exists():
+            return json.loads(cache_path.read_text(encoding="utf-8")), cache_path
+    return None, None
+
+
+def _persist_summary(summary: dict, month_key: str) -> None:
+    summary_copy = deepcopy(summary)
+    summary_copy["month"] = month_key
+    primary_path = ensure_dir(SUMMARIES_DIR) / f"{month_key}.json"
+    primary_path.write_text(json.dumps(summary_copy, ensure_ascii=False, indent=2), encoding="utf-8")
+    logger.info("event=summary_saved month=%s path=%s", month_key, primary_path)
+
+
 def summarize_month(client: genai.Client, month_key: str, force_regenerate: bool = False) -> dict:
-    summaries_dir = ensure_dir(SUMMARIES_DIR)
-    path = summaries_dir / f"{month_key}.json"
-    if path.exists() and not force_regenerate:
-        return json.loads(path.read_text(encoding="utf-8"))
+    cached_summary, cached_path = _read_cached_summary(month_key)
+    if cached_summary and not force_regenerate:
+        logger.info("event=summary_cache_hit month=%s path=%s", month_key, cached_path)
+        return cached_summary
 
     pdf_path = PDF_DIR / f"{month_key}.pdf"
     if not pdf_path.exists():
@@ -73,9 +123,25 @@ def summarize_month(client: genai.Client, month_key: str, force_regenerate: bool
 
         summary = call_gemini_for_json(client, [uploaded, prompt_text])
         summary["month"] = month_key
-        path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-        logger.info("event=summary_saved month=%s path=%s", month_key, path)
+        summary["generation_mode"] = "llm"
+        _persist_summary(summary, month_key)
         return summary
+    except Exception as exc:
+        if cached_summary:
+            logger.warning(
+                "event=summary_fallback_to_cache month=%s reason=%s cache_path=%s",
+                month_key,
+                exc,
+                cached_path,
+            )
+            return cached_summary
+        logger.warning("event=summary_local_fallback month=%s reason=%s", month_key, exc)
+        fallback_summary = _build_local_fallback_summary(
+            month_key,
+            f"No se pudo generar resumen mensual con Gemini. Se usó modo local_fallback. Error: {str(exc)}",
+        )
+        _persist_summary(fallback_summary, month_key)
+        return fallback_summary
     finally:
         try:
             if uploaded and getattr(uploaded, "name", None):
