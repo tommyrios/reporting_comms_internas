@@ -63,8 +63,10 @@ npm install
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL` (opcional, default `gemini-2.5-flash`)
 - `GEMINI_FALLBACK_MODELS` (opcional, separados por coma)
-- `GEMINI_MAX_RETRIES` (opcional, default `6`)
-- `GEMINI_INITIAL_BACKOFF_SECONDS` (opcional, default `5`)
+- `GEMINI_ENABLE_MODEL_FALLBACK` (opcional, default `true`)
+- `GEMINI_MAX_RETRIES_PER_MODEL` (opcional, default `3`)
+- `GEMINI_INITIAL_BACKOFF_SECONDS` (opcional, default `3`)
+- `GEMINI_MAX_BACKOFF_SECONDS` (opcional, default `30`)
 - `GEMINI_UPLOAD_PROCESS_TIMEOUT_SECONDS` (opcional, default `300`)
 - `GEMINI_UPLOAD_RETRIES` (opcional, default `3`)
 
@@ -136,6 +138,10 @@ En `output/reports/<period_slug>/` se guardan:
 - `report_raw.json`
 - `report.html`
 - `report.pptx`
+
+Los summaries mensuales se cachean en `data/monthly_summaries/` para reutilización consistente entre corridas.
+
+Si Gemini falla y no existe cache previa del mes, el pipeline genera automáticamente un summary mínimo en modo `local_fallback` para no frenar la generación del reporte.
 
 ## Nota operativa
 
