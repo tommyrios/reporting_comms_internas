@@ -92,9 +92,8 @@ def call_gemini_for_json(client: genai.Client, contents: list[Any]) -> dict[str,
                     backoff,
                     exc,
                 )
-                if attempt == max_retries:
-                    break
-                time.sleep(backoff)
-                backoff = min(backoff * 2, 60)
+                if attempt < max_retries:
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, 60)
 
     raise RuntimeError(str(last_error) if last_error else "No se pudo obtener respuesta JSON de Gemini")

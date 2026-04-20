@@ -272,9 +272,11 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
         warning = f"Se generó el reporte sin redacción del LLM: {exc}"
         report = build_fallback_report(period, kpis_calculados)
 
-    if summary_warnings:
-        joined = " | ".join(summary_warnings)
-        warning = f"{warning} | {joined}" if warning else joined
+    warnings = []
+    if warning:
+        warnings.append(warning)
+    warnings.extend(summary_warnings)
+    warning = " | ".join(warnings) if warnings else None
 
     manual_context = load_manual_context(period_slug)
     if manual_context:
