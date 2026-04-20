@@ -86,8 +86,10 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
     total_push_volume = 0
     total_pull_notes = 0
     total_pull_reads = 0
-    open_rates: list[float] = []
-    interaction_rates: list[float] = []
+    weighted_open_sum = 0.0
+    weighted_open_den = 0
+    weighted_interaction_sum = 0.0
+    weighted_interaction_den = 0
     all_push_comms: list[dict[str, Any]] = []
     all_pull_notes: list[dict[str, Any]] = []
     hitos_consolidados: list[dict[str, Any]] = []
@@ -96,16 +98,22 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
         data = summary.get("data", {}) or {}
         insights = summary.get("insights", {}) or {}
 
-        total_push_volume += _to_int(data.get("push_volume"))
+        month_push_volume = _to_int(data.get("push_volume"))
+        total_push_volume += month_push_volume
         total_pull_notes += _to_int(data.get("pull_notes"))
         total_pull_reads += _to_int(data.get("pull_reads"))
 
-        open_rate = _to_float(data.get("push_opens_pct"))
-        if open_rate:
-            open_rates.append(open_rate)
-        interaction_rate = _to_float(data.get("push_interaction_pct"))
-        if interaction_rate:
-            interaction_rates.append(interaction_rate)
+        raw_open_rate = data.get("push_opens_pct")
+        if month_push_volume > 0 and raw_open_rate not in (None, "", "-"):
+            open_rate = _to_float(raw_open_rate)
+            weighted_open_sum += open_rate * month_push_volume
+            weighted_open_den += month_push_volume
+
+        raw_interaction_rate = data.get("push_interaction_pct")
+        if month_push_volume > 0 and raw_interaction_rate not in (None, "", "-"):
+            interaction_rate = _to_float(raw_interaction_rate)
+            weighted_interaction_sum += interaction_rate * month_push_volume
+            weighted_interaction_den += month_push_volume
 
         top_push = insights.get("top_push_comm")
         if isinstance(top_push, dict):
@@ -135,8 +143,8 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
     all_push_comms.sort(key=lambda item: (item.get("clicks", 0), item.get("interaction", 0.0)), reverse=True)
     all_pull_notes.sort(key=lambda item: (item.get("unique_reads", 0), item.get("total_reads", 0)), reverse=True)
 
-    avg_open_rate = round(sum(open_rates) / len(open_rates), 1) if open_rates else 0.0
-    avg_interaction_rate = round(sum(interaction_rates) / len(interaction_rates), 1) if interaction_rates else 0.0
+    avg_open_rate = round(weighted_open_sum / weighted_open_den, 1) if weighted_open_den else 0.0
+    avg_interaction_rate = round(weighted_interaction_sum / weighted_interaction_den, 1) if weighted_interaction_den else 0.0
     avg_reads = round(total_pull_reads / total_pull_notes, 1) if total_pull_notes else 0.0
 
     push_timeline = _timeline(monthly_summaries, "push_volume")
