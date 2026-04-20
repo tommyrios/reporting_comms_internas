@@ -15,7 +15,7 @@ from analyzer import validate_report_json
 from config import ASSETS_DIR
 
 
-DEFAULT_TEMPLATE_PATH = ASSETS_DIR / "plantilla-bbva.pdf"
+DEFAULT_TEMPLATE_PATH = ASSETS_DIR / "plantilla-bbva.pptx"
 
 
 def _normalize(value: str) -> str:
