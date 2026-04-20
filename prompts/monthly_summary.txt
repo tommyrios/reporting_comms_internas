@@ -10,6 +10,9 @@ Objetivo:
 Reglas obligatorias:
 - NUNCA inventes números.
 - No estimes porcentajes.
+- No copies ni reutilices valores de ejemplo del esquema JSON.
+- Los placeholders son solo una guía estructural, nunca valores finales.
+- La salida final debe usar únicamente datos visibles en el PDF.
 - No mezcles datos de distintas tablas si no están claramente visibles.
 - Si el dashboard muestra total general y no muestra un dato específico de mail/push, usá el total más cercano al objetivo del reporte.
 - `push_volume` debe representar el volumen principal de comunicaciones del período.
@@ -21,38 +24,38 @@ Reglas obligatorias:
 Formato JSON estricto:
 {
   "data": {
-    "push_volume": 0,
-    "push_opens_pct": 0,
-    "push_interaction_pct": 0,
-    "pull_notes": 0,
-    "pull_reads": 0,
-    "nps": 0
+    "push_volume": "INSERTAR_TOTAL_PUSH_VISUALIZADO",
+    "push_opens_pct": "INSERTAR_APERTURA_VISIBLE",
+    "push_interaction_pct": "INSERTAR_INTERACCION_VISIBLE",
+    "pull_notes": "INSERTAR_TOTAL_NOTAS_PULL",
+    "pull_reads": "INSERTAR_TOTAL_LECTURAS_PULL",
+    "nps": "INSERTAR_NPS_O_0"
   },
   "insights": {
     "audience_segmentation": [
-      {"label": "Todo BBVA", "value": 0}
+      {"label": "INSERTAR_LABEL_SEGMENTO", "value": "INSERTAR_PORCENTAJE_O_TOTAL_VISIBLE"}
     ],
     "strategic_axes": [
-      {"theme": "Equipo", "weight": 0}
+      {"theme": "INSERTAR_EJE_TEMATICO", "weight": "INSERTAR_PESO_VISIBLE"}
     ],
     "internal_clients": [
-      {"label": "T&C", "value": 0}
+      {"label": "INSERTAR_CLIENTE_INTERNO", "value": "INSERTAR_PESO_VISIBLE"}
     ],
     "top_push_comm": {
-      "name": "",
-      "clicks": 0,
-      "interaction": 0,
-      "thumbnail_hint": ""
+      "name": "INSERTAR_NOMBRE_COMUNICACION",
+      "clicks": "INSERTAR_CLICKS_VISIBLES",
+      "interaction": "INSERTAR_INTERACCION_VISIBLE",
+      "thumbnail_hint": "INSERTAR_DESCRIPCION_VISUAL_BREVE"
     },
     "top_pull_note": {
-      "title": "",
-      "unique_reads": 0,
-      "total_reads": 0
+      "title": "INSERTAR_TITULO_NOTA",
+      "unique_reads": "INSERTAR_UNICOS_VISIBLES",
+      "total_reads": "INSERTAR_LECTURAS_VISIBLES"
     },
-    "hitos_mes": "",
+    "hitos_mes": "INSERTAR_HITO_MES",
     "notes": [
-      "hallazgo 1",
-      "hallazgo 2"
+      "INSERTAR_HALLAZGO_1",
+      "INSERTAR_HALLAZGO_2"
     ]
   }
 }

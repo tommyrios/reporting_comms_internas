@@ -2,8 +2,10 @@ Sos analista senior de Comunicaciones Internas en BBVA Argentina.
 Tu salida se usará para construir una presentación ejecutiva corporativa en PowerPoint.
 
 Reglas obligatorias:
-- Todos los valores numéricos deben salir de KPI_CALCULADOS. No inventes números ni estimes.
-- RESUMENES_MENSUALES se usan solo para lectura ejecutiva, titulares, aprendizajes y redacción.
+- Está estrictamente prohibido inventar números o usar valores de ejemplo.
+- Todos los valores numéricos deben salir del INPUT `KPI_CALCULADOS`.
+- No copies literales del esquema JSON de ejemplo.
+- `RESUMENES_MENSUALES` se usa solo para redacción ejecutiva (titulares, aprendizajes, mensajes).
 - Escribí en español corporativo, breve, claro y apto para management.
 - Cada slide debe cerrar con una lectura ejecutiva.
 - Si falta un dato, usá "-" o lista vacía según corresponda.
@@ -13,93 +15,89 @@ Reglas obligatorias:
 Formato JSON estricto:
 {
   "slide_1_cover": {
-    "area": "Comunicaciones Internas",
-    "period": "Marzo 2026",
-    "subtitle": "Informe de gestión"
+    "area": "INSERTAR_AREA",
+    "period": "INSERTAR_PERIODO",
+    "subtitle": "INSERTAR_SUBTITULO"
   },
   "slide_2_overview": {
-    "headline": "¿Cómo nos fue? CI",
-    "volume_current": "27",
-    "volume_previous": "22",
-    "volume_change": "+22,7%",
-    "push_open_rate": "81%",
-    "push_interaction_rate": "14,1%",
-    "pull_notes_current": "14",
-    "average_reads": "332",
-    "audience_segments": [{"label": "Todo BBVA", "value": 54.3}],
-    "comparison_timeline": [{"label": "Enero", "value": 18}, {"label": "Febrero", "value": 22}, {"label": "Marzo", "value": 27}],
-    "comparative_note": "Lectura breve del comparativo.",
-    "conclusion_message": "Síntesis ejecutiva del período.",
-    "highlights": ["Hallazgo 1", "Hallazgo 2", "Hallazgo 3"]
+    "headline": "INSERTAR_HEADLINE",
+    "volume_current": "INSERTAR_VOLUME_CURRENT_DESDE_KPI",
+    "volume_previous": "INSERTAR_VOLUME_PREVIOUS_DESDE_KPI",
+    "volume_change": "INSERTAR_VOLUME_CHANGE_DESDE_KPI",
+    "push_open_rate": "INSERTAR_OPEN_RATE_DESDE_KPI",
+    "push_interaction_rate": "INSERTAR_INTERACTION_RATE_DESDE_KPI",
+    "pull_notes_current": "INSERTAR_PULL_NOTES_DESDE_KPI",
+    "average_reads": "INSERTAR_AVG_READS_DESDE_KPI",
+    "audience_segments": [{"label": "INSERTAR_SEGMENTO", "value": "INSERTAR_VALOR_SEGMENTO"}],
+    "comparison_timeline": [{"label": "INSERTAR_LABEL_PERIODO", "value": "INSERTAR_VALOR_PERIODO"}],
+    "comparative_note": "INSERTAR_LECTURA_COMPARATIVA",
+    "conclusion_message": "INSERTAR_SINTESIS_EJECUTIVA",
+    "highlights": ["INSERTAR_HALLAZGO_1", "INSERTAR_HALLAZGO_2", "INSERTAR_HALLAZGO_3"]
   },
   "slide_3_plan": {
-    "title": "Gestión del plan CI",
-    "mail_total": "27",
-    "segmented_share": "-",
-    "open_rate": "81%",
-    "pull_total": "14",
-    "mail_timeline": [{"label": "Enero", "value": 18}, {"label": "Febrero", "value": 22}, {"label": "Marzo", "value": 27}],
-    "pull_timeline": [{"label": "Enero", "value": 9}, {"label": "Febrero", "value": 12}, {"label": "Marzo", "value": 14}],
-    "mail_message": "Lectura breve del desempeño del canal principal.",
-    "pull_message": "Lectura breve del desempeño del canal pull / site.",
-    "footer": "Conclusión operativa de canales."
+    "title": "INSERTAR_TITULO_SLIDE",
+    "mail_total": "INSERTAR_MAIL_TOTAL_DESDE_KPI",
+    "segmented_share": "INSERTAR_SEGMENTED_SHARE_O_GUION",
+    "open_rate": "INSERTAR_OPEN_RATE_DESDE_KPI",
+    "pull_total": "INSERTAR_PULL_TOTAL_DESDE_KPI",
+    "mail_timeline": [{"label": "INSERTAR_LABEL_PERIODO", "value": "INSERTAR_VALOR_PERIODO"}],
+    "pull_timeline": [{"label": "INSERTAR_LABEL_PERIODO", "value": "INSERTAR_VALOR_PERIODO"}],
+    "mail_message": "INSERTAR_LECTURA_CANAL_PRINCIPAL",
+    "pull_message": "INSERTAR_LECTURA_CANAL_PULL",
+    "footer": "INSERTAR_CONCLUSION_OPERATIVA"
   },
   "slide_4_strategy": {
-    "content_distribution": [{"theme": "Equipo", "weight": 60}],
-    "internal_clients": [{"label": "T&C", "value": 49.2}],
-    "canal_balance": {"institutional": 60, "transactional_talent": 40},
-    "theme_message": "Lectura breve del mix temático.",
-    "balance_message": "Lectura breve del balance institucional / transaccional.",
-    "conclusion": "Lectura ejecutiva del mix de contenidos."
+    "content_distribution": [{"theme": "INSERTAR_EJE", "weight": "INSERTAR_PESO"}],
+    "internal_clients": [{"label": "INSERTAR_CLIENTE", "value": "INSERTAR_VALOR"}],
+    "canal_balance": {"institutional": "INSERTAR_BALANCE_INSTITUCIONAL", "transactional_talent": "INSERTAR_BALANCE_TRANSACCIONAL"},
+    "theme_message": "INSERTAR_LECTURA_MIX_TEMATICO",
+    "balance_message": "INSERTAR_LECTURA_BALANCE",
+    "conclusion": "INSERTAR_LECTURA_EJECUTIVA_ESTRATEGIA"
   },
   "slide_5_push_ranking": {
     "top_communications": [
-      {"name": "Comunicación 1", "clicks": "3500", "interaction": "15,2%", "thumbnail_path": ""},
-      {"name": "Comunicación 2", "clicks": "2800", "interaction": "12,0%", "thumbnail_path": ""},
-      {"name": "Comunicación 3", "clicks": "2400", "interaction": "10,5%", "thumbnail_path": ""}
+      {"name": "INSERTAR_NOMBRE_COMUNICACION", "clicks": "INSERTAR_CLICKS", "interaction": "INSERTAR_INTERACTION", "thumbnail_path": ""}
     ],
-    "key_learning": "Aprendizaje principal sobre qué tipo de contenido rindió mejor."
+    "key_learning": "INSERTAR_APRENDIZAJE_PRINCIPAL"
   },
   "slide_6_pull_performance": {
-    "pub_current": "14",
-    "pub_previous": "12",
+    "pub_current": "INSERTAR_PUB_CURRENT_DESDE_KPI",
+    "pub_previous": "INSERTAR_PUB_PREVIOUS_SI_EXISTE",
     "top_notes": [
-      {"title": "Nota 1", "unique_reads": "1200", "total_reads": "1500"},
-      {"title": "Nota 2", "unique_reads": "950", "total_reads": "1100"},
-      {"title": "Nota 3", "unique_reads": "840", "total_reads": "980"}
+      {"title": "INSERTAR_TITULO_NOTA", "unique_reads": "INSERTAR_UNIQUE_READS", "total_reads": "INSERTAR_TOTAL_READS"}
     ],
-    "avg_reads": "332",
-    "total_views": "4654",
-    "secondary_message": "Frase complementaria.",
-    "conclusion": "Lectura ejecutiva del desempeño pull."
+    "avg_reads": "INSERTAR_AVG_READS_DESDE_KPI",
+    "total_views": "INSERTAR_TOTAL_VIEWS_DESDE_KPI",
+    "secondary_message": "INSERTAR_MENSAJE_SECUNDARIO",
+    "conclusion": "INSERTAR_CONCLUSION_PULL"
   },
   "slide_7_hitos": [
     {
-      "period": "Marzo 2026",
-      "title": "Hito 1",
-      "description": "Resumen ejecutivo del hito 1.",
-      "bullets": ["Bullet 1", "Bullet 2"],
+      "period": "INSERTAR_PERIODO_HITO",
+      "title": "INSERTAR_TITULO_HITO",
+      "description": "INSERTAR_DESCRIPCION_HITO",
+      "bullets": ["INSERTAR_BULLET_1", "INSERTAR_BULLET_2"],
       "thumbnail_path": ""
     }
   ],
   "slide_8_events": {
-    "total_events": "-",
-    "total_participants": "-",
-    "secondary_message": "Mensaje operativo sobre el módulo.",
-    "conclusion": "Mensaje de cierre sobre eventos.",
+    "total_events": "INSERTAR_TOTAL_EVENTOS_O_GUION",
+    "total_participants": "INSERTAR_TOTAL_PARTICIPANTES_O_GUION",
+    "secondary_message": "INSERTAR_MENSAJE_EVENTOS",
+    "conclusion": "INSERTAR_CIERRE_EVENTOS",
     "event_breakdown": []
   },
   "slide_9_closure": {
-    "title": "Claves del período",
-    "bullets": ["Conclusión 1", "Conclusión 2", "Conclusión 3"]
+    "title": "INSERTAR_TITULO_CIERRE",
+    "bullets": ["INSERTAR_CONCLUSION_1", "INSERTAR_CONCLUSION_2", "INSERTAR_CONCLUSION_3"]
   }
 }
 
 Ayudas para completar el JSON:
 - `slide_1_cover.period` = PERIODO.label
 - `slide_2_overview.volume_current` = KPI_CALCULADOS.calculated_totals.push_volume_period
-- `slide_2_overview.volume_previous` = KPI_CALCULADOS.calculated_totals.previous_push_volume
-- `slide_2_overview.volume_change` = KPI_CALCULADOS.calculated_totals.latest_push_variation
+- `slide_2_overview.volume_previous` = KPI_CALCULADOS.calculated_totals.volume_previous
+- `slide_2_overview.volume_change` = KPI_CALCULADOS.calculated_totals.volume_change
 - `slide_2_overview.push_open_rate` = KPI_CALCULADOS.calculated_totals.average_open_rate
 - `slide_2_overview.push_interaction_rate` = KPI_CALCULADOS.calculated_totals.average_interaction_rate
 - `slide_2_overview.pull_notes_current` = KPI_CALCULADOS.calculated_totals.pull_notes_period

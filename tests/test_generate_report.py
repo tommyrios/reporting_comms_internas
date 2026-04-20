@@ -47,11 +47,13 @@ class GenerateReportTests(unittest.TestCase):
                 patch("generate_report.build_genai_client", return_value=object()), \
                 patch("generate_report.summarize_month", return_value=summary_local_fallback), \
                 patch("generate_report.compute_kpis", return_value=kpis) as compute_kpis_mock, \
+                patch("generate_report.apply_historical_comparison", side_effect=lambda period, payload: payload), \
                 patch("generate_report.load_prompt", return_value="prompt"), \
                 patch("generate_report.call_gemini_for_json", side_effect=RuntimeError("LLM final down")), \
                 patch("generate_report.build_fallback_report", return_value={"ok": True}), \
                 patch("generate_report.load_manual_context", return_value={}), \
                 patch("generate_report.validate_report_json", side_effect=lambda x: x), \
+                patch("generate_report.persist_calculated_totals"), \
                 patch("generate_report.write_report_artifacts", return_value="/tmp/report"):
             result = generate_period_report("month_2026_03")
 

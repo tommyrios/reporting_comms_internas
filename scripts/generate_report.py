@@ -6,6 +6,7 @@ from typing import Any
 
 from analyzer import BASE_STRUCTURE, compute_kpis, validate_report_json
 from config import DATA_DIR, MANUAL_CONTEXT_DIR, REPORTS_DIR, ensure_dir
+from history_manager import apply_historical_comparison, persist_calculated_totals
 from llm_client import build_genai_client, call_gemini_for_json, load_prompt
 from pdf_processor import summarize_month
 from pptx_renderer import create_pptx
@@ -245,6 +246,7 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
             )
 
     kpis_calculados = compute_kpis(summaries)
+    kpis_calculados = apply_historical_comparison(period, kpis_calculados)
 
     prompt_base = load_prompt("period_report.txt")
     prompt_final = (
@@ -280,6 +282,7 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
         "email_subject": manual_context.get("metadata", {}).get("email_subject") or period.get("email_subject"),
         "generation_mode": generation_mode,
     }
+    persist_calculated_totals(period, kpis_calculados)
     report_dir = write_report_artifacts(period_slug, report, metadata_extra=metadata_extra)
     return {
         "status": "ok",
