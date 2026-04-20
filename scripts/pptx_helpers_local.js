@@ -56,7 +56,14 @@ function _extractBoxes(slide) {
 function _intersects(a, b) {
   const overlapW = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
   const overlapH = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
-  return overlapW > 0.01 && overlapH > 0.01;
+  if (overlapW <= 0.01 || overlapH <= 0.01) return false;
+
+  const overlapArea = overlapW * overlapH;
+  const aArea = a.w * a.h;
+  const bArea = b.w * b.h;
+  const minArea = Math.min(aArea, bArea);
+  if (minArea > 0 && overlapArea / minArea > 0.95) return false;
+  return true;
 }
 
 function warnIfSlideHasOverlaps(slide) {
