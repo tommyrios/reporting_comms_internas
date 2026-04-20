@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -143,7 +143,7 @@ def persist_calculated_totals(
         "period_ref": period_ref,
         "period_slug": period.get("slug"),
         "calculated_totals": kpis_calculados.get("calculated_totals", {}),
-        "updated_at": datetime.utcnow().isoformat() + "Z",
+        "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     }
     ensure_dir(history_path.parent)
     history_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
