@@ -62,7 +62,7 @@ npm install
 ### Gemini
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL` (opcional, default `gemini-2.5-flash`)
-- `GEMINI_FALLBACK_MODELS` (opcional, separados por coma)
+- `GEMINI_FALLBACK_MODELS` (opcional, separados por coma; default `gemini-2.5-pro,gemini-2.0-flash` en workflow)
 - `GEMINI_ENABLE_MODEL_FALLBACK` (opcional, default `true`)
 - `GEMINI_MAX_RETRIES_PER_MODEL` (opcional, default `3`)
 - `GEMINI_INITIAL_BACKOFF_SECONDS` (opcional, default `3`)
