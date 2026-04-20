@@ -47,7 +47,7 @@ class PdfProcessorTests(unittest.TestCase):
             legacy_cache = tmp_dir / "legacy_cache"
             pdf_dir = tmp_dir / "pdfs"
             pdf_dir.mkdir(parents=True, exist_ok=True)
-            (pdf_dir / "2026-03.pdf").write_text("pdf", encoding="utf-8")
+            (pdf_dir / "2026-03.pdf").write_bytes(b"%PDF-1.4 mock content")
             summary = {"month": "2026-03", "data": {"push_volume": 5}}
             primary_cache.mkdir(parents=True, exist_ok=True)
             (primary_cache / "2026-03.json").write_text(json.dumps(summary), encoding="utf-8")
@@ -71,7 +71,7 @@ class PdfProcessorTests(unittest.TestCase):
             legacy_cache = tmp_dir / "legacy_cache"
             pdf_dir = tmp_dir / "pdfs"
             pdf_dir.mkdir(parents=True, exist_ok=True)
-            (pdf_dir / "2026-03.pdf").write_text("pdf", encoding="utf-8")
+            (pdf_dir / "2026-03.pdf").write_bytes(b"%PDF-1.4 mock content")
             uploaded = SimpleNamespace(state=SimpleNamespace(name="DONE"), name="files/123")
             client = Mock()
             client.files.delete = Mock()

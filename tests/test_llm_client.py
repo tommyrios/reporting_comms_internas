@@ -115,6 +115,14 @@ class LlmClientTests(unittest.TestCase):
         self.assertIn("agotó todos los modelos", str(ctx.exception))
         self.assertEqual(client.models.generate_content.call_count, 4)
 
+    def test_invalid_retry_env_value_raises_descriptive_error(self):
+        client = Mock()
+        with patch("llm_client._candidate_models", return_value=["gemini-a"]), \
+                patch.dict(os.environ, {"GEMINI_MAX_RETRIES_PER_MODEL": "abc"}, clear=False):
+            with self.assertRaises(RuntimeError) as ctx:
+                call_gemini_for_json(client, ["prompt"])
+        self.assertIn("GEMINI_MAX_RETRIES_PER_MODEL", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

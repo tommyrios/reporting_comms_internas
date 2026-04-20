@@ -69,10 +69,26 @@ def _is_retryable_error(exc: Exception) -> bool:
     return any(marker in text for marker in retryable_markers)
 
 
+def _read_env_int(name: str, default: int) -> int:
+    raw = (os.environ.get(name) or str(default)).strip()
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise RuntimeError(f"Valor inválido para {name}: '{raw}' (esperado entero)") from exc
+
+
+def _read_env_float(name: str, default: float) -> float:
+    raw = (os.environ.get(name) or str(default)).strip()
+    try:
+        return float(raw)
+    except ValueError as exc:
+        raise RuntimeError(f"Valor inválido para {name}: '{raw}' (esperado número)") from exc
+
+
 def call_gemini_for_json(client: genai.Client, contents: list[Any]) -> dict[str, Any]:
-    max_retries = max(1, int((os.environ.get("GEMINI_MAX_RETRIES_PER_MODEL") or "3").strip()))
-    initial_backoff = max(0.0, float((os.environ.get("GEMINI_INITIAL_BACKOFF_SECONDS") or "3").strip()))
-    max_backoff = max(initial_backoff, float((os.environ.get("GEMINI_MAX_BACKOFF_SECONDS") or "30").strip()))
+    max_retries = max(1, _read_env_int("GEMINI_MAX_RETRIES_PER_MODEL", 3))
+    initial_backoff = max(0.0, _read_env_float("GEMINI_INITIAL_BACKOFF_SECONDS", 3.0))
+    max_backoff = max(initial_backoff, _read_env_float("GEMINI_MAX_BACKOFF_SECONDS", 30.0))
     models = _candidate_models()
     last_error: Exception | None = None
 

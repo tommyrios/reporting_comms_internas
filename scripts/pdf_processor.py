@@ -3,6 +3,7 @@ import logging
 import os
 import time
 from copy import deepcopy
+from pathlib import Path
 
 from google import genai
 
@@ -78,7 +79,7 @@ def _build_local_fallback_summary(month_key: str, warning: str) -> dict:
     }
 
 
-def _cache_candidates(month_key: str) -> list:
+def _cache_candidates(month_key: str) -> list[Path]:
     return [
         ensure_dir(SUMMARIES_DIR) / f"{month_key}.json",
         ensure_dir(LEGACY_SUMMARIES_DIR) / f"{month_key}.json",
