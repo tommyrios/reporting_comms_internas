@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import time
@@ -7,6 +8,8 @@ from typing import Any
 from google import genai
 
 from config import PROMPTS_DIR
+
+logger = logging.getLogger(__name__)
 
 
 def load_prompt(filename: str) -> str:
@@ -44,14 +47,31 @@ def _candidate_models() -> list[str]:
     return deduped
 
 
+def _is_retryable_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    retryable_markers = (
+        "timeout",
+        "temporarily",
+        "rate limit",
+        "429",
+        "500",
+        "502",
+        "503",
+        "504",
+        "connection",
+        "unavailable",
+    )
+    return any(marker in text for marker in retryable_markers)
+
+
 def call_gemini_for_json(client: genai.Client, contents: list[Any]) -> dict[str, Any]:
-    max_retries = int((os.environ.get("GEMINI_MAX_RETRIES") or "4").strip())
-    initial_backoff = float((os.environ.get("GEMINI_INITIAL_BACKOFF_SECONDS") or "3").strip())
+    max_retries = int((os.environ.get("GEMINI_MAX_RETRIES") or "6").strip())
+    initial_backoff = float((os.environ.get("GEMINI_INITIAL_BACKOFF_SECONDS") or "5").strip())
     last_error: Exception | None = None
 
     for model_name in _candidate_models():
         backoff = initial_backoff
-        for _ in range(max_retries):
+        for attempt in range(1, max_retries + 1):
             try:
                 response = client.models.generate_content(
                     model=model_name,
@@ -62,7 +82,19 @@ def call_gemini_for_json(client: genai.Client, contents: list[Any]) -> dict[str,
                 return json.loads(clean_json_response(text))
             except Exception as exc:
                 last_error = exc
-                time.sleep(backoff)
-                backoff = min(backoff * 2, 60)
+                if not _is_retryable_error(exc):
+                    raise
+                error_message = str(exc)
+                logger.warning(
+                    "event=gemini_retry model=%s attempt=%s/%s backoff_seconds=%s reason=%s",
+                    model_name,
+                    attempt,
+                    max_retries,
+                    backoff,
+                    error_message,
+                )
+                if attempt < max_retries:
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, 60)
 
     raise RuntimeError(str(last_error) if last_error else "No se pudo obtener respuesta JSON de Gemini")
