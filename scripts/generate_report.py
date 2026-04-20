@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from analyzer import BASE_STRUCTURE, compute_kpis, validate_report_json
-from config import DATA_DIR, MANUAL_CONTEXT_DIR, REPORTS_DIR, ensure_dir
+from config import DATA_DIR, MANUAL_CONTEXT_DIR, REPORTS_DIR, SUMMARIES_DIR, ensure_dir
 from llm_client import build_genai_client, call_gemini_for_json, load_prompt
 from pdf_processor import summarize_month
 from pptx_renderer import create_pptx
@@ -234,7 +234,24 @@ def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_ex
 def generate_period_report(period_slug: str, force_regenerate: bool = False) -> dict[str, Any]:
     period = get_period_definition(period_slug)
     client = build_genai_client()
-    summaries = [summarize_month(client, month_key, force_regenerate) for month_key in period.get("months", [])]
+    summaries = []
+    summary_warnings = []
+    for month_key in period.get("months", []):
+        try:
+            summaries.append(summarize_month(client, month_key, force_regenerate))
+        except Exception as exc:
+            cached_summary_path = SUMMARIES_DIR / f"{month_key}.json"
+            if cached_summary_path.exists():
+                cached_summary = json.loads(cached_summary_path.read_text(encoding="utf-8"))
+                summaries.append(cached_summary)
+                summary_warnings.append(
+                    f"Se reutilizó el summary cacheado de {month_key} porque Gemini falló: {exc}"
+                )
+            else:
+                raise RuntimeError(
+                    f"No se pudo generar el resumen mensual de {month_key} y no existe caché previa. Error: {exc}"
+                ) from exc
+
     kpis_calculados = compute_kpis(summaries)
 
     prompt_base = load_prompt("period_report.txt")
@@ -254,6 +271,10 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
         generation_mode = "fallback"
         warning = f"Se generó el reporte sin redacción del LLM: {exc}"
         report = build_fallback_report(period, kpis_calculados)
+
+    if summary_warnings:
+        joined = " | ".join(summary_warnings)
+        warning = f"{warning} | {joined}" if warning else joined
 
     manual_context = load_manual_context(period_slug)
     if manual_context:
