@@ -240,17 +240,16 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
         try:
             summaries.append(summarize_month(client, month_key, force_regenerate))
         except Exception as exc:
-            error_message = str(exc)
             cached_summary_path = SUMMARIES_DIR / f"{month_key}.json"
             if cached_summary_path.exists():
                 cached_summary = json.loads(cached_summary_path.read_text(encoding="utf-8"))
                 summaries.append(cached_summary)
                 summary_warnings.append(
-                    f"Se reutilizó el summary cacheado de {month_key} porque Gemini falló: {error_message}"
+                    f"Se reutilizó el summary cacheado de {month_key} porque Gemini falló: {str(exc)}"
                 )
             else:
                 raise RuntimeError(
-                    f"No se pudo generar el resumen mensual de {month_key} y no existe caché previa. Error: {error_message}"
+                    f"No se pudo generar el resumen mensual de {month_key} y no existe caché previa. Error: {str(exc)}"
                 ) from exc
 
     kpis_calculados = compute_kpis(summaries)
@@ -269,9 +268,8 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
         report_raw = call_gemini_for_json(client, [prompt_final])
         report = _decorate_report(report_raw, period, kpis_calculados)
     except Exception as exc:
-        error_message = str(exc)
         generation_mode = "fallback"
-        warning = f"Se generó el reporte sin redacción del LLM: {error_message}"
+        warning = f"Se generó el reporte sin redacción del LLM: {str(exc)}"
         report = build_fallback_report(period, kpis_calculados)
 
     all_warnings = []

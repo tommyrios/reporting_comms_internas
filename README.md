@@ -63,6 +63,8 @@ npm install
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL` (opcional, default `gemini-2.5-flash`)
 - `GEMINI_FALLBACK_MODELS` (opcional, separados por coma)
+- `GEMINI_MAX_RETRIES` (opcional, default `6`)
+- `GEMINI_INITIAL_BACKOFF_SECONDS` (opcional, default `5`)
 - `GEMINI_UPLOAD_PROCESS_TIMEOUT_SECONDS` (opcional, default `300`)
 - `GEMINI_UPLOAD_RETRIES` (opcional, default `3`)
 
