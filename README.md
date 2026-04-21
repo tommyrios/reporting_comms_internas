@@ -156,11 +156,15 @@ El renderer incorpora ajuste automático de texto y límites por caja para evita
 
 Para renderizar con plantilla corporativa usando `python-pptx`, colocá un archivo base en:
 
-- `assets/plantilla_bbva.pptx`
+- `assets/plantilla-bbva.pptx`
 
-Ese archivo debe tener el Slide Master configurado y layouts nombrados como:
+Por defecto (`PPTX_TEMPLATE_MODE=frame`), el pipeline trata esta plantilla como un marco visual:
 
-- `Portada`
-- `Título y Contenido`
+- conserva solo la **primera slide** como portada
+- reemplaza el texto exacto `FECHA` por el período del reporte
+- genera las slides de contenido en el medio
+- conserva la **última slide** como cierre
 
-El pipeline mapea los layouts por nombre (no por índice) para evitar desalineaciones cuando la plantilla personalizada cambia el orden de `slide_layouts`.
+Si hubiera slides intermedias en la plantilla, no se incluyen en el output en modo `frame`.
+
+Para comportamiento legado (anexar slides generadas a la plantilla), usar `PPTX_TEMPLATE_MODE=append`.
