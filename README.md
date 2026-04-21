@@ -1,170 +1,120 @@
-# Pipeline de informe de Comunicaciones Internas · BBVA
+# Reporting de Comunicaciones Internas · BBVA
 
-Este repo genera un informe ejecutivo en PowerPoint a partir de los dashboards PDF que llegan por mail.
+Pipeline end-to-end para generar un **reporte mensual ejecutivo** a partir de dashboards PDF.
 
-El flujo completo hace esto:
+## Arquitectura final (MVP)
 
-1. Busca en Gmail los PDFs del dashboard del período.
-2. Descarga y ordena los PDFs por mes.
-3. Le pide a Gemini una extracción estructurada de KPIs e insights.
-4. Consolida el período con reglas determinísticas.
-5. Renderiza un deck `.pptx` con estética BBVA usando PptxGenJS.
-6. Envía el reporte por mail con el PowerPoint adjunto.
+1. **Ingesta PDF** desde Gmail (`scripts/fetch_dashboard_pdfs.py`).
+2. **Extracción mensual estructurada** con contrato fuerte (`prompts/monthly_summary.txt` + `scripts/pdf_processor.py`).
+3. **KPIs determinísticos y guardrails** (`scripts/analyzer.py`):
+   - consolida métricas, mixes y rankings
+   - aplica `quality_flags`
+   - controla comparabilidad histórica real
+4. **Narrativa ejecutiva** (`prompts/period_report.txt`):
+   - el LLM redacta copy
+   - no decide números
+5. **Render de body en JS** (`scripts/pptx_renderer.js`):
+   - renderer principal
+   - módulos dinámicos + empty states corporativos
+6. **Ensamblado final de deck** (`scripts/deck_assembler.py`):
+   - portada = primera slide de `assets/plantilla-bbva.pptx`
+   - reemplazo de `FECHA` por período real
+   - body generado en JS en el medio
+   - cierre = última slide de plantilla
 
-## Qué cambió en esta versión
+## Reglas de presentación
 
-- Renderer nuevo en `PptxGenJS` con narrativa fija de 9 slides.
-- Lenguaje visual BBVA: paleta, jerarquías, cards KPI, charts y cierre ejecutivo.
-- Soporte para miniaturas reales en top comunicaciones e hitos.
-- Soporte para contexto manual opcional (`data/manual_context/<period_slug>.json`).
-- Fallback automático: si falla Gemini, igual genera un deck básico con los KPIs calculados.
-- Workflow listo para GitHub Actions con Python + Node.
+- No se anexa la plantilla completa.
+- No se muestran títulos técnicos internos (`slide_*`).
+- No se renderizan slides vacías.
+- Módulo de **eventos** es condicional:
+  - si no hay data suficiente, se omite.
+- Si no hay comparabilidad histórica, se informa: **“No comparable por alcance de fuente”**.
 
-## Estructura
+## Contrato mensual esperado
 
-- `scripts/fetch_dashboard_pdfs.py`: descarga los PDFs desde Gmail.
-- `scripts/pdf_processor.py`: genera el resumen mensual estructurado.
-- `scripts/analyzer.py`: consolida KPIs, rankings, timelines y distribuciones.
-- `scripts/generate_report.py`: arma el JSON final del deck y genera los artefactos.
-- `scripts/pptx_renderer.js`: renderer principal del PowerPoint.
-- `scripts/pptx_renderer.py`: wrapper Python del renderer.
-- `data/manual_context/`: overrides opcionales por período.
-- `templates/manual_context.example.json`: ejemplo de override manual.
-- `assets/demo/`: miniaturas demo para probar el renderer.
-- `assets/brand/`: logos oficiales usados por el renderer (`bbva_logo_blue.png` y `bbva_logo_white.png`).
+Cada resumen mensual debe incluir (mínimo):
 
-## Requisitos locales
+- `plan_total`
+- `site_notes_total`
+- `site_total_views`
+- `mail_total`
+- `mail_open_rate`
+- `mail_interaction_rate`
+- `strategic_axes[]`
+- `internal_clients[]`
+- `channel_mix[]`
+- `format_mix[]`
+- `top_push_by_interaction[]`
+- `top_push_by_open_rate[]`
+- `top_pull_notes[]`
+- `hitos[]`
+- `events[]`
+- `quality_flags`
 
-- Python 3.11+
-- Node 20+
-- acceso a Gmail API
-- `GEMINI_API_KEY`
+`quality_flags` obligatorios:
 
-## Instalación local
+- `scope_country`
+- `scope_mixed`
+- `site_has_no_data_sections`
+- `events_summary_available`
+- `push_ranking_available`
+- `pull_ranking_available`
+- `historical_comparison_allowed`
+
+## Estructura del deck de salida
+
+1. Portada template
+2. Resumen ejecutivo del período
+3. Gestión de canales
+4. Mix temático y áreas solicitantes
+5. Ranking push
+6. Ranking pull
+7. Hitos del mes
+8. Eventos del mes (condicional)
+9. Cierre template
+
+## Comandos
+
+### Instalación
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # en Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 npm install
 ```
 
-## Variables de entorno
-
-### Gmail API
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `GOOGLE_REFRESH_TOKEN`
-- `GOOGLE_TOKEN_URI` (opcional, default Google OAuth)
-- `GMAIL_EXPECTED_SENDER` (opcional, para filtrar remitente esperado)
-- `GMAIL_EXPECTED_KEYWORDS` (opcional, lista separada por coma para validar subject/filename)
-
-### Gemini
-- `GEMINI_API_KEY`
-- `GEMINI_MODEL` (opcional, default `gemini-2.5-flash`)
-- `GEMINI_FALLBACK_MODELS` (opcional, separados por coma; default `gemini-2.5-pro,gemini-2.0-flash` en workflow)
-- `GEMINI_ENABLE_MODEL_FALLBACK` (opcional, default `true`)
-- `GEMINI_MAX_RETRIES_PER_MODEL` (opcional, default `3`)
-- `GEMINI_INITIAL_BACKOFF_SECONDS` (opcional, default `3`)
-- `GEMINI_MAX_BACKOFF_SECONDS` (opcional, default `30`)
-- `GEMINI_UPLOAD_PROCESS_TIMEOUT_SECONDS` (opcional, default `300`)
-- `GEMINI_UPLOAD_RETRIES` (opcional, default `3`)
-
-### Mail de salida
-- `EMAIL_USER`
-- `EMAIL_PASSWORD`
-- `EMAIL_DESTINATARIO`
-- `EMAIL_CC` (opcional)
-- `EMAIL_BCC` (opcional)
-- `EMAIL_FROM` (opcional)
-- `SMTP_HOST` (opcional, default `smtp.gmail.com`)
-- `SMTP_PORT` (opcional, default `587`)
-
-### Reporte
-- `REPORT_TIMEZONE` (default `America/Argentina/Buenos_Aires`)
-- `REPORT_MODE` (`auto`, `month`, `month_and_quarter`, `quarter`, `year`, `quarter_and_year`)
-- `REPORT_YEAR`
-- `REPORT_MONTH`
-- `REPORT_QUARTER`
-- `ALLOW_PARTIAL_PERIOD` (`true`/`false`)
-- `REPORT_SLUG` (para generación/envío puntual)
-
-## Uso local
-
-### 1) Descargar PDFs del período
+### Tests
 
 ```bash
-python scripts/fetch_dashboard_pdfs.py
+python -m unittest discover -s tests -p 'test*.py'
 ```
 
-### 2) Generar deck para un período puntual
+### Generar reporte puntual
 
 ```bash
 REPORT_SLUG=month_2026_03 python scripts/generate_report.py
 ```
 
-### 3) Enviar el reporte generado
+### Pipeline completo (fetch + generate + send)
 
 ```bash
-REPORT_SLUG=month_2026_03 python scripts/send_email.py
+python scripts/run_scheduled_reports.py
 ```
 
-### 4) Probar el renderer con la demo incluida
+### Render de muestra del renderer JS (modo full demo)
 
 ```bash
-node scripts/pptx_renderer.js templates/sample_report_definitive.json sample_bbva_report_definitive.pptx
+npm run render:sample
 ```
 
-## Contexto manual opcional
+## CI
 
-Para completar hitos, eventos o miniaturas reales, podés crear:
+Workflow: `.github/workflows/comms-report.yml`
 
-`data/manual_context/<period_slug>.json`
+Orden de ejecución:
+1. instala dependencias Python + Node
+2. corre tests
+3. ejecuta pipeline
+4. sube artefactos
 
-Ejemplo en `templates/manual_context.example.json`.
-
-Se usa para:
-- `slide_5_push_ranking.top_communications[].thumbnail_path`
-- `slide_7_hitos`
-- `slide_8_events`
-- `slide_9_closure`
-- metadata adicional del envío
-
-## Artefactos generados
-
-En `output/reports/<period_slug>/` se guardan:
-
-- `metadata.json`
-- `report_raw.json`
-- `report.html`
-- `report.pptx`
-
-Los summaries mensuales se cachean en `data/monthly_summaries/` para reutilización consistente entre corridas.
-
-Si Gemini falla y no existe cache previa del mes, el pipeline genera automáticamente un summary mínimo en modo `local_fallback` para no frenar la generación del reporte.
-
-## Nota operativa
-
-El dashboard es la fuente principal del reporte, pero los módulos de `hitos`, `eventos` y miniaturas pueden requerir contexto manual adicional para quedar al nivel del deck editorial del equipo.
-
-
-## Presentación
-
-El renderer incorpora ajuste automático de texto y límites por caja para evitar superposición entre textos, gráficos y paneles cuando cambian los datos del período.
-
-### Plantilla corporativa base
-
-Para renderizar con plantilla corporativa usando `python-pptx`, colocá un archivo base en:
-
-- `assets/plantilla-bbva.pptx`
-
-Por defecto (`PPTX_TEMPLATE_MODE=frame`), el pipeline trata esta plantilla como un marco visual:
-
-- conserva solo la **primera slide** como portada
-- reemplaza el texto exacto `FECHA` por el período del reporte
-- genera las slides de contenido en el medio
-- conserva la **última slide** como cierre
-
-Si hubiera slides intermedias en la plantilla, no se incluyen en el output en modo `frame`.
-
-Para comportamiento legado (anexar slides generadas a la plantilla), usar `PPTX_TEMPLATE_MODE=append`.
+Si los tests fallan, no avanza a generación/envío.
