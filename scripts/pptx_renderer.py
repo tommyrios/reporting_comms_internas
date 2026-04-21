@@ -79,6 +79,11 @@ def _remove_slide(prs: Presentation, slide_index: int) -> None:
     del prs.slides._sldIdLst[slide_index]
 
 
+def _remove_middle_template_slides(prs: Presentation, initial_slide_count: int) -> None:
+    for idx in range(max(initial_slide_count - 2, 0), 0, -1):
+        _remove_slide(prs, idx)
+
+
 def _move_slide_to_end(prs: Presentation, slide_id_element) -> None:
     prs.slides._sldIdLst.remove(slide_id_element)
     prs.slides._sldIdLst.append(slide_id_element)
@@ -185,8 +190,7 @@ def _render_template_frame(report: dict[str, Any], output_path: Path, template_p
             body_sections = [("contenido", payload)]
         _render_content_slide(slide, title, body_sections)
 
-    for idx in range(max(initial_slide_count - 2, 0), 0, -1):
-        _remove_slide(prs, idx)
+    _remove_middle_template_slides(prs, initial_slide_count)
 
     if closing_slide_id is not None and prs.slides._sldIdLst[-1] is not closing_slide_id:
         _move_slide_to_end(prs, closing_slide_id)
