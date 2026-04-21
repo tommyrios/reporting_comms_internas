@@ -1,15 +1,24 @@
 import json
+import logging
 import os
 from copy import deepcopy
 from datetime import datetime
 from typing import Any
 
-from analyzer import BASE_STRUCTURE, compute_kpis, validate_report_json
+from analyzer import (
+    BASE_STRUCTURE,
+    build_render_plan,
+    compute_kpis,
+    validate_monthly_summary_contract,
+    validate_report_json,
+)
 from config import DATA_DIR, MANUAL_CONTEXT_DIR, REPORTS_DIR, ensure_dir
 from history_manager import apply_historical_comparison, persist_calculated_totals
 from llm_client import build_genai_client, call_gemini_for_json, load_prompt
 from pdf_processor import summarize_month
 from pptx_renderer import create_pptx
+
+logger = logging.getLogger(__name__)
 
 
 def get_period_definition(period_slug: str) -> dict[str, Any]:
@@ -45,173 +54,52 @@ def load_manual_context(period_slug: str) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _fmt_pct(value: Any) -> str:
-    if value in (None, "", "-"):
-        return "-"
-    try:
-        n = float(str(value).replace("%", "").replace(",", "."))
-    except Exception:
-        return str(value)
-    if n.is_integer():
-        return f"{int(n)}%"
-    return f"{str(round(n, 1)).replace('.', ',')}%"
-
-
-def build_fallback_report(period: dict[str, Any], kpis: dict[str, Any]) -> dict[str, Any]:
-    report = validate_report_json(deepcopy(BASE_STRUCTURE))
+def _build_fallback_narrative(kpis: dict[str, Any]) -> dict[str, Any]:
     totals = kpis.get("calculated_totals", {})
-    timelines = kpis.get("timelines", {})
-    distributions = kpis.get("aggregated_distributions", {})
-    rankings = kpis.get("consolidated_rankings", {})
-
-    report["slide_1_cover"].update({
-        "area": "Comunicaciones Internas",
-        "period": period.get("label", "-"),
-        "subtitle": "Informe de gestión",
-    })
-
-    report["slide_2_overview"].update({
-        "headline": "¿Cómo nos fue? CI",
-        "volume_current": totals.get("push_volume_period", "-"),
-        "volume_previous": totals.get("previous_push_volume", "-"),
-        "volume_change": totals.get("latest_push_variation", "-"),
-        "push_open_rate": _fmt_pct(totals.get("average_open_rate", "-")),
-        "push_interaction_rate": _fmt_pct(totals.get("average_interaction_rate", "-")),
-        "pull_notes_current": totals.get("pull_notes_period", "-"),
-        "average_reads": totals.get("average_reads_per_note", "-"),
-        "audience_segments": distributions.get("audience_segments", []),
-        "comparison_timeline": timelines.get("push_volume", []),
-        "comparative_note": "La comparación muestra el comportamiento del volumen principal del período.",
-        "conclusion_message": "El deck se generó en modo fallback a partir de KPIs consolidados del período.",
-        "highlights": [
-            f"{totals.get('push_volume_period', 0)} comunicaciones relevadas.",
-            f"{totals.get('pull_notes_period', 0)} contenidos pull publicados.",
-            f"{_fmt_pct(totals.get('average_open_rate', '-'))} de apertura promedio.",
+    flags = kpis.get("quality_flags", {})
+    historical_note = (
+        "No comparable por alcance de fuente"
+        if not flags.get("historical_comparison_allowed", True)
+        else "Comparación histórica habilitada para el mismo alcance de fuentes."
+    )
+    return {
+        "executive_summary": historical_note,
+        "executive_takeaways": [
+            f"{totals.get('plan_total', 0)} comunicaciones planificadas en el período.",
+            f"{totals.get('site_notes_total', 0)} noticias publicadas con {totals.get('site_total_views', 0)} páginas vistas.",
+            f"Apertura promedio {totals.get('mail_open_rate', 0)}% e interacción {totals.get('mail_interaction_rate', 0)}%.",
         ],
-    })
-
-    report["slide_3_plan"].update({
-        "mail_total": totals.get("push_volume_period", "-"),
-        "open_rate": _fmt_pct(totals.get("average_open_rate", "-")),
-        "pull_total": totals.get("pull_notes_period", "-"),
-        "mail_timeline": timelines.get("push_volume", []),
-        "pull_timeline": timelines.get("pull_notes", []),
-        "mail_message": "El canal principal mantuvo el volumen operativo del período.",
-        "pull_message": "El canal pull aportó profundidad de lectura y continuidad editorial.",
-        "footer": "La gestión del período combinó volumen, lectura y continuidad de agenda.",
-    })
-
-    report["slide_4_strategy"].update({
-        "content_distribution": distributions.get("strategic_axes", []),
-        "internal_clients": distributions.get("internal_clients", []),
-        "theme_message": "La agenda se concentró en los ejes con mayor peso relativo.",
-        "balance_message": "El balance editorial debe leerse junto al mix institucional y de servicio.",
-        "conclusion": "La estrategia del período puede explicarse a partir del mix temático consolidado.",
-    })
-
-    report["slide_5_push_ranking"].update({
-        "top_communications": rankings.get("top_push", []),
-        "key_learning": "Las comunicaciones top ayudan a detectar formatos y temáticas con mejor respuesta.",
-    })
-
-    report["slide_6_pull_performance"].update({
-        "pub_current": totals.get("pull_notes_period", "-"),
-        "top_notes": rankings.get("top_pull", []),
-        "avg_reads": totals.get("average_reads_per_note", "-"),
-        "total_views": totals.get("pull_reads_period", "-"),
-        "secondary_message": "El desempeño pull permite leer profundidad y tracción de contenidos.",
-        "conclusion": "Las notas top marcan qué contenidos sostuvieron lectura en el período.",
-    })
-
-    report["slide_7_hitos"] = kpis.get("hitos_crudos", [])
-    report["slide_8_events"].update({
-        "conclusion": "No se detectó un consolidado de eventos en la fuente automática de esta corrida.",
-    })
-    report["slide_9_closure"].update({
-        "bullets": [
-            report["slide_2_overview"]["conclusion_message"],
-            report["slide_5_push_ranking"]["key_learning"],
-            report["slide_6_pull_performance"]["conclusion"],
-        ]
-    })
-    return report
+        "channel_management": "El desempeño de canales se consolidó con métricas verificables y sin inferencias.",
+        "mix_thematic_clients": "El mix temático y de áreas solicitantes resume la demanda efectiva del período.",
+        "ranking_push": "El ranking push se construyó solo con datos observables en la fuente.",
+        "ranking_pull": "El ranking pull prioriza lecturas reales y evita proyecciones no sustentadas.",
+        "milestones": "Los hitos incluidos reflejan actividades detectadas en el mes.",
+        "events": "La sección de eventos se muestra únicamente cuando existe detalle suficiente.",
+    }
 
 
-def _decorate_report(report_raw: dict[str, Any], period: dict[str, Any], kpis: dict[str, Any]) -> dict[str, Any]:
-    report = validate_report_json(report_raw)
-    totals = kpis.get("calculated_totals", {})
-    timelines = kpis.get("timelines", {})
-    distributions = kpis.get("aggregated_distributions", {})
-    rankings = kpis.get("consolidated_rankings", {})
-
-    report["slide_1_cover"]["area"] = report["slide_1_cover"].get("area") or "Comunicaciones Internas"
-    report["slide_1_cover"]["period"] = period.get("label") or report["slide_1_cover"].get("period")
-    report["slide_1_cover"]["subtitle"] = report["slide_1_cover"].get("subtitle") or "Informe de gestión"
-
-    overview = report["slide_2_overview"]
-    overview["volume_current"] = overview.get("volume_current") if overview.get("volume_current") != "-" else totals.get("push_volume_period", "-")
-    overview["volume_previous"] = overview.get("volume_previous") if overview.get("volume_previous") != "-" else totals.get("previous_push_volume", "-")
-    overview["volume_change"] = overview.get("volume_change") if overview.get("volume_change") != "-" else totals.get("latest_push_variation", "-")
-    overview["push_open_rate"] = overview.get("push_open_rate") if overview.get("push_open_rate") != "-" else _fmt_pct(totals.get("average_open_rate", "-"))
-    overview["push_interaction_rate"] = overview.get("push_interaction_rate") if overview.get("push_interaction_rate") != "-" else _fmt_pct(totals.get("average_interaction_rate", "-"))
-    overview["pull_notes_current"] = overview.get("pull_notes_current") if overview.get("pull_notes_current") != "-" else totals.get("pull_notes_period", "-")
-    overview["average_reads"] = overview.get("average_reads") if overview.get("average_reads") != "-" else totals.get("average_reads_per_note", "-")
-    if not overview.get("audience_segments"):
-        overview["audience_segments"] = distributions.get("audience_segments", [])
-    if not overview.get("comparison_timeline"):
-        overview["comparison_timeline"] = timelines.get("push_volume", [])
-    if not overview.get("highlights"):
-        overview["highlights"] = [
-            f"{totals.get('push_volume_period', 0)} comunicaciones relevadas.",
-            f"{totals.get('pull_notes_period', 0)} contenidos pull.",
-            f"{_fmt_pct(totals.get('average_open_rate', '-'))} de apertura promedio.",
-        ]
-
-    plan = report["slide_3_plan"]
-    plan["mail_total"] = plan.get("mail_total") if plan.get("mail_total") != "-" else totals.get("push_volume_period", "-")
-    plan["pull_total"] = plan.get("pull_total") if plan.get("pull_total") != "-" else totals.get("pull_notes_period", "-")
-    plan["open_rate"] = plan.get("open_rate") if plan.get("open_rate") != "-" else _fmt_pct(totals.get("average_open_rate", "-"))
-    if not plan.get("mail_timeline"):
-        plan["mail_timeline"] = timelines.get("push_volume", [])
-    if not plan.get("pull_timeline"):
-        plan["pull_timeline"] = timelines.get("pull_notes", [])
-
-    strategy = report["slide_4_strategy"]
-    if not strategy.get("content_distribution"):
-        strategy["content_distribution"] = distributions.get("strategic_axes", [])
-    if not strategy.get("internal_clients"):
-        strategy["internal_clients"] = distributions.get("internal_clients", [])
-
-    if not report["slide_5_push_ranking"].get("top_communications"):
-        report["slide_5_push_ranking"]["top_communications"] = rankings.get("top_push", [])
-
-    pull = report["slide_6_pull_performance"]
-    if not pull.get("top_notes"):
-        pull["top_notes"] = rankings.get("top_pull", [])
-    pull["pub_current"] = pull.get("pub_current") if pull.get("pub_current") != "-" else totals.get("pull_notes_period", "-")
-    pull["avg_reads"] = pull.get("avg_reads") if pull.get("avg_reads") != "-" else totals.get("average_reads_per_note", "-")
-    pull["total_views"] = pull.get("total_views") if pull.get("total_views") != "-" else totals.get("pull_reads_period", "-")
-
-    if not report.get("slide_7_hitos"):
-        report["slide_7_hitos"] = kpis.get("hitos_crudos", [])
-
-    closure = report["slide_9_closure"]
-    if not closure.get("bullets"):
-        closure["bullets"] = [
-            overview.get("conclusion_message", "-"),
-            report["slide_5_push_ranking"].get("key_learning", "-"),
-            pull.get("conclusion", "-"),
-        ]
-
-    return report
+def _sanitize_narrative(raw: Any) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        return {}
+    clean: dict[str, Any] = {}
+    for key, value in raw.items():
+        if isinstance(value, str):
+            text = " ".join(value.replace("_", " ").split())
+            if "slide_" in text.lower():
+                text = text.replace("slide_", "")
+            clean[key] = text
+        elif isinstance(value, list):
+            clean[key] = [" ".join(str(item).replace("_", " ").split()) for item in value if str(item).strip()][:4]
+    return clean
 
 
 def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_extra: dict[str, Any] | None = None) -> str:
     report_dir = ensure_dir(REPORTS_DIR / period_slug)
+    period_label = report.get("period", {}).get("label", "-")
     metadata = {
-        "title": report.get("slide_1_cover", {}).get("area"),
-        "subtitle": report.get("slide_1_cover", {}).get("subtitle"),
-        "period": report.get("slide_1_cover", {}).get("period"),
+        "title": "Comunicaciones Internas",
+        "subtitle": "Informe ejecutivo mensual",
+        "period": period_label,
         "period_slug": period_slug,
         "generated_at": datetime.utcnow().isoformat() + "Z",
     }
@@ -220,7 +108,7 @@ def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_ex
 
     (report_dir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     (report_dir / "report_raw.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    create_pptx(report, report_dir / "report.pptx")
+    create_pptx(report, report_dir / "report.pptx", template_mode="frame")
     html_content = (
         "<html><body>"
         f"<h2>{metadata['title']}</h2>"
@@ -232,64 +120,97 @@ def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_ex
     return str(report_dir)
 
 
-def generate_period_report(period_slug: str, force_regenerate: bool = False) -> dict[str, Any]:
-    period = get_period_definition(period_slug)
+def _request_narrative(period: dict[str, Any], kpis: dict[str, Any], monthly_summaries: list[dict[str, Any]]) -> tuple[dict[str, Any], str, str | None]:
     client = build_genai_client()
-    summaries = []
-    summary_warnings = []
-    for month_key in period.get("months", []):
-        summary = summarize_month(client, month_key, force_regenerate)
-        summaries.append(summary)
-        if summary.get("generation_mode") == "local_fallback":
-            summary_warnings.append(
-                summary.get("warning") or f"Se usó summary local_fallback para {month_key} por falla del LLM."
-            )
-
-    kpis_calculados = compute_kpis(summaries)
-    kpis_calculados = apply_historical_comparison(period, kpis_calculados)
-
     prompt_base = load_prompt("period_report.txt")
     prompt_final = (
         f"{prompt_base}\n\n"
         f"INPUT (PERIODO):\n{json.dumps(period, ensure_ascii=False)}\n\n"
-        f"INPUT (KPI_CALCULADOS):\n{json.dumps(kpis_calculados, ensure_ascii=False)}\n\n"
-        f"CONTEXTO (RESUMENES_MENSUALES):\n{json.dumps(summaries, ensure_ascii=False)}"
+        f"INPUT (KPI_CALCULADOS):\n{json.dumps(kpis, ensure_ascii=False)}\n\n"
+        f"INPUT (RESUMENES_MENSUALES):\n{json.dumps(monthly_summaries, ensure_ascii=False)}"
     )
-
-    generation_mode = "llm"
-    warning = None
     try:
-        report_raw = call_gemini_for_json(client, [prompt_final])
-        report = _decorate_report(report_raw, period, kpis_calculados)
+        narrative_raw = call_gemini_for_json(client, [prompt_final])
+        return _sanitize_narrative(narrative_raw), "llm", None
     except Exception as exc:
-        generation_mode = "fallback"
-        warning = f"Se generó el reporte sin redacción del LLM: {str(exc)}"
-        report = build_fallback_report(period, kpis_calculados)
+        return _build_fallback_narrative(kpis), "fallback", f"Se generó narrativa fallback: {str(exc)}"
 
-    all_warnings = []
-    if warning:
-        all_warnings.append(warning)
-    all_warnings.extend(summary_warnings)
-    combined_warning = " | ".join(all_warnings) if all_warnings else None
+
+def generate_period_report(period_slug: str, force_regenerate: bool = False) -> dict[str, Any]:
+    period = get_period_definition(period_slug)
+    client = build_genai_client()
+
+    monthly_summaries_raw: list[dict[str, Any]] = []
+    monthly_summaries_validated: list[dict[str, Any]] = []
+    warnings: list[str] = []
+
+    for month_key in period.get("months", []):
+        summary = summarize_month(client, month_key, force_regenerate)
+        monthly_summaries_raw.append(summary)
+        if summary.get("generation_mode") == "local_fallback":
+            warnings.append(summary.get("warning") or f"Summary mensual en fallback para {month_key}")
+
+        validated = validate_monthly_summary_contract(summary)
+        monthly_summaries_validated.append(validated)
+
+    kpis_calculados = compute_kpis(monthly_summaries_validated)
+    kpis_calculados = apply_historical_comparison(period, kpis_calculados)
+
+    if not kpis_calculados.get("quality_flags", {}).get("historical_comparison_allowed", True):
+        totals = kpis_calculados.setdefault("calculated_totals", {})
+        totals["volume_change"] = "No comparable por alcance de fuente"
+        totals["latest_push_variation"] = "No comparable por alcance de fuente"
+
+    narrative, narrative_mode, narrative_warning = _request_narrative(period, kpis_calculados, monthly_summaries_raw)
+    if narrative_warning:
+        warnings.append(narrative_warning)
+
+    render_plan = build_render_plan(period, kpis_calculados, narrative)
+
+    report = validate_report_json(
+        {
+            **deepcopy(BASE_STRUCTURE),
+            "period": {
+                "slug": period.get("slug"),
+                "label": period.get("label"),
+            },
+            "kpis": kpis_calculados,
+            "narrative": narrative,
+            "quality_flags": kpis_calculados.get("quality_flags", {}),
+            "render_plan": render_plan,
+        }
+    )
 
     manual_context = load_manual_context(period_slug)
     if manual_context:
         report = _deep_merge(report, {k: v for k, v in manual_context.items() if k != "metadata"})
 
-    report = validate_report_json(report)
+    modules = [module.get("key") for module in report.get("render_plan", {}).get("modules", []) if isinstance(module, dict)]
+    is_events_omitted = "events" not in modules
+    if is_events_omitted:
+        warnings.append("Módulo de eventos omitido por falta de datos suficientes")
+
     metadata_extra = {
-        "warning": combined_warning or manual_context.get("metadata", {}).get("warning"),
+        "warning": " | ".join(warnings) if warnings else manual_context.get("metadata", {}).get("warning"),
         "email_subject": manual_context.get("metadata", {}).get("email_subject") or period.get("email_subject"),
-        "generation_mode": generation_mode,
+        "generation_mode": narrative_mode,
+        "rendered_modules": modules,
+        "omitted_modules": ["events"] if is_events_omitted else [],
     }
+
     persist_calculated_totals(period, kpis_calculados)
     report_dir = write_report_artifacts(period_slug, report, metadata_extra=metadata_extra)
+
+    logger.info("render_modules=%s", modules)
+    if is_events_omitted:
+        logger.info("omit_module=events reason=insufficient_data")
+
     return {
         "status": "ok",
         "period_slug": period_slug,
         "report_dir": report_dir,
-        "generation_mode": generation_mode,
-        "warning": combined_warning,
+        "generation_mode": narrative_mode,
+        "warning": metadata_extra["warning"],
     }
 
 

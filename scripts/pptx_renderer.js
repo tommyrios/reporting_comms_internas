@@ -2,36 +2,27 @@
 const fs = require('fs');
 const path = require('path');
 const PptxGenJS = require('pptxgenjs');
-const {
-  imageSizingCrop,
-  imageSizingContain,
-  safeOuterShadow,
-  warnIfSlideHasOverlaps,
-  warnIfSlideElementsOutOfBounds,
-} = require('./pptx_helpers_local');
+const { imageSizingContain, safeOuterShadow } = require('./pptx_helpers_local');
 
 const inputJsonPath = process.argv[2];
 const outputPptxPath = process.argv[3];
+const modeArg = process.argv.find((arg) => arg.startsWith('--mode='));
+const renderMode = (modeArg ? modeArg.split('=')[1] : 'body').toLowerCase();
+
 if (!inputJsonPath || !outputPptxPath) {
-  console.error('Usage: node scripts/pptx_renderer.js <report.json> <output.pptx>');
+  console.error('Usage: node scripts/pptx_renderer.js <report.json> <output.pptx> [--mode=body|full]');
   process.exit(1);
 }
 
 const report = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8'));
 const pptx = new PptxGenJS();
-pptx.layout = 'LAYOUT_WIDE';
-pptx.author = 'OpenAI';
-pptx.company = 'BBVA';
-pptx.subject = 'Informe de gestión';
-pptx.title = `${report?.slide_1_cover?.area || 'Comunicaciones Internas'} - ${report?.slide_1_cover?.period || ''}`;
-pptx.lang = 'es-AR';
-pptx.theme = {
-  headFontFace: 'Source Serif 4',
-  bodyFontFace: 'Lato',
-  lang: 'es-AR',
-};
 pptx.defineLayout({ name: 'BBVA_WIDE', width: 13.333, height: 7.5 });
 pptx.layout = 'BBVA_WIDE';
+pptx.author = 'OpenAI';
+pptx.company = 'BBVA';
+pptx.subject = 'Comunicaciones Internas';
+pptx.lang = 'es-AR';
+pptx.theme = { headFontFace: 'Source Serif 4', bodyFontFace: 'Lato', lang: 'es-AR' };
 
 const COLORS = {
   electricBlue: '001391',
@@ -42,96 +33,14 @@ const COLORS = {
   ice: '8BE1E9',
   lime: '88E783',
   canary: 'FFE761',
-  purple: '9694FF',
-  mandarin: 'FFB56B',
-  grey5: '000519',
   grey4: '46536D',
-  grey3: 'ADB8C2',
   grey2: 'CAD1D8',
   grey1: 'E2E6EA',
 };
-const ACCENTS = [COLORS.electricBlue, COLORS.sereneBlue, COLORS.ice, COLORS.lime, COLORS.canary, COLORS.purple, COLORS.mandarin, '6DB8FF'];
+const DEFAULT_EXECUTIVE_TAKEAWAY = 'Se consolidó el desempeño mensual con métricas verificables.';
+
 const BRAND_ASSETS_DIR = path.resolve(__dirname, '..', 'assets', 'brand');
 const BBVA_LOGO_BLUE = path.join(BRAND_ASSETS_DIR, 'bbva_logo_blue.png');
-const BBVA_LOGO_WHITE = path.join(BRAND_ASSETS_DIR, 'bbva_logo_white.png');
-
-function coalesce(...values) {
-  for (const value of values) {
-    if (value !== undefined && value !== null && String(value).trim() !== '') return value;
-  }
-  return '-';
-}
-
-function parseNumber(value) {
-  if (typeof value === 'number') return value;
-  if (value === null || value === undefined || value === '-') return 0;
-  const cleaned = String(value)
-    .replace(/%/g, '')
-    .replace(/\./g, '')
-    .replace(/,/g, '.')
-    .replace(/[^0-9.-]/g, '');
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function formatNumber(value) {
-  const n = parseNumber(value);
-  return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 1 }).format(n);
-}
-
-function formatPercent(value) {
-  if (value === '-' || value === '' || value === null || value === undefined) return '-';
-  const raw = String(value);
-  if (raw.includes('%')) return raw.replace('.', ',');
-  const n = parseNumber(value);
-  return `${new Intl.NumberFormat('es-AR', {
-    minimumFractionDigits: n % 1 ? 1 : 0,
-    maximumFractionDigits: 1,
-  }).format(n)}%`;
-}
-
-function truncate(text, max = 62) {
-  const clean = String(coalesce(text, '-')).replace(/\s+/g, ' ').trim();
-  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
-}
-
-function estimateCharsPerLine(w, fontSize) {
-  const safeW = Math.max(0.6, Number(w) || 1);
-  const safeFs = Math.max(7, Number(fontSize) || 12);
-  return Math.max(10, Math.floor((safeW * 10.2) * (12 / safeFs)));
-}
-
-function estimateLineCount(text, w, fontSize) {
-  const parts = String(coalesce(text, '')).split(/\n+/);
-  const cpl = estimateCharsPerLine(w, fontSize);
-  return Math.max(1, parts.reduce((acc, part) => acc + Math.max(1, Math.ceil(part.length / cpl)), 0));
-}
-
-function fitFontSize(text, w, h, baseFontSize, minFontSize = 8, maxLines = null) {
-  const boxH = Math.max(0.18, Number(h) || 0.3);
-  let fs = Number(baseFontSize) || 12;
-  const minFs = Math.min(fs, Number(minFontSize) || 8);
-  while (fs > minFs) {
-    const lines = estimateLineCount(text, w, fs);
-    const requiredH = (lines * fs * 1.22) / 72 + 0.02;
-    if (requiredH <= boxH && (!maxLines || lines <= maxLines)) return fs;
-    fs -= 0.5;
-  }
-  return minFs;
-}
-
-function addSafeText(slide, text, opts = {}, fitOpts = {}) {
-  const content = String(coalesce(text, '-'));
-  const fontSize = fitFontSize(
-    content,
-    opts.w,
-    opts.h,
-    opts.fontSize || 12,
-    fitOpts.minFontSize || Math.max(7, (opts.fontSize || 12) - 4),
-    fitOpts.maxLines || null,
-  );
-  slide.addText(content, { ...opts, fontSize });
-}
 
 function resolveAsset(assetPath) {
   if (!assetPath) return null;
@@ -139,679 +48,500 @@ function resolveAsset(assetPath) {
   return fs.existsSync(maybe) ? maybe : null;
 }
 
-function addLogo(slide, dark = false, opts = {}) {
-  const logoPath = dark ? BBVA_LOGO_WHITE : BBVA_LOGO_BLUE;
-  const resolved = resolveAsset(logoPath);
-  const x = opts.x ?? 11.95;
-  const y = opts.y ?? 0.20;
-  const w = opts.w ?? 0.68;
-  const h = opts.h ?? 0.22;
-
-  if (resolved) {
-    slide.addImage({ path: resolved, ...imageSizingContain(resolved, x, y, w, h) });
-    return;
-  }
-
-  slide.addText('BBVA', {
-    x, y, w, h,
-    fontFace: 'Lato', bold: true, fontSize: 18,
-    color: dark ? COLORS.white : COLORS.electricBlue,
-    align: 'right', margin: 0,
-  });
+function cleanText(value, fallback = '-') {
+  const raw = String(value ?? '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  return raw || fallback;
 }
 
-function baseSlide(slide, title, section) {
+function parseNumber(value) {
+  if (typeof value === 'number') return value;
+  if (value === null || value === undefined || value === '-') return 0;
+  const cleaned = String(value).replace(/%/g, '').replace(/\./g, '').replace(/,/g, '.').replace(/[^0-9.-]/g, '');
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function fmtNum(value) {
+  return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(parseNumber(value));
+}
+
+function fmtPct(value) {
+  if (value === '-' || value === '' || value === null || value === undefined) return '-';
+  const n = parseNumber(value);
+  return `${new Intl.NumberFormat('es-AR', { minimumFractionDigits: n % 1 ? 1 : 0, maximumFractionDigits: 2 }).format(n)}%`;
+}
+
+function clip(value, max = 80) {
+  const text = cleanText(value, '-');
+  return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
+}
+
+function addLogo(slide) {
+  const logo = resolveAsset(BBVA_LOGO_BLUE);
+  if (logo) {
+    slide.addImage({ path: logo, ...imageSizingContain(logo, 12.0, 0.2, 0.72, 0.24) });
+  } else {
+    slide.addText('BBVA', { x: 11.9, y: 0.22, w: 0.9, h: 0.24, align: 'right', bold: true, color: COLORS.electricBlue, fontFace: 'Lato', fontSize: 16, margin: 0 });
+  }
+}
+
+function baseSlide(title, subtitle = '') {
+  const slide = pptx.addSlide();
   slide.background = { color: COLORS.sand };
-  addLogo(slide, false);
-  if (section) {
-    slide.addText(section.toUpperCase(), {
-      x: 0.62, y: 0.28, w: 3.2, h: 0.18,
-      fontFace: 'Lato', fontSize: 9.5, color: COLORS.grey4, margin: 0,
+  addLogo(slide);
+  if (subtitle) {
+    slide.addText(cleanText(subtitle, ''), {
+      x: 0.62, y: 0.24, w: 4.8, h: 0.18, fontFace: 'Lato', fontSize: 9.2, color: COLORS.grey4, margin: 0,
     });
   }
-  slide.addText(title, {
-    x: 0.62, y: 0.56, w: 5.8, h: 0.6,
-    fontFace: 'Source Serif 4', bold: true, fontSize: 24,
-    color: COLORS.electricBlue, margin: 0,
+  slide.addText(cleanText(title, 'Reporte ejecutivo'), {
+    x: 0.62, y: 0.54, w: 8.3, h: 0.52, fontFace: 'Source Serif 4', bold: true, fontSize: 24, color: COLORS.electricBlue, margin: 0,
   });
+  return slide;
 }
 
-function addFooter(slide, text) {
-  slide.addText(text, {
-    x: 0.72, y: 7.02, w: 11.86, h: 0.18,
-    fontFace: 'Lato', fontSize: 9.5, color: COLORS.grey4, margin: 0,
-    align: 'center',
-  });
-}
-
-function addPanel(slide, x, y, w, h, opts = {}) {
+function panel(slide, x, y, w, h, header = '') {
   slide.addShape(pptx.ShapeType.roundRect, {
-    x, y, w, h,
-    rectRadius: 0.06,
-    fill: { color: opts.fill || COLORS.white },
-    line: { color: opts.line || COLORS.grey1, width: opts.lineWidth || 1 },
-    shadow: opts.shadow ? safeOuterShadow('000000', 0.14, 45, 1.2, 0.6) : undefined,
+    x, y, w, h, rectRadius: 0.06,
+    fill: { color: COLORS.white },
+    line: { color: COLORS.grey1, width: 1 },
+    shadow: safeOuterShadow('000000', 0.1, 45, 0.8, 0.4),
   });
-  if (opts.header) {
-    slide.addShape(pptx.ShapeType.roundRect, {
-      x, y, w, h: opts.headerH || 0.58,
-      rectRadius: 0.06,
-      fill: { color: opts.headerFill || COLORS.electricBlue },
-      line: { color: opts.headerFill || COLORS.electricBlue, width: 1 },
+  if (header) {
+    slide.addText(cleanText(header), {
+      x: x + 0.16, y: y + 0.12, w: w - 0.32, h: 0.16,
+      fontFace: 'Lato', fontSize: 10, bold: true, color: COLORS.electricBlue, margin: 0,
     });
-    slide.addText(opts.header, {
-      x: x + 0.18, y: y + 0.11, w: w - 0.36, h: 0.17,
-      fontFace: 'Lato', fontSize: 10.5, bold: true,
-      color: opts.headerColor || COLORS.white, margin: 0,
+  }
+}
+
+function card(slide, x, y, w, h, label, value, accent = COLORS.sereneBlue) {
+  panel(slide, x, y, w, h);
+  slide.addShape(pptx.ShapeType.rect, { x, y, w, h: 0.06, fill: { color: accent }, line: { color: accent } });
+  slide.addText(cleanText(label), { x: x + 0.12, y: y + 0.14, w: w - 0.24, h: 0.14, fontFace: 'Lato', fontSize: 8.5, color: COLORS.grey4, margin: 0 });
+  slide.addText(String(value ?? '-'), { x: x + 0.12, y: y + 0.30, w: w - 0.24, h: 0.24, fontFace: 'Source Serif 4', bold: true, fontSize: 18, color: COLORS.electricBlue, margin: 0 });
+}
+
+function emptyState(slide, x, y, w, h, message) {
+  panel(slide, x, y, w, h, 'Sin datos suficientes');
+  slide.addText(clip(message || 'No hay datos consolidados para este módulo.', 120), {
+    x: x + 0.20, y: y + 0.52, w: w - 0.4, h: h - 0.72,
+    fontFace: 'Source Serif 4', bold: true, fontSize: 18, color: COLORS.electricBlue, align: 'center', valign: 'mid', margin: 0,
+  });
+}
+
+function tableRows(slide, x, y, w, headers, rows) {
+  const colW = w / headers.length;
+  headers.forEach((header, idx) => {
+    slide.addText(cleanText(header), {
+      x: x + idx * colW + 0.02, y, w: colW - 0.04, h: 0.2,
+      fontFace: 'Lato', fontSize: 9.5, bold: true, color: COLORS.grey4, margin: 0,
+      align: idx === 0 ? 'left' : 'right',
     });
-    if (opts.subheader) {
-      slide.addText(opts.subheader, {
-        x: x + 0.18, y: y + 0.30, w: w - 0.36, h: 0.12,
-        fontFace: 'Lato', fontSize: 7.5, color: opts.headerColor || COLORS.white, margin: 0,
+  });
+  rows.slice(0, 5).forEach((row, rowIndex) => {
+    const rowY = y + 0.28 + rowIndex * 0.42;
+    if (rowIndex % 2 === 0) {
+      slide.addShape(pptx.ShapeType.rect, {
+        x, y: rowY - 0.04, w, h: 0.34,
+        fill: { color: 'F9FBFD' }, line: { color: 'F9FBFD' },
       });
     }
-  }
-}
-
-function addMetricCard(slide, x, y, w, h, eyebrow, value, caption, accent = COLORS.sereneBlue) {
-  addPanel(slide, x, y, w, h, { fill: COLORS.white, line: COLORS.grey1 });
-  slide.addShape(pptx.ShapeType.rect, {
-    x, y, w, h: 0.07,
-    fill: { color: accent }, line: { color: accent },
-  });
-  slide.addText(eyebrow, {
-    x: x + 0.14, y: y + 0.12, w: w - 0.28, h: 0.14,
-    fontFace: 'Lato', fontSize: 8.5, color: COLORS.grey4, margin: 0,
-  });
-  slide.addText(String(coalesce(value, '-')), {
-    x: x + 0.14, y: y + 0.30, w: w - 0.28, h: 0.24,
-    fontFace: 'Source Serif 4', bold: true, fontSize: 18,
-    color: COLORS.electricBlue, margin: 0,
-  });
-  slide.addText(caption, {
-    x: x + 0.14, y: y + h - 0.20, w: w - 0.28, h: 0.12,
-    fontFace: 'Lato', fontSize: 8.5, color: COLORS.grey4, margin: 0,
-  });
-}
-
-function addBulletList(slide, x, y, w, bullets, opts = {}) {
-  const items = (bullets || []).slice(0, opts.maxItems || 4);
-  const boxH = opts.h || ((items.length || 1) * (opts.gap || 0.36));
-  const maxByHeight = Math.max(1, Math.floor(boxH / (opts.gap || 0.36)));
-  let cursorY = y;
-  items.slice(0, maxByHeight).forEach((bullet, idx) => {
-    const gap = opts.gap || 0.36;
-    const lineH = opts.lineH || 0.28;
-    if (cursorY + lineH > y + boxH) return;
-    slide.addShape(pptx.ShapeType.ellipse, {
-      x, y: cursorY + 0.05, w: 0.10, h: 0.10,
-      fill: { color: opts.bulletColors?.[idx] || ACCENTS[idx % ACCENTS.length] },
-      line: { color: opts.bulletColors?.[idx] || ACCENTS[idx % ACCENTS.length] },
+    row.forEach((value, colIndex) => {
+      slide.addText(clip(value, colIndex === 0 ? 60 : 16), {
+        x: x + colIndex * colW + 0.02, y: rowY, w: colW - 0.04, h: 0.18,
+        fontFace: colIndex === 0 ? 'Lato' : 'Source Serif 4',
+        bold: colIndex !== 0,
+        fontSize: colIndex === 0 ? 10 : 11,
+        color: colIndex === 0 ? COLORS.midnight : COLORS.electricBlue,
+        align: colIndex === 0 ? 'left' : 'right',
+        margin: 0,
+      });
     });
-    addSafeText(slide, bullet, {
-      x: x + 0.16, y: cursorY, w: w - 0.16, h: lineH,
-      fontFace: 'Lato', fontSize: opts.fontSize || 11, color: COLORS.midnight, margin: 0,
-      breakLine: false,
-    }, { minFontSize: opts.minFontSize || 7.8, maxLines: opts.maxLinesPerBullet || 2 });
-    cursorY += gap;
   });
 }
 
-function addImagePanel(slide, imgPath, x, y, w, h) {
-  const resolved = resolveAsset(imgPath);
-  if (resolved) {
-    slide.addImage({ path: resolved, ...imageSizingCrop(resolved, x, y, w, h) });
+function renderExecutiveSummary(module) {
+  const p = module.payload || {};
+  const slide = baseSlide(module.title || 'Resumen ejecutivo del período', 'Resumen');
+  card(slide, 0.62, 1.4, 1.95, 0.96, 'Planificación', fmtNum(p.plan_total), COLORS.sereneBlue);
+  card(slide, 2.72, 1.4, 1.95, 0.96, 'Noticias site', fmtNum(p.site_notes_total), COLORS.ice);
+  card(slide, 4.82, 1.4, 1.95, 0.96, 'Vistas site', fmtNum(p.site_total_views), COLORS.lime);
+  card(slide, 6.92, 1.4, 1.95, 0.96, 'Mails enviados', fmtNum(p.mail_total), COLORS.canary);
+  card(slide, 9.02, 1.4, 1.72, 0.96, 'Apertura', fmtPct(p.mail_open_rate), COLORS.sereneBlue);
+  card(slide, 10.86, 1.4, 1.82, 0.96, 'Interacción', fmtPct(p.mail_interaction_rate), COLORS.ice);
+
+  panel(slide, 0.62, 2.62, 8.2, 3.72, 'Lectura ejecutiva');
+  slide.addText(clip(p.historical_note || p.headline || '-', 240), {
+    x: 0.86, y: 3.04, w: 7.6, h: 0.84,
+    fontFace: 'Source Serif 4', bold: true, fontSize: 20, color: COLORS.midnight, margin: 0,
+  });
+  const takeaways = Array.isArray(p.takeaways) ? p.takeaways.filter(Boolean).slice(0, 3) : [];
+  (takeaways.length ? takeaways : [DEFAULT_EXECUTIVE_TAKEAWAY]).forEach((item, idx) => {
+    slide.addText(`• ${clip(item, 120)}`, {
+      x: 0.9, y: 4.1 + idx * 0.48, w: 7.5, h: 0.24,
+      fontFace: 'Lato', fontSize: 11, color: COLORS.midnight, margin: 0,
+    });
+  });
+
+  panel(slide, 8.98, 2.62, 3.7, 3.72, 'Mensaje clave');
+  slide.addText(clip(p.historical_note || '-', 160), {
+    x: 9.2, y: 3.1, w: 3.25, h: 2.8,
+    fontFace: 'Lato', fontSize: 11, color: COLORS.midnight, valign: 'mid', margin: 0,
+  });
+}
+
+function renderChannelManagement(module) {
+  const p = module.payload || {};
+  const slide = baseSlide(module.title || 'Gestión de canales', 'Canales');
+  card(slide, 0.62, 1.4, 2.1, 0.96, 'Mails enviados', fmtNum(p.mail_total), COLORS.sereneBlue);
+  card(slide, 2.88, 1.4, 2.1, 0.96, 'Apertura', fmtPct(p.mail_open_rate), COLORS.ice);
+  card(slide, 5.14, 1.4, 2.1, 0.96, 'Interacción', fmtPct(p.mail_interaction_rate), COLORS.lime);
+  card(slide, 7.4, 1.4, 2.1, 0.96, 'Noticias site', fmtNum(p.site_notes_total), COLORS.canary);
+  card(slide, 9.66, 1.4, 3.0, 0.96, 'Páginas vistas', fmtNum(p.site_total_views), COLORS.sereneBlue);
+
+  panel(slide, 0.62, 2.62, 6.2, 3.72, 'Mix de canales');
+  const mix = Array.isArray(p.channel_mix) ? p.channel_mix.slice(0, 5) : [];
+  if (!mix.length) {
+    emptyState(slide, 0.82, 2.94, 5.8, 3.2, p.site_has_no_data_sections ? 'El sitio reporta secciones sin datos en el período.' : 'No hay mix de canales para mostrar.');
   } else {
-    slide.addShape(pptx.ShapeType.roundRect, {
-      x, y, w, h, rectRadius: 0.04,
-      fill: { color: 'EEF3F7' }, line: { color: COLORS.grey1 },
-    });
-    slide.addText('Asset visual pendiente', {
-      x: x + 0.2, y: y + h / 2 - 0.12, w: w - 0.4, h: 0.24,
-      fontFace: 'Lato', fontSize: 10, color: COLORS.grey4, align: 'center', margin: 0,
+    slide.addChart('bar', [{
+      name: 'Canales',
+      labels: mix.map((x) => clip(x.label || x.theme, 18)),
+      values: mix.map((x) => parseNumber(x.value || x.weight)),
+    }], {
+      x: 0.9, y: 3.1, w: 5.45, h: 2.8,
+      showLegend: false,
+      chartColors: [COLORS.electricBlue],
+      catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: 8.5,
+      valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 8,
+      valGridLine: { color: COLORS.grey1, width: 1 },
+      showValue: true, dataLabelColor: COLORS.electricBlue, dataLabelPosition: 'outEnd',
     });
   }
-}
 
-function slideCover() {
-  const s1 = report.slide_1_cover || {};
-  const slide = pptx.addSlide();
-  slide.background = { color: COLORS.electricBlue };
-  addLogo(slide, true);
-
-  slide.addShape(pptx.ShapeType.roundRect, {
-    x: 8.25, y: 1.15, w: 2.8, h: 2.1,
-    rectRadius: 0.18,
-    fill: { color: COLORS.sereneBlue, transparency: 8 },
-    line: { color: COLORS.white, transparency: 55, width: 1.2 },
-  });
-  slide.addShape(pptx.ShapeType.ellipse, {
-    x: 10.1, y: 1.95, w: 0.28, h: 0.28,
-    fill: { color: COLORS.sereneBlue, transparency: 0 },
-    line: { color: COLORS.sereneBlue },
-  });
-  slide.addText(String((s1.period || '').split(' ').slice(-1)[0] || ''), {
-    x: 0.48, y: 2.05, w: 1.5, h: 0.36,
-    fontFace: 'Source Serif 4', bold: true, fontSize: 28,
-    color: COLORS.white, margin: 0,
-  });
-  slide.addShape(pptx.ShapeType.line, {
-    x: 0.48, y: 2.62, w: 8.0, h: 0,
-    line: { color: COLORS.white, transparency: 35, width: 1 },
-  });
-  slide.addText(`${coalesce(s1.area, 'Comunicaciones Internas')}\n${coalesce(s1.subtitle, 'Informe de gestión')}`, {
-    x: 0.48, y: 2.98, w: 5.9, h: 1.75,
-    fontFace: 'Source Serif 4', bold: true, fontSize: 30,
-    color: COLORS.white, margin: 0,
-  });
-  slide.addText(String(coalesce(s1.period, '-')), {
-    x: 0.5, y: 5.95, w: 3.8, h: 0.2,
-    fontFace: 'Lato', fontSize: 11.5, color: COLORS.white, margin: 0,
+  panel(slide, 6.98, 2.62, 5.7, 3.72, 'Narrativa');
+  slide.addText(clip(p.message || '-', 260), {
+    x: 7.22, y: 3.1, w: 5.2, h: 2.9,
+    fontFace: 'Lato', fontSize: 11, color: COLORS.midnight, valign: 'mid', margin: 0,
   });
 }
 
-function slideOverview() {
-  const s2 = report.slide_2_overview || {};
-  const timeline = (s2.comparison_timeline || []).slice(0, 6);
-  const slide = pptx.addSlide();
-  baseSlide(slide, s2.headline || '¿Cómo nos fue? CI', 'Resumen ejecutivo');
+function renderMix(module) {
+  const p = module.payload || {};
+  const strategic = Array.isArray(p.strategic_axes) ? p.strategic_axes.slice(0, 5) : [];
+  const clients = Array.isArray(p.internal_clients) ? p.internal_clients.slice(0, 5) : [];
+  const formats = Array.isArray(p.format_mix) ? p.format_mix.slice(0, 5) : [];
+  const slide = baseSlide(module.title || 'Mix temático y áreas solicitantes', 'Contenido');
 
-  addMetricCard(slide, 0.62, 1.36, 1.58, 0.92, 'Comunicaciones push', formatNumber(s2.volume_current), 'Período actual', COLORS.sereneBlue);
-  addMetricCard(slide, 2.33, 1.36, 1.58, 0.92, 'Apertura promedio', formatPercent(s2.push_open_rate), 'Tasa media', COLORS.ice);
-  addMetricCard(slide, 4.04, 1.36, 1.58, 0.92, 'Interacción', formatPercent(s2.push_interaction_rate), 'Tasa media', COLORS.lime);
-  addMetricCard(slide, 5.75, 1.36, 1.58, 0.92, 'Lecturas promedio', formatNumber(s2.average_reads), 'Por nota pull', COLORS.canary);
-
-  addPanel(slide, 0.62, 2.52, 3.55, 3.82, { fill: COLORS.white, line: COLORS.grey1 });
-  slide.addText('Lectura ejecutiva', {
-    x: 0.84, y: 2.78, w: 2.3, h: 0.18,
-    fontFace: 'Lato', fontSize: 10.5, bold: true, color: COLORS.electricBlue, margin: 0,
-  });
-  addSafeText(slide, truncate(s2.conclusion_message || '-', 185), {
-    x: 0.84, y: 3.06, w: 3.0, h: 0.92,
-    fontFace: 'Source Serif 4', bold: true, fontSize: 17,
-    color: COLORS.midnight, margin: 0,
-  }, { minFontSize: 13, maxLines: 4 });
-  addBulletList(slide, 0.86, 4.28, 3.0, (s2.highlights || []).length ? s2.highlights : [
-    `${formatNumber(s2.volume_current)} comunicaciones push en el período.`,
-    `${formatNumber(s2.pull_notes_current)} publicaciones pull relevadas.`,
-    `${formatNumber(s2.average_reads)} lecturas promedio por nota.`,
-  ], { maxItems: 4, gap: 0.42, fontSize: 10.5, lineH: 0.30, h: 1.2, minFontSize: 8.2, maxLinesPerBullet: 2 });
-
-  addPanel(slide, 4.38, 2.52, 2.85, 3.82, { header: 'SEGMENTACIÓN DE AUDIENCIA', subheader: '(promedio del período)' });
-  const segs = (s2.audience_segments || []).slice(0, 5);
-  if (segs.length) {
+  panel(slide, 0.62, 1.4, 3.95, 4.94, 'Ejes estratégicos');
+  if (!strategic.length) {
+    emptyState(slide, 0.84, 2.0, 3.5, 4.1, 'No hay distribución temática consolidada.');
+  } else {
     slide.addChart('doughnut', [{
-      name: 'Segmentación',
-      labels: segs.map((item) => truncate(item.label, 14)),
-      values: segs.map((item) => parseNumber(item.value)),
+      name: 'Ejes',
+      labels: strategic.map((x) => clip(x.label || x.theme, 14)),
+      values: strategic.map((x) => parseNumber(x.value || x.weight)),
     }], {
-      x: 4.58, y: 3.16, w: 1.65, h: 1.68,
+      x: 0.9, y: 2.0, w: 2.0, h: 2.1,
       holeSize: 68,
       chartColors: [COLORS.electricBlue, COLORS.sereneBlue, COLORS.ice, COLORS.lime, COLORS.canary],
       showLegend: false,
       showValue: false,
-      showTitle: false,
     });
-    addBulletList(slide, 4.62, 4.92, 2.2, segs.map((item) => `${truncate(item.label, 18)}  ${formatPercent(item.value)}`), {
-      maxItems: 5, gap: 0.28, fontSize: 8.7, lineH: 0.22, h: 1.2, minFontSize: 7.2, maxLinesPerBullet: 2,
+    strategic.forEach((row, idx) => {
+      slide.addText(`${idx + 1}. ${clip(row.label || row.theme, 16)} ${fmtPct(row.value || row.weight)}`, {
+        x: 3.0, y: 2.06 + idx * 0.34, w: 1.4, h: 0.16,
+        fontFace: 'Lato', fontSize: 8.5, color: COLORS.midnight, margin: 0,
+      });
     });
+  }
+
+  panel(slide, 4.82, 1.4, 3.95, 4.94, 'Áreas solicitantes');
+  if (!clients.length) {
+    emptyState(slide, 5.04, 2.0, 3.5, 4.1, 'No hay datos de áreas solicitantes.');
   } else {
-    slide.addText('Sin datos disponibles.', {
-      x: 4.7, y: 4.0, w: 2.0, h: 0.2,
-      fontFace: 'Lato', fontSize: 10, color: COLORS.grey4, margin: 0,
-    });
-  }
-
-  addPanel(slide, 7.46, 2.52, 5.2, 3.82, {
-    header: 'VOLUMEN DEL PERÍODO Y COMPARATIVO',
-    subheader: '(si no hay histórico, se mantiene como referencia simple)'
-  });
-  if (timeline.length) {
-    slide.addChart('column', [{
-      name: 'Volumen',
-      labels: timeline.map((item) => truncate(item.label, 10)),
-      values: timeline.map((item) => parseNumber(item.value)),
-    }], {
-      x: 7.72, y: 3.18, w: 3.2, h: 2.0,
-      showLegend: false,
-      chartColors: [COLORS.sereneBlue],
-      catAxisLabelFontFace: 'Lato',
-      catAxisLabelFontSize: 8,
-      valAxisLabelFontFace: 'Lato',
-      valAxisLabelFontSize: 8,
-      valGridLine: { color: COLORS.grey1, width: 1 },
-      showValue: true,
-      dataLabelColor: COLORS.electricBlue,
-      dataLabelPosition: 'outEnd',
-      showTitle: false,
-    });
-  }
-  slide.addText(String(coalesce(s2.volume_previous, '-')), {
-    x: 11.15, y: 3.24, w: 0.95, h: 0.28,
-    fontFace: 'Source Serif 4', bold: true, fontSize: 18, color: COLORS.grey4, margin: 0,
-  });
-  slide.addText('Período anterior', {
-    x: 11.15, y: 3.54, w: 1.15, h: 0.14,
-    fontFace: 'Lato', fontSize: 8.5, color: COLORS.grey4, margin: 0,
-  });
-  slide.addText(String(coalesce(s2.volume_change, '-')), {
-    x: 11.15, y: 4.02, w: 1.1, h: 0.28,
-    fontFace: 'Source Serif 4', bold: true, fontSize: 20, color: COLORS.electricBlue, margin: 0,
-  });
-  slide.addText('Variación', {
-    x: 11.15, y: 4.34, w: 0.9, h: 0.14,
-    fontFace: 'Lato', fontSize: 8.5, color: COLORS.grey4, margin: 0,
-  });
-  addSafeText(slide, truncate(s2.comparative_note || 'Síntesis del desempeño general del período.', 85), {
-    x: 11.0, y: 4.92, w: 1.35, h: 0.78,
-    fontFace: 'Lato', fontSize: 8.7, color: COLORS.midnight, margin: 0,
-  }, { minFontSize: 7, maxLines: 6 });
-  addFooter(slide, 'Síntesis del desempeño general del período.');
-}
-
-function slidePlan() {
-  const sPlan = report.slide_3_plan || {};
-  const mailTimeline = (sPlan.mail_timeline || []).slice(0, 6);
-  const pullTimeline = (sPlan.pull_timeline || []).slice(0, 6);
-  const slide = pptx.addSlide();
-  baseSlide(slide, sPlan.title || 'Gestión del plan CI', 'Canales');
-
-  addPanel(slide, 0.62, 1.4, 7.2, 4.95, { header: 'MAIL', subheader: '(evolución del volumen y saturación)' });
-  if (mailTimeline.length) {
-    slide.addChart('column', [{
-      name: 'Mail',
-      labels: mailTimeline.map((item) => truncate(item.label, 10)),
-      values: mailTimeline.map((item) => parseNumber(item.value)),
-    }], {
-      x: 0.88, y: 2.0, w: 4.3, h: 2.45,
-      showLegend: false,
-      chartColors: [COLORS.electricBlue],
-      catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: 8,
-      valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 8,
-      valGridLine: { color: COLORS.grey1, width: 1 },
-      showValue: true,
-      dataLabelColor: COLORS.electricBlue,
-      dataLabelPosition: 'outEnd',
-      showTitle: false,
-    });
-  }
-  addMetricCard(slide, 5.45, 2.0, 1.9, 0.96, 'Envíos del período', formatNumber(sPlan.mail_total || '-'), 'Total', COLORS.sereneBlue);
-  addMetricCard(slide, 5.45, 3.12, 1.9, 0.96, 'A todo BBVA', formatPercent(sPlan.segmented_share || '-'), 'Share de alcance', COLORS.ice);
-  addSafeText(slide, truncate(sPlan.mail_message || '-', 150), {
-    x: 0.88, y: 4.8, w: 6.2, h: 0.78,
-    fontFace: 'Lato', fontSize: 11.2, color: COLORS.midnight, margin: 0,
-  }, { minFontSize: 9, maxLines: 4 });
-
-  addPanel(slide, 8.02, 1.4, 4.64, 4.95, { header: 'INTRANET / SITE', subheader: '(volumen y lectura)' });
-  if (pullTimeline.length) {
-    slide.addChart('bar', [{
-      name: 'Notas',
-      labels: pullTimeline.map((item) => truncate(item.label, 10)),
-      values: pullTimeline.map((item) => parseNumber(item.value)),
-    }], {
-      x: 8.28, y: 2.0, w: 2.95, h: 2.1,
-      showLegend: false,
-      chartColors: [COLORS.sereneBlue],
-      catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: 8,
-      valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 8,
-      valGridLine: { color: COLORS.grey1, width: 1 },
-      showValue: true,
-      dataLabelColor: COLORS.electricBlue,
-      dataLabelPosition: 'outEnd',
-      showTitle: false,
-    });
-  }
-  addMetricCard(slide, 11.45, 2.0, 0.95, 0.96, 'Notas', formatNumber(sPlan.pull_total || '-'), 'Total', COLORS.lime);
-  addMetricCard(slide, 11.45, 3.12, 0.95, 0.96, 'Open', formatPercent(sPlan.open_rate || '-'), 'Prom.', COLORS.canary);
-  addSafeText(slide, truncate(sPlan.pull_message || '-', 150), {
-    x: 8.28, y: 4.55, w: 3.8, h: 0.88,
-    fontFace: 'Lato', fontSize: 11.2, color: COLORS.midnight, margin: 0,
-  }, { minFontSize: 9, maxLines: 4 });
-  addFooter(slide, sPlan.footer || 'Esta slide resume la gestión operacional de los principales canales.');
-}
-
-function slideStrategy() {
-  const s3 = report.slide_4_strategy || report.slide_3_strategy || {};
-  const slide = pptx.addSlide();
-  baseSlide(slide, 'Mix de contenidos y ejes estratégicos', 'Contenido');
-  const contentDistribution = (s3.content_distribution || []).slice(0, 6);
-  const clients = (s3.internal_clients || []).slice(0, 5);
-  const balance = s3.canal_balance || {};
-
-  addPanel(slide, 0.62, 1.4, 3.88, 4.95, { header: 'EJES ESTRATÉGICOS', subheader: '(participación promedio)' });
-  if (contentDistribution.length) {
-    slide.addChart('doughnut', [{
-      name: 'Ejes',
-      labels: contentDistribution.map((item) => truncate(item.theme, 16)),
-      values: contentDistribution.map((item) => parseNumber(item.weight)),
-    }], {
-      x: 0.86, y: 2.0, w: 1.95, h: 2.05,
-      holeSize: 68,
-      chartColors: ACCENTS.slice(0, Math.max(3, contentDistribution.length)),
-      showLegend: false,
-      showValue: false,
-    });
-    addBulletList(slide, 2.65, 2.06, 1.45, contentDistribution.map((item) => `${truncate(item.theme, 16)} ${formatPercent(item.weight)}`), {
-      maxItems: 6, gap: 0.28, fontSize: 8.7, lineH: 0.22, h: 1.9, minFontSize: 7, maxLinesPerBullet: 2,
-    });
-  }
-  addSafeText(slide, truncate(s3.theme_message || s3.conclusion || '-', 110), {
-    x: 0.88, y: 4.8, w: 3.0, h: 0.64,
-    fontFace: 'Lato', fontSize: 10.8, color: COLORS.midnight, margin: 0,
-  }, { minFontSize: 8.5, maxLines: 4 });
-
-  addPanel(slide, 4.72, 1.4, 3.18, 4.95, { header: 'BALANCE INSTITUCIONAL / TRANSACCIONAL', subheader: '(share del período)' });
-  slide.addChart('doughnut', [{
-    name: 'Balance',
-    labels: ['Institucional', 'Transaccional / talento'],
-    values: [parseNumber(balance.institutional), parseNumber(balance.transactional_talent)],
-  }], {
-    x: 5.05, y: 2.08, w: 1.7, h: 1.8,
-    holeSize: 72,
-    chartColors: [COLORS.electricBlue, COLORS.sereneBlue],
-    showLegend: false,
-    showValue: true,
-    dataLabelColor: COLORS.electricBlue,
-    dataLabelFormatCode: '0%'
-  });
-  addBulletList(slide, 5.0, 4.08, 2.0, [
-    `Institucional ${formatPercent(balance.institutional)}`,
-    `Transaccional / talento ${formatPercent(balance.transactional_talent)}`,
-    truncate(s3.balance_message || 'El objetivo es sostener un mix balanceado.', 50),
-  ], { maxItems: 3, gap: 0.40, fontSize: 10.2, lineH: 0.30, h: 1.1, minFontSize: 8, maxLinesPerBullet: 2 });
-
-  addPanel(slide, 8.12, 1.4, 4.54, 4.95, { header: 'PEDIDOS POR DIRECCIÓN / ÁREA', subheader: '(participación promedio)' });
-  if (clients.length) {
     slide.addChart('bar', [{
       name: 'Áreas',
-      labels: clients.map((item) => truncate(item.label, 16)),
-      values: clients.map((item) => parseNumber(item.value)),
+      labels: clients.map((x) => clip(x.label, 14)),
+      values: clients.map((x) => parseNumber(x.value)),
     }], {
-      x: 8.42, y: 2.0, w: 3.68, h: 2.5,
+      x: 5.1, y: 2.0, w: 3.4, h: 2.95,
       showLegend: false,
       chartColors: [COLORS.sereneBlue],
-      catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: 8.5,
-      valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 8,
-      valGridLine: { color: COLORS.grey1, width: 1 },
-      showValue: true,
-      dataLabelColor: COLORS.electricBlue,
-      dataLabelPosition: 'outEnd',
-      showTitle: false,
-    });
-  }
-  addSafeText(slide, truncate(s3.conclusion || '-', 110), {
-    x: 8.44, y: 4.95, w: 3.4, h: 0.66,
-    fontFace: 'Lato', fontSize: 10.8, color: COLORS.midnight, margin: 0,
-  }, { minFontSize: 8.5, maxLines: 4 });
-  addFooter(slide, 'La lectura de contenido cruza ejes temáticos, balance editorial y origen de los pedidos.');
-}
-
-function slidePushRanking() {
-  const s4 = report.slide_5_push_ranking || report.slide_4_push_ranking || {};
-  const rows = (s4.top_communications || []).slice(0, 3);
-  const slide = pptx.addSlide();
-  baseSlide(slide, 'Comunicaciones push de mayor impacto', 'Push');
-
-  addPanel(slide, 0.62, 1.4, 7.08, 5.04, { header: 'TOP COMUNICACIONES', subheader: '(clics e interacción)' });
-  slide.addText('Comunicación', { x: 0.88, y: 2.0, w: 4.2, h: 0.16, fontFace: 'Lato', fontSize: 10.5, bold: true, color: COLORS.grey4, margin: 0 });
-  slide.addText('Clics', { x: 5.5, y: 2.0, w: 0.65, h: 0.16, fontFace: 'Lato', fontSize: 10.5, bold: true, color: COLORS.grey4, align: 'right', margin: 0 });
-  slide.addText('Interacción', { x: 6.35, y: 2.0, w: 0.95, h: 0.16, fontFace: 'Lato', fontSize: 10.5, bold: true, color: COLORS.grey4, align: 'right', margin: 0 });
-  rows.forEach((row, idx) => {
-    const y = 2.34 + idx * 1.08;
-    if (idx % 2 === 0) {
-      slide.addShape(pptx.ShapeType.rect, { x: 0.82, y, w: 6.66, h: 0.85, fill: { color: 'F9FBFD' }, line: { color: 'F9FBFD' } });
-    }
-    addSafeText(slide, `${idx + 1}. ${truncate(row.name, 72)}`, {
-      x: 0.92, y: y + 0.13, w: 4.45, h: 0.40,
-      fontFace: 'Lato', fontSize: 12.2, color: COLORS.midnight, margin: 0,
-    }, { minFontSize: 9.5, maxLines: 2 });
-    slide.addText(formatNumber(row.clicks), {
-      x: 5.42, y: y + 0.12, w: 0.78, h: 0.28,
-      fontFace: 'Source Serif 4', bold: true, fontSize: 16, color: COLORS.electricBlue, align: 'right', margin: 0,
-    });
-    slide.addText(formatPercent(row.interaction), {
-      x: 6.24, y: y + 0.12, w: 0.98, h: 0.28,
-      fontFace: 'Source Serif 4', bold: true, fontSize: 16, color: COLORS.electricBlue, align: 'right', margin: 0,
-    });
-  });
-  if (rows.length) {
-    slide.addChart('bar', [{
-      name: 'Clics',
-      labels: rows.map((item) => `${rows.indexOf(item)+1}`),
-      values: rows.map((item) => parseNumber(item.clicks)),
-    }], {
-      x: 0.92, y: 5.38, w: 2.05, h: 0.56,
-      showLegend: false,
-      chartColors: [COLORS.electricBlue],
       catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: 8,
-      valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 7,
-      showValue: false,
-      valGridLine: { color: COLORS.grey1, width: 1 },
-      showTitle: false,
-    });
-    slide.addText('Ranking visual por clics', {
-      x: 3.1, y: 5.42, w: 1.4, h: 0.14,
-      fontFace: 'Lato', fontSize: 8.8, color: COLORS.grey4, margin: 0,
-    });
-  }
-
-  addPanel(slide, 7.92, 1.4, 4.74, 3.58, { header: 'PIEZAS / MINIATURAS', subheader: '(reales si el pipeline recibe assets)' });
-  rows.forEach((row, idx) => {
-    const thumbW = 1.34;
-    const gap = 0.14;
-    const x = 8.18 + idx * (thumbW + gap);
-    addImagePanel(slide, row.thumbnail_path, x, 2.05, thumbW, 2.44);
-    addSafeText(slide, truncate(row.name, 22), {
-      x, y: 4.58, w: thumbW, h: 0.28,
-      fontFace: 'Lato', fontSize: 7.8, color: COLORS.midnight, margin: 0, align: 'center',
-    }, { minFontSize: 7, maxLines: 2 });
-  });
-
-  addPanel(slide, 7.92, 5.16, 4.74, 1.28, { fill: COLORS.white, line: COLORS.grey1 });
-  slide.addText('Aprendizaje', {
-    x: 8.16, y: 5.38, w: 1.1, h: 0.15,
-    fontFace: 'Lato', fontSize: 10.5, bold: true, color: COLORS.electricBlue, margin: 0,
-  });
-  addSafeText(slide, truncate(s4.key_learning || '-', 135), {
-    x: 8.16, y: 5.60, w: 4.05, h: 0.48,
-    fontFace: 'Lato', fontSize: 10.5, color: COLORS.midnight, margin: 0,
-  }, { minFontSize: 8.2, maxLines: 3 });
-  addFooter(slide, 'Las miniaturas se muestran cuando el pipeline recibe assets de cada comunicación top.');
-}
-
-function slidePullPerformance() {
-  const s5 = report.slide_6_pull_performance || report.slide_5_pull_performance || {};
-  const notes = (s5.top_notes || []).slice(0, 5);
-  const slide = pptx.addSlide();
-  baseSlide(slide, 'Desempeño pull', 'Intranet / site');
-
-  addPanel(slide, 0.62, 1.4, 7.18, 4.96, { header: 'TOP NOTAS Y PROFUNDIDAD DE LECTURA', subheader: '(lecturas únicas)' });
-  if (notes.length) {
-    slide.addChart('bar', [{
-      name: 'Lecturas únicas',
-      labels: notes.map((item) => truncate(item.title, 28)),
-      values: notes.map((item) => parseNumber(item.unique_reads)),
-    }], {
-      x: 0.92, y: 2.02, w: 4.7, h: 3.25,
-      showLegend: false,
-      chartColors: [COLORS.sereneBlue],
-      catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: 8.5,
       valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 8,
-      valGridLine: { color: COLORS.grey1, width: 1 },
-      showValue: true,
-      dataLabelColor: COLORS.electricBlue,
-      dataLabelPosition: 'outEnd',
-      showTitle: false,
-    });
-    notes.slice(0, 2).forEach((note, idx) => {
-      const y = 2.12 + idx * 1.0;
-      slide.addText(`${idx + 1}. ${truncate(note.title, 28)}`, {
-        x: 5.95, y, w: 1.35, h: 0.24,
-        fontFace: 'Lato', fontSize: 8.8, color: COLORS.midnight, margin: 0,
-      });
-      slide.addText(`${formatNumber(note.unique_reads)} únicas`, {
-        x: 5.95, y: y + 0.24, w: 1.15, h: 0.16,
-        fontFace: 'Source Serif 4', bold: true, fontSize: 11, color: COLORS.electricBlue, margin: 0,
-      });
-      slide.addText(`${formatNumber(note.total_reads)} totales`, {
-        x: 5.95, y: y + 0.44, w: 1.15, h: 0.16,
-        fontFace: 'Lato', fontSize: 8.3, color: COLORS.grey4, margin: 0,
-      });
+      showValue: true, dataLabelColor: COLORS.electricBlue, dataLabelPosition: 'outEnd',
     });
   }
-  addSafeText(slide, truncate(s5.conclusion || '-', 120), {
-    x: 0.92, y: 5.52, w: 6.1, h: 0.46,
-    fontFace: 'Lato', fontSize: 10.8, color: COLORS.midnight, margin: 0,
-  }, { minFontSize: 9, maxLines: 2 });
 
-  addPanel(slide, 8.0, 1.4, 4.66, 4.96, { fill: COLORS.white, line: COLORS.grey1 });
-  slide.addText('Lectura ejecutiva', {
-    x: 8.24, y: 1.72, w: 1.8, h: 0.18,
-    fontFace: 'Lato', fontSize: 10.5, bold: true, color: COLORS.electricBlue, margin: 0,
+  panel(slide, 9.02, 1.4, 3.66, 4.94, 'Mix de formatos');
+  if (!formats.length) {
+    emptyState(slide, 9.2, 2.0, 3.3, 2.5, 'No hay mix de formatos disponible.');
+  } else {
+    tableRows(slide, 9.24, 2.02, 3.2, ['Formato', 'Peso'], formats.map((x) => [x.label || x.theme || '-', fmtPct(x.value || x.weight)]));
+  }
+  slide.addText(clip(p.message || '-', 145), {
+    x: 9.24, y: 4.95, w: 3.2, h: 1.1,
+    fontFace: 'Lato', fontSize: 10.3, color: COLORS.midnight, margin: 0,
   });
-  addSafeText(slide, truncate(s5.conclusion || '-', 175), {
-    x: 8.24, y: 2.02, w: 3.95, h: 0.96,
-    fontFace: 'Source Serif 4', bold: true, fontSize: 17,
-    color: COLORS.midnight, margin: 0,
-  }, { minFontSize: 13, maxLines: 4 });
-  addMetricCard(slide, 8.24, 3.36, 1.18, 0.96, 'Notas', formatNumber(s5.pub_current), 'Período', COLORS.sereneBlue);
-  addMetricCard(slide, 9.56, 3.36, 1.18, 0.96, 'Promedio', formatNumber(s5.avg_reads), 'Lecturas', COLORS.ice);
-  addMetricCard(slide, 10.88, 3.36, 1.52, 0.96, 'Vistas', formatNumber(s5.total_views), 'Totales', COLORS.lime);
-  addBulletList(slide, 8.28, 4.72, 3.9, [
-    `Publicaciones del período: ${coalesce(s5.pub_current, '-')}`,
-    `Período anterior: ${coalesce(s5.pub_previous, '-')}`,
-    truncate(s5.secondary_message || 'El canal pull sirve para detectar qué notas sostienen lectura en profundidad.', 70),
-  ], { maxItems: 3, gap: 0.42, fontSize: 10.5, lineH: 0.30, h: 1.35, minFontSize: 8.5, maxLinesPerBullet: 2 });
-  addFooter(slide, 'El canal pull ayuda a identificar profundidad de lectura, no solo volumen de impactos.');
 }
 
-function slideHitos() {
-  const hitos = (report.slide_7_hitos || report.slide_6_hitos || []).slice(0, 3);
-  const slide = pptx.addSlide();
-  baseSlide(slide, 'Hitos destacados', 'Agenda y campañas');
-  if (!hitos.length) {
-    addPanel(slide, 1.0, 2.0, 11.3, 3.2, { fill: COLORS.white, line: COLORS.grey1 });
-    slide.addText('Sin hitos destacados para este período.', {
-      x: 1.4, y: 3.0, w: 10.5, h: 0.4,
-      fontFace: 'Source Serif 4', bold: true, fontSize: 26,
-      color: COLORS.electricBlue, align: 'center', margin: 0,
-    });
-    addFooter(slide, 'El módulo admite hasta tres hitos con título, bullets e imagen principal.');
+function renderPushRanking(module) {
+  const p = module.payload || {};
+  const interaction = Array.isArray(p.by_interaction) ? p.by_interaction.slice(0, 5) : [];
+  const openRate = Array.isArray(p.by_open_rate) ? p.by_open_rate.slice(0, 5) : [];
+  const slide = baseSlide(module.title || 'Ranking push', 'Push');
+
+  if (!p.available || (!interaction.length && !openRate.length)) {
+    emptyState(slide, 1.0, 2.0, 11.3, 3.4, 'No hay ranking push suficiente para el período.');
     return;
   }
 
-  hitos.forEach((hito, idx) => {
-    const x = 0.62 + idx * 4.12;
-    addPanel(slide, x, 1.42, 3.5, 5.0, { fill: COLORS.white, line: COLORS.grey1 });
-    addImagePanel(slide, hito.thumbnail_path, x + 0.16, 1.58, 3.18, 1.86);
-    addSafeText(slide, String(coalesce(hito.title || hito.period, '-')), {
-      x: x + 0.18, y: 3.64, w: 2.95, h: 0.40,
-      fontFace: 'Source Serif 4', bold: true, fontSize: 17, color: COLORS.electricBlue, margin: 0,
-    }, { minFontSize: 12.5, maxLines: 2 });
-    const bullets = (hito.bullets && hito.bullets.length ? hito.bullets : [hito.description]).filter(Boolean);
-    addBulletList(slide, x + 0.20, 4.24, 2.95, bullets, { maxItems: 3, gap: 0.40, fontSize: 10.2, lineH: 0.30, h: 1.45, minFontSize: 8.2, maxLinesPerBullet: 2 });
-    slide.addText(truncate(hito.period || report.slide_1_cover?.period || '-', 24), {
-      x: x + 0.18, y: 5.95, w: 2.9, h: 0.16,
+  panel(slide, 0.62, 1.4, 6.08, 4.94, 'Top por interacción');
+  tableRows(
+    slide,
+    0.84,
+    2.0,
+    5.6,
+    ['Comunicación', 'Clics', 'Interacción'],
+    interaction.map((row) => [cleanText(row.name), fmtNum(row.clicks), fmtPct(row.interaction)])
+  );
+
+  panel(slide, 6.92, 1.4, 5.74, 4.94, 'Top por apertura');
+  tableRows(
+    slide,
+    7.14,
+    2.0,
+    5.3,
+    ['Comunicación', 'Clics', 'Open rate'],
+    openRate.map((row) => [cleanText(row.name), fmtNum(row.clicks), fmtPct(row.open_rate)])
+  );
+
+  slide.addText(clip(p.message || '-', 180), {
+    x: 0.84, y: 6.48, w: 11.5, h: 0.3,
+    fontFace: 'Lato', fontSize: 10.5, color: COLORS.midnight, margin: 0,
+  });
+}
+
+function renderPullRanking(module) {
+  const p = module.payload || {};
+  const rows = Array.isArray(p.top_pull_notes) ? p.top_pull_notes.slice(0, 5) : [];
+  const slide = baseSlide(module.title || 'Ranking pull', 'Site / intranet');
+
+  card(slide, 0.62, 1.4, 2.8, 0.96, 'Promedio lecturas por nota', fmtNum(p.average_reads_per_note), COLORS.sereneBlue);
+  card(slide, 3.62, 1.4, 2.8, 0.96, 'Vistas totales site', fmtNum(p.site_total_views), COLORS.ice);
+
+  panel(slide, 0.62, 2.62, 8.2, 3.72, 'Top notas pull');
+  if (!p.available || !rows.length) {
+    emptyState(slide, 0.84, 2.94, 7.8, 3.2, 'No hay ranking pull suficiente para este período.');
+  } else {
+    tableRows(
+      slide,
+      0.9,
+      3.0,
+      7.8,
+      ['Nota', 'Lecturas únicas', 'Lecturas totales'],
+      rows.map((row) => [cleanText(row.title), fmtNum(row.unique_reads), fmtNum(row.total_reads)])
+    );
+  }
+
+  panel(slide, 8.98, 2.62, 3.7, 3.72, 'Lectura ejecutiva');
+  slide.addText(clip(p.message || '-', 180), {
+    x: 9.2, y: 3.2, w: 3.25, h: 2.9,
+    fontFace: 'Lato', fontSize: 11, color: COLORS.midnight, valign: 'mid', margin: 0,
+  });
+}
+
+function renderMilestones(module) {
+  const p = module.payload || {};
+  const items = Array.isArray(p.items) ? p.items.slice(0, 3) : [];
+  const slide = baseSlide(module.title || 'Hitos del mes', 'Gestión');
+
+  if (!items.length) {
+    emptyState(slide, 1.0, 2.0, 11.3, 3.4, 'No se registraron hitos consolidados en este período.');
+    return;
+  }
+
+  items.forEach((item, idx) => {
+    const x = 0.62 + idx * 4.18;
+    panel(slide, x, 1.4, 3.56, 4.94, `Hito ${idx + 1}`);
+    slide.addText(clip(item.title || item.description || '-', 48), {
+      x: x + 0.16, y: 1.92, w: 3.2, h: 0.48,
+      fontFace: 'Source Serif 4', bold: true, fontSize: 16, color: COLORS.electricBlue, margin: 0,
+    });
+    const bullets = Array.isArray(item.bullets) ? item.bullets.filter(Boolean).slice(0, 3) : [];
+    const lines = bullets.length ? bullets : [item.description || 'Sin detalle adicional.'];
+    lines.forEach((line, lineIdx) => {
+      slide.addText(`• ${clip(line, 70)}`, {
+        x: x + 0.18, y: 2.64 + lineIdx * 0.46, w: 3.15, h: 0.24,
+        fontFace: 'Lato', fontSize: 10.2, color: COLORS.midnight, margin: 0,
+      });
+    });
+    slide.addText(cleanText(item.period || ''), {
+      x: x + 0.18, y: 5.94, w: 3.1, h: 0.14,
       fontFace: 'Lato', fontSize: 8.5, color: COLORS.grey4, margin: 0,
     });
   });
-  addFooter(slide, 'Los hitos suman contexto de gestión más allá de las métricas de volumen y performance.');
 }
 
-function slideEvents() {
-  const s7 = report.slide_8_events || report.slide_7_events || {};
-  const breakdown = (s7.event_breakdown || []).slice(0, 5);
-  const slide = pptx.addSlide();
-  baseSlide(slide, 'Eventos y participación', 'Activaciones');
+function renderEvents(module) {
+  const p = module.payload || {};
+  const events = Array.isArray(p.events) ? p.events.slice(0, 5) : [];
+  const slide = baseSlide(module.title || 'Eventos del mes', 'Activaciones');
 
-  addMetricCard(slide, 0.62, 1.42, 1.75, 0.92, 'Eventos', formatNumber(s7.total_events), 'Período', COLORS.sereneBlue);
-  addMetricCard(slide, 2.52, 1.42, 1.95, 0.92, 'Participaciones', formatNumber(s7.total_participants), 'Total', COLORS.ice);
+  card(slide, 0.62, 1.4, 2.6, 0.96, 'Eventos', fmtNum(p.total_events || events.length), COLORS.sereneBlue);
+  card(slide, 3.42, 1.4, 2.8, 0.96, 'Participaciones', fmtNum(p.total_participants), COLORS.ice);
 
-  if (breakdown.length) {
-    addPanel(slide, 0.62, 2.6, 7.28, 3.86, { header: 'DETALLE DE EVENTOS', subheader: '(participaciones por acción)' });
-    slide.addChart('bar', [{
-      name: 'Participantes',
-      labels: breakdown.map((item) => truncate(item.name, 24)),
-      values: breakdown.map((item) => parseNumber(item.participants)),
-    }], {
-      x: 0.92, y: 3.12, w: 4.75, h: 2.7,
-      showLegend: false,
-      chartColors: [COLORS.electricBlue],
-      catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: 8.5,
-      valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 8,
-      valGridLine: { color: COLORS.grey1, width: 1 },
-      showValue: true,
-      dataLabelColor: COLORS.electricBlue,
-      dataLabelPosition: 'outEnd',
-      showTitle: false,
-    });
-    breakdown.slice(0, 4).forEach((item, idx) => {
-      addSafeText(slide, `${idx + 1}. ${truncate(item.name, 24)} — ${formatNumber(item.participants)}`, {
-        x: 5.95, y: 3.20 + idx * 0.46, w: 1.55, h: 0.20,
-        fontFace: 'Lato', fontSize: 8.4, color: COLORS.midnight, margin: 0,
-      }, { minFontSize: 7, maxLines: 2 });
-    });
-  } else {
-    addPanel(slide, 0.62, 2.6, 7.28, 3.86, { fill: COLORS.white, line: COLORS.grey1 });
-    addSafeText(slide, 'No se registró un desglose consolidado de eventos para este período.', {
-      x: 1.0, y: 3.85, w: 6.4, h: 0.9,
-      fontFace: 'Source Serif 4', bold: true, fontSize: 21,
-      color: COLORS.electricBlue, align: 'center', margin: 0,
-    }, { minFontSize: 15, maxLines: 3 });
+  if (!events.length) {
+    emptyState(slide, 0.62, 2.62, 7.8, 3.72, 'No hay detalle de eventos suficiente, por lo que este módulo debería omitirse.');
+    return;
   }
 
-  addPanel(slide, 8.08, 1.42, 4.58, 5.04, { fill: COLORS.white, line: COLORS.grey1 });
-  slide.addText('Conclusión', {
-    x: 8.34, y: 1.74, w: 1.3, h: 0.16,
-    fontFace: 'Lato', fontSize: 10.5, bold: true, color: COLORS.electricBlue, margin: 0,
+  panel(slide, 0.62, 2.62, 7.8, 3.72, 'Detalle de eventos');
+  tableRows(
+    slide,
+    0.86,
+    3.0,
+    7.2,
+    ['Evento', 'Participantes', 'Fecha'],
+    events.map((row) => [row.name || row.title || '-', fmtNum(row.participants), row.date || '-'])
+  );
+
+  panel(slide, 8.62, 2.62, 4.04, 3.72, 'Mensaje');
+  slide.addText(clip(p.message || '-', 170), {
+    x: 8.88, y: 3.2, w: 3.55, h: 2.9,
+    fontFace: 'Lato', fontSize: 11, color: COLORS.midnight, valign: 'mid', margin: 0,
   });
-  addSafeText(slide, truncate(s7.conclusion || '-', 180), {
-    x: 8.34, y: 2.05, w: 3.85, h: 0.95,
-    fontFace: 'Source Serif 4', bold: true, fontSize: 17,
-    color: COLORS.midnight, margin: 0,
-  }, { minFontSize: 13, maxLines: 4 });
-  addBulletList(slide, 8.34, 3.42, 3.7, [
-    `Eventos del período: ${coalesce(s7.total_events, '-')}`,
-    `Participaciones: ${coalesce(s7.total_participants, '-')}`,
-    truncate(s7.secondary_message || 'Con dato consolidado, este módulo permite leer alcance y performance por activación.', 76),
-  ], { maxItems: 3, gap: 0.48, fontSize: 10.5, lineH: 0.30, h: 1.55, minFontSize: 8.5, maxLinesPerBullet: 2 });
-  addFooter(slide, 'El módulo de eventos funciona tanto con datos completos como con una versión elegante sin desglose.');
 }
 
-function slideClosure() {
-  const s8 = report.slide_9_closure || report.slide_8_closure || {};
+function buildLegacyRenderPlan(payload) {
+  // Compatibilidad para inputs históricos que todavía vienen con estructura slide_*.
+  const s2 = payload.slide_2_overview || {};
+  const s3 = payload.slide_3_plan || {};
+  const s4 = payload.slide_4_strategy || payload.slide_3_strategy || {};
+  const s5 = payload.slide_5_push_ranking || payload.slide_4_push_ranking || {};
+  const s6 = payload.slide_6_pull_performance || payload.slide_5_pull_performance || {};
+  const s7 = payload.slide_7_hitos || payload.slide_6_hitos || [];
+  const s8 = payload.slide_8_events || payload.slide_7_events || {};
+  const includeEvents = Array.isArray(s8.event_breakdown) && s8.event_breakdown.length > 0;
+  return {
+    modules: [
+      {
+        key: 'executive_summary',
+        title: 'Resumen ejecutivo del período',
+        payload: {
+          headline: s2.headline,
+          plan_total: s2.volume_current,
+          site_notes_total: s2.pull_notes_current,
+          site_total_views: s6.total_views,
+          mail_total: s3.mail_total,
+          mail_open_rate: s2.push_open_rate,
+          mail_interaction_rate: s2.push_interaction_rate,
+          historical_note: s2.comparative_note,
+          takeaways: s2.highlights,
+        },
+      },
+      {
+        key: 'channel_management',
+        title: 'Gestión de canales',
+        payload: {
+          mail_total: s3.mail_total,
+          mail_open_rate: s3.open_rate,
+          mail_interaction_rate: s2.push_interaction_rate,
+          site_notes_total: s3.pull_total,
+          site_total_views: s6.total_views,
+          channel_mix: s2.audience_segments || [],
+          message: s3.footer || s3.mail_message,
+          site_has_no_data_sections: false,
+        },
+      },
+      {
+        key: 'mix_thematic_clients',
+        title: 'Mix temático y áreas solicitantes',
+        payload: {
+          strategic_axes: s4.content_distribution || [],
+          internal_clients: s4.internal_clients || [],
+          format_mix: [],
+          message: s4.conclusion || s4.theme_message,
+        },
+      },
+      {
+        key: 'ranking_push',
+        title: 'Ranking push',
+        payload: {
+          by_interaction: s5.top_communications || [],
+          by_open_rate: [],
+          available: Array.isArray(s5.top_communications) && s5.top_communications.length > 0,
+          message: s5.key_learning,
+        },
+      },
+      {
+        key: 'ranking_pull',
+        title: 'Ranking pull',
+        payload: {
+          top_pull_notes: s6.top_notes || [],
+          available: Array.isArray(s6.top_notes) && s6.top_notes.length > 0,
+          average_reads_per_note: s6.avg_reads,
+          site_total_views: s6.total_views,
+          message: s6.conclusion,
+        },
+      },
+      {
+        key: 'milestones',
+        title: 'Hitos del mes',
+        payload: {
+          items: s7,
+          message: 'Hitos destacados del período',
+        },
+      },
+      ...(includeEvents ? [{
+        key: 'events',
+        title: 'Eventos del mes',
+        payload: {
+          events: s8.event_breakdown || [],
+          total_events: s8.total_events,
+          total_participants: s8.total_participants,
+          message: s8.conclusion || s8.secondary_message,
+        },
+      }] : []),
+    ],
+  };
+}
+
+function renderFullCover() {
+  const s = report?.period || report?.slide_1_cover || {};
   const slide = pptx.addSlide();
   slide.background = { color: COLORS.electricBlue };
-  addLogo(slide, true);
-  addSafeText(slide, String(coalesce(s8.title, 'Claves del período')), {
-    x: 0.68, y: 0.82, w: 4.8, h: 0.5,
-    fontFace: 'Source Serif 4', bold: true, fontSize: 26,
-    color: COLORS.white, margin: 0,
-  }, { minFontSize: 20, maxLines: 2 });
-  addPanel(slide, 0.72, 1.75, 11.1, 4.5, { fill: COLORS.white, line: COLORS.white });
-  addBulletList(slide, 1.08, 2.18, 10.2, (s8.bullets || []).slice(0, 4), {
-    maxItems: 4, gap: 0.72, fontSize: 13, lineH: 0.42, h: 3.1, minFontSize: 10.5, maxLinesPerBullet: 2,
-    bulletColors: [COLORS.electricBlue, COLORS.sereneBlue, COLORS.ice, COLORS.lime],
-  });
-  slide.addText('Reporte automatizado con lineamientos visuales BBVA.', {
-    x: 0.76, y: 6.88, w: 4.8, h: 0.16,
-    fontFace: 'Lato', fontSize: 8.5, color: COLORS.white, margin: 0,
-  });
+  slide.addText(cleanText(s.label || s.period || '-'), { x: 0.8, y: 2.8, w: 6, h: 0.6, fontFace: 'Source Serif 4', bold: true, fontSize: 34, color: COLORS.white, margin: 0 });
+  slide.addText('Comunicaciones Internas BBVA', { x: 0.8, y: 3.6, w: 8, h: 0.4, fontFace: 'Lato', fontSize: 16, color: COLORS.white, margin: 0 });
 }
 
-slideCover();
-slideOverview();
-slidePlan();
-slideStrategy();
-slidePushRanking();
-slidePullPerformance();
-slideHitos();
-slideEvents();
-slideClosure();
-
-for (const slide of pptx._slides) {
-  warnIfSlideHasOverlaps(slide, pptx);
-  warnIfSlideElementsOutOfBounds(slide, pptx);
+function renderFullClosing() {
+  const slide = pptx.addSlide();
+  slide.background = { color: COLORS.electricBlue };
+  slide.addText('Fin del informe', { x: 0.8, y: 3.1, w: 6, h: 0.5, fontFace: 'Source Serif 4', bold: true, fontSize: 30, color: COLORS.white, margin: 0 });
 }
+
+const renderPlan = report?.render_plan && Array.isArray(report.render_plan.modules)
+  ? report.render_plan
+  : buildLegacyRenderPlan(report);
+
+const renderers = {
+  executive_summary: renderExecutiveSummary,
+  channel_management: renderChannelManagement,
+  mix_thematic_clients: renderMix,
+  ranking_push: renderPushRanking,
+  ranking_pull: renderPullRanking,
+  milestones: renderMilestones,
+  events: renderEvents,
+};
+
+if (renderMode === 'full') renderFullCover();
+for (const module of renderPlan.modules || []) {
+  const fn = renderers[module.key];
+  if (fn) fn(module);
+}
+if (renderMode === 'full') renderFullClosing();
 
 pptx.writeFile({ fileName: outputPptxPath });

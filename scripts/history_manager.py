@@ -157,6 +157,7 @@ def persist_calculated_totals(
         "period_ref": period_ref,
         "period_slug": period.get("slug"),
         "calculated_totals": kpis_calculados.get("calculated_totals", {}),
+        "quality_flags": kpis_calculados.get("quality_flags", {}),
         "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     }
     ensure_dir(history_path.parent)
@@ -182,16 +183,29 @@ def apply_historical_comparison(
     history = load_history(history_path)
     previous_record = history.get("records", {}).get(f"{period_kind}:{previous_key}") if previous_key else None
 
+    quality_flags = kpis_calculados.setdefault("quality_flags", {})
+    historical_allowed = bool(quality_flags.get("historical_comparison_allowed", True))
+
+    previous_scope = None
+    current_scope = quality_flags.get("scope_country")
     if previous_record:
         previous_volume = previous_record.get("calculated_totals", {}).get("push_volume_period", "Sin datos previos")
+        previous_scope = previous_record.get("quality_flags", {}).get("scope_country")
     else:
         previous_volume = "Sin datos previos"
 
     current_volume = totals.get("push_volume_period", "Sin datos previos")
-    volume_change = _safe_pct_change(current_volume, previous_volume)
+    comparable_scope = True
+    if previous_scope and current_scope and str(previous_scope) != str(current_scope):
+        comparable_scope = False
+    if not historical_allowed or not comparable_scope:
+        volume_change = "No comparable por alcance de fuente"
+    else:
+        volume_change = _safe_pct_change(current_volume, previous_volume)
 
     totals["volume_previous"] = previous_volume
     totals["volume_change"] = volume_change
     totals["previous_push_volume"] = previous_volume
     totals["latest_push_variation"] = volume_change
+    quality_flags["historical_comparison_allowed"] = historical_allowed and comparable_scope
     return kpis_calculados
