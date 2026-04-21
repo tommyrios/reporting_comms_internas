@@ -6,7 +6,7 @@ Reglas obligatorias:
 - No inventes comparaciones ni conclusiones de datos ausentes.
 - Si KPI_CALCULADOS indica no comparabilidad, respetarlo explícitamente.
 - Estilo: breve, corporativo, accionable, apto comité/gerencia.
-- No devolver campos técnicos de slide_*.
+- No devuelvas campos técnicos de slide_*.
 - Responder SOLO JSON válido.
 
 Formato de salida:

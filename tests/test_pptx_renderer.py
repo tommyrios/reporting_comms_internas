@@ -99,8 +99,8 @@ class PptxRendererFrameTemplateTests(unittest.TestCase):
             self.assertIn("CLOSING_TEMPLATE", _slide_texts(rendered.slides[-1]))
             self.assertNotIn("slide_", all_text.lower())
 
-            for slide in rendered.slides[1:-1]:
-                self.assertTrue(_slide_texts(slide).strip())
+            for idx in range(1, len(rendered.slides) - 1):
+                self.assertTrue(_slide_texts(rendered.slides[idx]).strip())
 
     def test_conditional_module_changes_slide_count(self):
         with tempfile.TemporaryDirectory() as tmp:

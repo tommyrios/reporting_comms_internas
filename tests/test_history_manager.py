@@ -56,6 +56,19 @@ class HistoryManagerTests(unittest.TestCase):
         self.assertEqual(enriched["calculated_totals"]["volume_change"], "No comparable por alcance de fuente")
         self.assertFalse(enriched["quality_flags"]["historical_comparison_allowed"])
 
+    def test_keep_comparison_when_previous_scope_missing(self):
+        period_feb = {"kind": "month", "months": ["2026-02"], "slug": "month_2026_02"}
+        period_mar = {"kind": "month", "months": ["2026-03"], "slug": "month_2026_03"}
+        kpis_feb = {"calculated_totals": {"push_volume_period": 20}}
+        kpis_mar = {"calculated_totals": {"push_volume_period": 30}, "quality_flags": {"scope_country": "AR", "historical_comparison_allowed": True}}
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            history_path = Path(tmpdir) / "historico_kpis.json"
+            persist_calculated_totals(period_feb, kpis_feb, history_path=history_path)
+            enriched = apply_historical_comparison(period_mar, kpis_mar, history_path=history_path)
+
+        self.assertEqual(enriched["calculated_totals"]["volume_change"], "50.0%")
+
 
 if __name__ == "__main__":
     unittest.main()

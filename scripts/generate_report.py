@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from copy import deepcopy
 from datetime import datetime
@@ -16,6 +17,8 @@ from history_manager import apply_historical_comparison, persist_calculated_tota
 from llm_client import build_genai_client, call_gemini_for_json, load_prompt
 from pdf_processor import summarize_month
 from pptx_renderer import create_pptx
+
+logger = logging.getLogger(__name__)
 
 
 def get_period_definition(period_slug: str) -> dict[str, Any]:
@@ -183,8 +186,8 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
         report = _deep_merge(report, {k: v for k, v in manual_context.items() if k != "metadata"})
 
     modules = [module.get("key") for module in report.get("render_plan", {}).get("modules", []) if isinstance(module, dict)]
-    omitted_events = "events" not in modules
-    if omitted_events:
+    is_events_omitted = "events" not in modules
+    if is_events_omitted:
         warnings.append("Módulo de eventos omitido por falta de datos suficientes")
 
     metadata_extra = {
@@ -192,15 +195,15 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
         "email_subject": manual_context.get("metadata", {}).get("email_subject") or period.get("email_subject"),
         "generation_mode": narrative_mode,
         "rendered_modules": modules,
-        "omitted_modules": ["events"] if omitted_events else [],
+        "omitted_modules": ["events"] if is_events_omitted else [],
     }
 
     persist_calculated_totals(period, kpis_calculados)
     report_dir = write_report_artifacts(period_slug, report, metadata_extra=metadata_extra)
 
-    print(f"render_modules={modules}")
-    if omitted_events:
-        print("omit_module=events reason=insufficient_data")
+    logger.info("render_modules=%s", modules)
+    if is_events_omitted:
+        logger.info("omit_module=events reason=insufficient_data")
 
     return {
         "status": "ok",

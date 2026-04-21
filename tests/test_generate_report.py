@@ -88,8 +88,9 @@ class GenerateReportTests(unittest.TestCase):
         with patch("generate_report.get_period_definition", return_value=period), \
                 patch("generate_report.build_genai_client", return_value=object()), \
                 patch("generate_report.summarize_month", return_value=invalid_summary):
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError) as ctx:
                 generate_period_report("month_2026_03")
+        self.assertIn("Contrato mensual incompleto", str(ctx.exception))
 
 
 if __name__ == "__main__":

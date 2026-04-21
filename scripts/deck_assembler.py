@@ -98,7 +98,8 @@ def _next_numeric_part(existing: set[str], desired: str) -> str:
             if m:
                 used.append(int(m.group(1)))
         next_n = (max(used) + 1) if used else 1
-        return f"{directory}/{prefix}{next_n}{suffix}" if directory else f"{prefix}{next_n}{suffix}"
+        filename_out = f"{prefix}{next_n}{suffix}"
+        return posixpath.join(directory, filename_out) if directory else filename_out
 
     stem, ext = posixpath.splitext(filename)
     counter = 1

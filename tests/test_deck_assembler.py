@@ -50,6 +50,25 @@ class DeckAssemblerTests(unittest.TestCase):
             self.assertIn("BODY", _slide_texts(final.slides[1]))
             self.assertIn("CIERRE", _slide_texts(final.slides[2]))
 
+    def test_raise_error_when_template_has_less_than_two_slides(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            template_path = tmp_dir / "template_invalid.pptx"
+            body_path = tmp_dir / "body.pptx"
+            output_path = tmp_dir / "final.pptx"
+
+            template = Presentation()
+            only = template.slides.add_slide(template.slide_layouts[0])
+            only.shapes.title.text = "ONLY"
+            template.save(str(template_path))
+
+            body = Presentation()
+            body.slides.add_slide(body.slide_layouts[1]).shapes.title.text = "BODY"
+            body.save(str(body_path))
+
+            with self.assertRaises(RuntimeError):
+                assemble_deck(template_path, body_path, output_path, "Marzo 2026")
+
 
 if __name__ == "__main__":
     unittest.main()

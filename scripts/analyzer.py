@@ -169,10 +169,14 @@ def normalize_monthly_summary(summary: dict[str, Any]) -> dict[str, Any]:
 
 
 def validate_monthly_summary_contract(summary: dict[str, Any]) -> dict[str, Any]:
+    source_keys = set(summary.keys()) if isinstance(summary, dict) else set()
+    has_full_contract = REQUIRED_MONTHLY_FIELDS.issubset(source_keys)
+    has_legacy_contract = isinstance(summary.get("data"), dict) and isinstance(summary.get("insights"), dict)
+    if not has_full_contract and not has_legacy_contract:
+        missing = sorted(REQUIRED_MONTHLY_FIELDS - source_keys)
+        raise ValueError(f"Contrato mensual incompleto, faltan campos: {', '.join(missing)}")
+
     normalized = normalize_monthly_summary(summary)
-    missing = [key for key in REQUIRED_MONTHLY_FIELDS if key not in normalized]
-    if missing:
-        raise ValueError(f"Contrato mensual incompleto, faltan campos: {', '.join(sorted(missing))}")
 
     if not normalized.get("month") or normalized["month"] == "-":
         raise ValueError("Contrato mensual inválido: falta campo month")
@@ -332,8 +336,13 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
         events_available = events_available or bool(row_flags.get("events_summary_available", False))
         historical_allowed = historical_allowed and bool(row_flags.get("historical_comparison_allowed", True))
 
+    if len(scope_country_values) > 1:
+        scope_country = ",".join(sorted(scope_country_values))
+    else:
+        scope_country = next(iter(scope_country_values), "AR")
+
     quality_flags.update({
-        "scope_country": ",".join(sorted(scope_country_values)) if len(scope_country_values) > 1 else (next(iter(scope_country_values), "AR")),
+        "scope_country": scope_country,
         "scope_mixed": scope_mixed or len(scope_country_values) > 1,
         "site_has_no_data_sections": site_has_no_data,
         "events_summary_available": events_available and bool(events),

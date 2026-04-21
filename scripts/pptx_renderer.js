@@ -37,6 +37,7 @@ const COLORS = {
   grey2: 'CAD1D8',
   grey1: 'E2E6EA',
 };
+const DEFAULT_EXECUTIVE_TAKEAWAY = 'Se consolidó el desempeño mensual con métricas verificables.';
 
 const BRAND_ASSETS_DIR = path.resolve(__dirname, '..', 'assets', 'brand');
 const BBVA_LOGO_BLUE = path.join(BRAND_ASSETS_DIR, 'bbva_logo_blue.png');
@@ -176,7 +177,7 @@ function renderExecutiveSummary(module) {
     fontFace: 'Source Serif 4', bold: true, fontSize: 20, color: COLORS.midnight, margin: 0,
   });
   const takeaways = Array.isArray(p.takeaways) ? p.takeaways.filter(Boolean).slice(0, 3) : [];
-  (takeaways.length ? takeaways : ['Se consolidó el desempeño mensual con métricas verificables.']).forEach((item, idx) => {
+  (takeaways.length ? takeaways : [DEFAULT_EXECUTIVE_TAKEAWAY]).forEach((item, idx) => {
     slide.addText(`• ${clip(item, 120)}`, {
       x: 0.9, y: 4.1 + idx * 0.48, w: 7.5, h: 0.24,
       fontFace: 'Lato', fontSize: 11, color: COLORS.midnight, margin: 0,
@@ -415,6 +416,7 @@ function renderEvents(module) {
 }
 
 function buildLegacyRenderPlan(payload) {
+  // Compatibilidad para inputs históricos que todavía vienen con estructura slide_*.
   const s2 = payload.slide_2_overview || {};
   const s3 = payload.slide_3_plan || {};
   const s4 = payload.slide_4_strategy || payload.slide_3_strategy || {};

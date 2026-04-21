@@ -123,6 +123,12 @@ class AnalyzerTests(unittest.TestCase):
         self.assertNotIn("events", keys)
         self.assertEqual(keys[0], "executive_summary")
 
+    def test_validate_contract_error_mentions_missing_fields(self):
+        with self.assertRaises(ValueError) as ctx:
+            validate_monthly_summary_contract({"month": "2026-03"})
+        self.assertIn("Contrato mensual incompleto", str(ctx.exception))
+        self.assertIn("plan_total", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()
