@@ -76,15 +76,12 @@ def _replace_token_in_slide(slide, token: str, replacement: str) -> None:
 
 
 def _remove_slide(prs: Presentation, slide_index: int) -> None:
-    slide_id = prs.slides._sldIdLst[slide_index]
-    prs.part.drop_rel(slide_id.rId)
     del prs.slides._sldIdLst[slide_index]
 
 
-def _move_slide_to_end(prs: Presentation, slide_index: int) -> None:
-    target_slide = prs.slides._sldIdLst[slide_index]
-    prs.slides._sldIdLst.remove(target_slide)
-    prs.slides._sldIdLst.append(target_slide)
+def _move_slide_to_end(prs: Presentation, slide_id_element) -> None:
+    prs.slides._sldIdLst.remove(slide_id_element)
+    prs.slides._sldIdLst.append(slide_id_element)
 
 
 def _as_bullets(value: Any) -> list[str]:
@@ -166,15 +163,13 @@ def _render_template_append(report: dict[str, Any], output_path: Path, template_
 
 def _render_template_frame(report: dict[str, Any], output_path: Path, template_path: Path) -> None:
     prs = Presentation(str(template_path))
+    initial_slide_count = len(prs.slides)
+    closing_slide_id = prs.slides._sldIdLst[initial_slide_count - 1] if initial_slide_count else None
     contenido_layout = _find_layout(
         prs,
         ["Título y Contenido", "Titulo y Contenido", "Title and Content"],
         fallback_index=1 if len(prs.slide_layouts) > 1 else 0,
     )
-
-    while len(prs.slides) > 2:
-        _remove_slide(prs, 1)
-    has_closing_slide = len(prs.slides) > 1
 
     cover_slide = prs.slides[0]
     period = str(report.get("slide_1_cover", {}).get("period") or "-")
@@ -190,8 +185,11 @@ def _render_template_frame(report: dict[str, Any], output_path: Path, template_p
             body_sections = [("contenido", payload)]
         _render_content_slide(slide, title, body_sections)
 
-    if has_closing_slide:
-        _move_slide_to_end(prs, 1)
+    for idx in range(max(initial_slide_count - 2, 0), 0, -1):
+        _remove_slide(prs, idx)
+
+    if closing_slide_id is not None and prs.slides._sldIdLst[-1] is not closing_slide_id:
+        _move_slide_to_end(prs, closing_slide_id)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     prs.save(str(output_path))
