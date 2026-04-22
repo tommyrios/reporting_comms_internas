@@ -242,9 +242,10 @@ def _aggregate_distribution(items_by_month: list[list[dict[str, Any]]], label_ke
 
 
 def _has_significant_plan_mail_delta(plan_total: int, mail_total: int) -> bool:
+    relative_base = max(plan_total, mail_total)
     return abs(plan_total - mail_total) > max(
         PLAN_MAIL_ABS_DELTA_THRESHOLD,
-        int(mail_total * PLAN_MAIL_REL_DELTA_THRESHOLD),
+        int(relative_base * PLAN_MAIL_REL_DELTA_THRESHOLD),
     )
 
 
