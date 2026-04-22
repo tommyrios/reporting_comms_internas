@@ -91,6 +91,7 @@ class PdfProcessorTests(unittest.TestCase):
             raw = {"month": "2026-03", "metrics": {}}
             canonical = {
                 "month": "2026-03",
+                "generation_mode": "deterministic_pdf",
                 "plan_total": 1,
                 "site_notes_total": 2,
                 "site_total_views": 3,
@@ -126,9 +127,9 @@ class PdfProcessorTests(unittest.TestCase):
                     patch("pdf_processor.validate_canonical_monthly", return_value=validation), \
                     patch("pdf_processor.persist_monthly_artifacts") as persist_artifacts:
                 result = summarize_month(Mock(), "2026-03", force_regenerate=True)
-        self.assertEqual(result["generation_mode"], "deterministic_pdf")
-        self.assertTrue((cache_dir / "2026-03.json").exists())
-        persist_artifacts.assert_called_once()
+                self.assertEqual(result["generation_mode"], "deterministic_pdf")
+                self.assertTrue((cache_dir / "2026-03.json").exists())
+                persist_artifacts.assert_called_once()
 
 
 if __name__ == "__main__":
