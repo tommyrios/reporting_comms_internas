@@ -12,6 +12,7 @@ from config import CANONICAL_MONTHLY_DIR, RAW_EXTRACTED_DIR, VALIDATION_DIR, ens
 from metric_utils import normalize_percentage, to_float_locale
 
 NUMBER_PATTERN = re.compile(r"-?\d+(?:[.,]\d+)*%?")
+MAX_MAIL_TO_PLAN_RATIO = 10
 
 METRIC_SPECS = {
     "plan_total": {"keywords": ("plan", "planificación", "comunicaciones"), "kind": "count"},
@@ -157,7 +158,7 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
         elif value < 1:
             warnings.append(f"{metric} es menor a 1%; revisar escala")
 
-    if canonical.get("mail_total", 0) > canonical.get("plan_total", 0) * 10 and canonical.get("plan_total", 0) > 0:
+    if canonical.get("mail_total", 0) > canonical.get("plan_total", 0) * MAX_MAIL_TO_PLAN_RATIO and canonical.get("plan_total", 0) > 0:
         warnings.append("mail_total luce desproporcionado respecto a plan_total")
 
     return {

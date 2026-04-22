@@ -241,7 +241,7 @@ def _aggregate_distribution(items_by_month: list[list[dict[str, Any]]], label_ke
     return rows, True
 
 
-def _exceeds_plan_mail_threshold(plan_total: int, mail_total: int) -> bool:
+def _has_significant_plan_mail_delta(plan_total: int, mail_total: int) -> bool:
     return abs(plan_total - mail_total) > max(
         PLAN_MAIL_ABS_DELTA_THRESHOLD,
         int(mail_total * PLAN_MAIL_REL_DELTA_THRESHOLD),
@@ -405,7 +405,7 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
     latest_push = _to_int(push_timeline[-1]["value"]) if push_timeline else 0
     previous_push = _to_int(push_timeline[-2]["value"]) if len(push_timeline) > 1 else 0
     validation_warnings: list[str] = []
-    if mail_total and _exceeds_plan_mail_threshold(plan_total, mail_total):
+    if mail_total and _has_significant_plan_mail_delta(plan_total, mail_total):
         validation_warnings.append(
             f"Inconsistencia potencial entre plan_total ({plan_total}) y mail_total ({mail_total})"
         )

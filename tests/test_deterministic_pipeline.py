@@ -47,6 +47,26 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertFalse(validation["is_valid"])
         self.assertIn("mail_open_rate fuera de rango 0-100", validation["errors"])
 
+    def test_validate_canonical_monthly_rejects_negative_count_metric(self):
+        canonical = canonicalize_monthly(
+            {
+                "month": "2026-03",
+                "metrics": {
+                    "plan_total": {"value": -1},
+                    "site_notes_total": {"value": 1},
+                    "site_total_views": {"value": 1},
+                    "mail_total": {"value": 1},
+                    "mail_open_rate": {"value": 70},
+                    "mail_interaction_rate": {"value": 2},
+                },
+                "warnings": [],
+                "parser": "deterministic_pdf_v1",
+            }
+        )
+        validation = validate_canonical_monthly(canonical)
+        self.assertFalse(validation["is_valid"])
+        self.assertIn("plan_total no puede ser negativo", validation["errors"])
+
 
 if __name__ == "__main__":
     unittest.main()
