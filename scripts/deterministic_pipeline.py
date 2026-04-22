@@ -9,6 +9,7 @@ from typing import Any
 from pypdf import PdfReader
 
 from config import CANONICAL_MONTHLY_DIR, RAW_EXTRACTED_DIR, VALIDATION_DIR, ensure_dir
+from metric_utils import normalize_percentage, to_float_locale
 
 NUMBER_PATTERN = re.compile(r"-?\d+(?:[.,]\d+)*%?")
 
@@ -23,25 +24,7 @@ METRIC_SPECS = {
 
 
 def _to_float_locale(raw: str) -> float:
-    text = str(raw or "").strip()
-    if not text:
-        return 0.0
-    has_percent = "%" in text
-    cleaned = "".join(ch for ch in text if ch.isdigit() or ch in ".,-%")
-    cleaned = cleaned.replace("%", "")
-    if "," in cleaned and "." in cleaned:
-        last_comma = cleaned.rfind(",")
-        last_dot = cleaned.rfind(".")
-        if last_comma > last_dot:
-            cleaned = cleaned.replace(".", "").replace(",", ".")
-        else:
-            cleaned = cleaned.replace(",", "")
-    elif "," in cleaned:
-        cleaned = cleaned.replace(",", ".")
-    value = float(cleaned) if cleaned not in ("", "-", ".", "-.") else 0.0
-    if not has_percent and 0 <= value <= 1:
-        return value
-    return value
+    return to_float_locale(raw, 0.0)
 
 
 def _to_int_locale(raw: str) -> int:
@@ -69,9 +52,7 @@ def _find_metric(pages: list[str], keywords: tuple[str, ...], kind: str) -> dict
             for raw_number in candidates:
                 has_pct = "%" in raw_number
                 if kind == "percent":
-                    value = _to_float_locale(raw_number.replace("%", ""))
-                    if not has_pct and 0 <= value <= 1:
-                        value = value * 100
+                    value = normalize_percentage(raw_number)
                     unit = "percent"
                 else:
                     if has_pct:

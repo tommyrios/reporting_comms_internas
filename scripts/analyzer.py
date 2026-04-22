@@ -4,6 +4,8 @@ from collections import defaultdict
 from copy import deepcopy
 from typing import Any
 
+from metric_utils import normalize_percentage, to_float_locale
+
 
 REQUIRED_MONTHLY_FIELDS = {
     "plan_total",
@@ -42,6 +44,9 @@ BASE_STRUCTURE: dict[str, Any] = {
     "render_plan": {"modules": []},
 }
 
+PLAN_MAIL_ABS_DELTA_THRESHOLD = 5
+PLAN_MAIL_REL_DELTA_THRESHOLD = 0.5
+
 
 def _to_int(value: Any, default: int = 0) -> int:
     if value in (None, "", "-"):
@@ -68,29 +73,7 @@ def _to_int(value: Any, default: int = 0) -> int:
 def _to_float(value: Any, default: float = 0.0) -> float:
     if value in (None, "", "-"):
         return default
-    if isinstance(value, bool):
-        return float(value)
-    if isinstance(value, (int, float)):
-        return float(value)
-    text = str(value).strip().replace("%", "")
-    if "," in text and "." in text:
-        if text.rfind(",") > text.rfind("."):
-            text = text.replace(".", "").replace(",", ".")
-        else:
-            text = text.replace(",", "")
-    elif "," in text:
-        text = text.replace(",", ".")
-    try:
-        return float(text)
-    except Exception:
-        filtered = "".join(ch for ch in str(value) if ch.isdigit() or ch in ".,-")
-        if not filtered:
-            return default
-        filtered = filtered.replace(",", ".")
-        try:
-            return float(filtered)
-        except Exception:
-            return default
+    return to_float_locale(value, default)
 
 
 def _clean_title(value: Any, max_len: int = 90) -> str:
@@ -104,13 +87,7 @@ def _clean_title(value: Any, max_len: int = 90) -> str:
 
 
 def _normalize_pct(value: Any) -> float:
-    numeric = _to_float(value, 0.0)
-    raw = str(value or "")
-    if "%" in raw:
-        return round(numeric, 2)
-    if 0 <= numeric <= 1:
-        return round(numeric * 100, 2)
-    return round(numeric, 2)
+    return normalize_percentage(value)
 
 
 def _normalize_weighted_list(items: Any, label_keys: list[str], value_keys: list[str]) -> list[dict[str, Any]]:
@@ -233,6 +210,9 @@ def _looks_like_distribution(items: Any) -> bool:
     values = [_to_float(item.get("value", item.get("weight", item.get("participants", 0))), 0.0) for item in items if isinstance(item, dict)]
     if not values:
         return False
+    if all(0 <= value <= 1 for value in values):
+        total = sum(values)
+        return 0.95 <= total <= 1.05
     if any(value < 0 or value > 100 for value in values):
         return False
     total = sum(values)
@@ -259,6 +239,13 @@ def _aggregate_distribution(items_by_month: list[list[dict[str, Any]]], label_ke
     rows = [{"label": label, "value": round(sum(values) / len(values), 2)} for label, values in values_by_label.items() if values]
     rows.sort(key=lambda row: row["value"], reverse=True)
     return rows, True
+
+
+def _exceeds_plan_mail_threshold(plan_total: int, mail_total: int) -> bool:
+    return abs(plan_total - mail_total) > max(
+        PLAN_MAIL_ABS_DELTA_THRESHOLD,
+        int(mail_total * PLAN_MAIL_REL_DELTA_THRESHOLD),
+    )
 
 
 def _top_push(summary_rows: list[dict[str, Any]], source_key: str, value_key: str) -> list[dict[str, Any]]:
@@ -418,7 +405,7 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
     latest_push = _to_int(push_timeline[-1]["value"]) if push_timeline else 0
     previous_push = _to_int(push_timeline[-2]["value"]) if len(push_timeline) > 1 else 0
     validation_warnings: list[str] = []
-    if mail_total and abs(plan_total - mail_total) > max(5, int(mail_total * 0.5)):
+    if mail_total and _exceeds_plan_mail_threshold(plan_total, mail_total):
         validation_warnings.append(
             f"Inconsistencia potencial entre plan_total ({plan_total}) y mail_total ({mail_total})"
         )

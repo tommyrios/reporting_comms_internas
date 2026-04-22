@@ -20,6 +20,13 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertEqual(raw["metrics"]["mail_open_rate"]["value"], 73.07)
         self.assertEqual(raw["metrics"]["mail_interaction_rate"]["value"], 8.25)
 
+    def test_extract_raw_monthly_pdf_keeps_explicit_percent_scale(self):
+        pages = ["Tasa apertura 73,07%\nTasa interacción 8,25%\nPlan 100\nMail 100\nNotas 2\nViews 30"]
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-03", Path("/tmp/fake.pdf"))
+        self.assertEqual(raw["metrics"]["mail_open_rate"]["value"], 73.07)
+        self.assertEqual(raw["metrics"]["mail_interaction_rate"]["value"], 8.25)
+
     def test_validate_canonical_monthly_rejects_out_of_range_percent(self):
         canonical = canonicalize_monthly(
             {
