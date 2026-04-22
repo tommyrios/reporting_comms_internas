@@ -101,6 +101,104 @@ class AnalyzerTests(unittest.TestCase):
         self.assertEqual(kpis["quality_flags"]["events_summary_available"], True)
         self.assertEqual(len(kpis["consolidated_rankings"]["top_push_by_interaction"]), 2)
         self.assertEqual(len(kpis["consolidated_rankings"]["top_pull_notes"]), 2)
+        self.assertIn("validation", kpis)
+
+    def test_compute_kpis_normalizes_ratio_percentages(self):
+        summaries = [
+            {
+                "month": "2026-03",
+                "plan_total": 10,
+                "site_notes_total": 2,
+                "site_total_views": 100,
+                "mail_total": 10,
+                "mail_open_rate": 0.7307,
+                "mail_interaction_rate": "8,25%",
+                "strategic_axes": [],
+                "internal_clients": [],
+                "channel_mix": [],
+                "format_mix": [],
+                "top_push_by_interaction": [],
+                "top_push_by_open_rate": [],
+                "top_pull_notes": [],
+                "hitos": [],
+                "events": [],
+                "quality_flags": {
+                    "scope_country": "AR",
+                    "scope_mixed": False,
+                    "site_has_no_data_sections": False,
+                    "events_summary_available": False,
+                    "push_ranking_available": False,
+                    "pull_ranking_available": False,
+                    "historical_comparison_allowed": True,
+                },
+            }
+        ]
+        kpis = compute_kpis(summaries)
+        self.assertEqual(kpis["calculated_totals"]["mail_open_rate"], 73.07)
+        self.assertEqual(kpis["calculated_totals"]["mail_interaction_rate"], 8.25)
+
+    def test_compute_kpis_uses_distribution_average_for_mix(self):
+        summaries = [
+            {
+                "month": "2026-01",
+                "plan_total": 10,
+                "site_notes_total": 2,
+                "site_total_views": 100,
+                "mail_total": 10,
+                "mail_open_rate": 70,
+                "mail_interaction_rate": 8,
+                "strategic_axes": [{"theme": "Negocio", "weight": 70}, {"theme": "Personas", "weight": 30}],
+                "internal_clients": [],
+                "channel_mix": [],
+                "format_mix": [],
+                "top_push_by_interaction": [],
+                "top_push_by_open_rate": [],
+                "top_pull_notes": [],
+                "hitos": [],
+                "events": [],
+                "quality_flags": {
+                    "scope_country": "AR",
+                    "scope_mixed": False,
+                    "site_has_no_data_sections": False,
+                    "events_summary_available": False,
+                    "push_ranking_available": False,
+                    "pull_ranking_available": False,
+                    "historical_comparison_allowed": True,
+                },
+            },
+            {
+                "month": "2026-02",
+                "plan_total": 10,
+                "site_notes_total": 2,
+                "site_total_views": 100,
+                "mail_total": 10,
+                "mail_open_rate": 70,
+                "mail_interaction_rate": 8,
+                "strategic_axes": [{"theme": "Negocio", "weight": 50}, {"theme": "Personas", "weight": 50}],
+                "internal_clients": [],
+                "channel_mix": [],
+                "format_mix": [],
+                "top_push_by_interaction": [],
+                "top_push_by_open_rate": [],
+                "top_pull_notes": [],
+                "hitos": [],
+                "events": [],
+                "quality_flags": {
+                    "scope_country": "AR",
+                    "scope_mixed": False,
+                    "site_has_no_data_sections": False,
+                    "events_summary_available": False,
+                    "push_ranking_available": False,
+                    "pull_ranking_available": False,
+                    "historical_comparison_allowed": True,
+                },
+            },
+        ]
+        kpis = compute_kpis(summaries)
+        mix = kpis["mixes"]["strategic_axes"]
+        self.assertEqual(mix[0]["label"], "Negocio")
+        self.assertEqual(mix[0]["value"], 60.0)
+        self.assertEqual(kpis["validation"]["mix_aggregation"]["strategic_axes"], "distribution_average")
 
     def test_build_render_plan_omits_events_when_not_available(self):
         kpis = {

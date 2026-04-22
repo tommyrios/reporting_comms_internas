@@ -5,12 +5,15 @@ Pipeline end-to-end para generar un **reporte mensual ejecutivo** a partir de da
 ## Arquitectura final (MVP)
 
 1. **Ingesta PDF** desde Gmail (`scripts/fetch_dashboard_pdfs.py`).
-2. **Extracción mensual estructurada** con contrato fuerte (`prompts/monthly_summary.txt` + `scripts/pdf_processor.py`).
+2. **Extracción mensual determinística** desde PDF (`scripts/deterministic_pipeline.py` + `scripts/pdf_processor.py`):
+   - artefacto `data/raw_extracted/<mes>.json`
+   - artefacto `data/canonical_monthly/<mes>.json`
+   - artefacto `data/validation/<mes>.json`
 3. **KPIs determinísticos y guardrails** (`scripts/analyzer.py`):
    - consolida métricas, mixes y rankings
    - aplica `quality_flags`
    - controla comparabilidad histórica real
-4. **Narrativa ejecutiva** (`prompts/period_report.txt`):
+4. **Narrativa ejecutiva (LLM opcional)** (`prompts/period_report.txt`):
    - el LLM redacta copy
    - no decide números
 5. **Render de body en JS** (`scripts/pptx_renderer.js`):

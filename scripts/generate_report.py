@@ -121,15 +121,15 @@ def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_ex
 
 
 def _request_narrative(period: dict[str, Any], kpis: dict[str, Any], monthly_summaries: list[dict[str, Any]]) -> tuple[dict[str, Any], str, str | None]:
-    client = build_genai_client()
-    prompt_base = load_prompt("period_report.txt")
-    prompt_final = (
-        f"{prompt_base}\n\n"
-        f"INPUT (PERIODO):\n{json.dumps(period, ensure_ascii=False)}\n\n"
-        f"INPUT (KPI_CALCULADOS):\n{json.dumps(kpis, ensure_ascii=False)}\n\n"
-        f"INPUT (RESUMENES_MENSUALES):\n{json.dumps(monthly_summaries, ensure_ascii=False)}"
-    )
     try:
+        client = build_genai_client()
+        prompt_base = load_prompt("period_report.txt")
+        prompt_final = (
+            f"{prompt_base}\n\n"
+            f"INPUT (PERIODO):\n{json.dumps(period, ensure_ascii=False)}\n\n"
+            f"INPUT (KPI_CALCULADOS):\n{json.dumps(kpis, ensure_ascii=False)}\n\n"
+            f"INPUT (RESUMENES_MENSUALES):\n{json.dumps(monthly_summaries, ensure_ascii=False)}"
+        )
         narrative_raw = call_gemini_for_json(client, [prompt_final])
         return _sanitize_narrative(narrative_raw), "llm", None
     except Exception as exc:
@@ -138,17 +138,19 @@ def _request_narrative(period: dict[str, Any], kpis: dict[str, Any], monthly_sum
 
 def generate_period_report(period_slug: str, force_regenerate: bool = False) -> dict[str, Any]:
     period = get_period_definition(period_slug)
-    client = build_genai_client()
 
     monthly_summaries_raw: list[dict[str, Any]] = []
     monthly_summaries_validated: list[dict[str, Any]] = []
     warnings: list[str] = []
 
     for month_key in period.get("months", []):
-        summary = summarize_month(client, month_key, force_regenerate)
+        summary = summarize_month(None, month_key, force_regenerate)
         monthly_summaries_raw.append(summary)
         if summary.get("generation_mode") == "local_fallback":
             warnings.append(summary.get("warning") or f"Summary mensual en fallback para {month_key}")
+        validation = summary.get("validation") if isinstance(summary.get("validation"), dict) else {}
+        if validation.get("warnings"):
+            warnings.extend([f"{month_key}: {warning}" for warning in validation.get("warnings", [])])
 
         validated = validate_monthly_summary_contract(summary)
         monthly_summaries_validated.append(validated)

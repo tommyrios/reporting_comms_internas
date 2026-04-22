@@ -4,6 +4,8 @@ from collections import defaultdict
 from copy import deepcopy
 from typing import Any
 
+from metric_utils import normalize_percentage, to_float_locale
+
 
 REQUIRED_MONTHLY_FIELDS = {
     "plan_total",
@@ -42,6 +44,9 @@ BASE_STRUCTURE: dict[str, Any] = {
     "render_plan": {"modules": []},
 }
 
+PLAN_MAIL_ABS_DELTA_THRESHOLD = 5
+PLAN_MAIL_REL_DELTA_THRESHOLD = 0.5
+
 
 def _to_int(value: Any, default: int = 0) -> int:
     if value in (None, "", "-"):
@@ -50,7 +55,14 @@ def _to_int(value: Any, default: int = 0) -> int:
         return int(value)
     if isinstance(value, (int, float)):
         return int(round(value))
-    text = str(value).strip().replace(".", "").replace(",", ".")
+    text = str(value).strip()
+    if "," in text and "." in text:
+        if text.rfind(",") > text.rfind("."):
+            text = text.replace(".", "").replace(",", ".")
+        else:
+            text = text.replace(",", "")
+    elif "," in text:
+        text = text.replace(",", ".")
     try:
         return int(float(text))
     except Exception:
@@ -61,22 +73,7 @@ def _to_int(value: Any, default: int = 0) -> int:
 def _to_float(value: Any, default: float = 0.0) -> float:
     if value in (None, "", "-"):
         return default
-    if isinstance(value, bool):
-        return float(value)
-    if isinstance(value, (int, float)):
-        return float(value)
-    text = str(value).strip().replace("%", "").replace(".", "").replace(",", ".")
-    try:
-        return float(text)
-    except Exception:
-        filtered = "".join(ch for ch in str(value) if ch.isdigit() or ch in ".,-")
-        if not filtered:
-            return default
-        filtered = filtered.replace(",", ".")
-        try:
-            return float(filtered)
-        except Exception:
-            return default
+    return to_float_locale(value, default)
 
 
 def _clean_title(value: Any, max_len: int = 90) -> str:
@@ -90,7 +87,7 @@ def _clean_title(value: Any, max_len: int = 90) -> str:
 
 
 def _normalize_pct(value: Any) -> float:
-    return round(_to_float(value, 0.0), 2)
+    return normalize_percentage(value)
 
 
 def _normalize_weighted_list(items: Any, label_keys: list[str], value_keys: list[str]) -> list[dict[str, Any]]:
@@ -207,6 +204,51 @@ def _aggregate_weighted(items_by_month: list[list[dict[str, Any]]], label_key: s
     return rows
 
 
+def _looks_like_distribution(items: Any) -> bool:
+    if not isinstance(items, list) or not items:
+        return False
+    values = [_to_float(item.get("value", item.get("weight", item.get("participants", 0))), 0.0) for item in items if isinstance(item, dict)]
+    if not values:
+        return False
+    if all(0 <= value <= 1 for value in values):
+        total = sum(values)
+        return 0.95 <= total <= 1.05
+    if any(value < 0 or value > 100 for value in values):
+        return False
+    total = sum(values)
+    return 95 <= total <= 105
+
+
+def _aggregate_distribution(items_by_month: list[list[dict[str, Any]]], label_key: str = "label") -> tuple[list[dict[str, Any]], bool]:
+    monthly_distributions = [items for items in items_by_month if _looks_like_distribution(items)]
+    if not monthly_distributions:
+        return _aggregate_weighted(items_by_month, label_key=label_key), False
+
+    values_by_label: dict[str, list[float]] = defaultdict(list)
+    for month_items in monthly_distributions:
+        total = sum(_to_float(item.get("value", item.get("weight", 0)), 0.0) for item in month_items if isinstance(item, dict)) or 1.0
+        for item in month_items:
+            if not isinstance(item, dict):
+                continue
+            label = str(item.get(label_key) or item.get("theme") or item.get("name") or "").strip()
+            if not label:
+                continue
+            value = _to_float(item.get("value", item.get("weight", 0)), 0.0)
+            values_by_label[_clean_title(label, 52)].append((value / total) * 100)
+
+    rows = [{"label": label, "value": round(sum(values) / len(values), 2)} for label, values in values_by_label.items() if values]
+    rows.sort(key=lambda row: row["value"], reverse=True)
+    return rows, True
+
+
+def _has_significant_plan_mail_delta(plan_total: int, mail_total: int) -> bool:
+    relative_base = max(plan_total, mail_total)
+    return abs(plan_total - mail_total) > max(
+        PLAN_MAIL_ABS_DELTA_THRESHOLD,
+        int(relative_base * PLAN_MAIL_REL_DELTA_THRESHOLD),
+    )
+
+
 def _top_push(summary_rows: list[dict[str, Any]], source_key: str, value_key: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for row in summary_rows:
@@ -276,10 +318,14 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
     mail_open_rate = round(weighted_open_num / weighted_den, 2) if weighted_den else 0.0
     mail_interaction_rate = round(weighted_inter_num / weighted_den, 2) if weighted_den else 0.0
 
-    strategic_axes = _aggregate_weighted([row.get("strategic_axes", []) for row in normalized_rows])[:6]
-    internal_clients = _aggregate_weighted([row.get("internal_clients", []) for row in normalized_rows])[:6]
-    channel_mix = _aggregate_weighted([row.get("channel_mix", []) for row in normalized_rows])[:6]
-    format_mix = _aggregate_weighted([row.get("format_mix", []) for row in normalized_rows])[:6]
+    strategic_axes, strategic_axes_is_distribution = _aggregate_distribution([row.get("strategic_axes", []) for row in normalized_rows])
+    internal_clients, internal_clients_is_distribution = _aggregate_distribution([row.get("internal_clients", []) for row in normalized_rows])
+    channel_mix, channel_mix_is_distribution = _aggregate_distribution([row.get("channel_mix", []) for row in normalized_rows])
+    format_mix, format_mix_is_distribution = _aggregate_distribution([row.get("format_mix", []) for row in normalized_rows])
+    strategic_axes = strategic_axes[:6]
+    internal_clients = internal_clients[:6]
+    channel_mix = channel_mix[:6]
+    format_mix = format_mix[:6]
 
     top_push_by_interaction = _top_push(normalized_rows, "top_push_by_interaction", "interaction")
     top_push_by_open_rate = _top_push(normalized_rows, "top_push_by_open_rate", "open_rate")
@@ -359,6 +405,17 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
     pull_timeline = [{"label": row.get("month"), "value": row.get("site_notes_total", 0)} for row in normalized_rows]
     latest_push = _to_int(push_timeline[-1]["value"]) if push_timeline else 0
     previous_push = _to_int(push_timeline[-2]["value"]) if len(push_timeline) > 1 else 0
+    validation_warnings: list[str] = []
+    if mail_total and _has_significant_plan_mail_delta(plan_total, mail_total):
+        validation_warnings.append(
+            f"Inconsistencia potencial entre plan_total ({plan_total}) y mail_total ({mail_total})"
+        )
+    if mail_open_rate < 0 or mail_open_rate > 100:
+        validation_warnings.append(f"mail_open_rate fuera de rango: {mail_open_rate}")
+    if mail_interaction_rate < 0 or mail_interaction_rate > 100:
+        validation_warnings.append(f"mail_interaction_rate fuera de rango: {mail_interaction_rate}")
+    if strategic_axes_is_distribution or internal_clients_is_distribution or channel_mix_is_distribution or format_mix_is_distribution:
+        validation_warnings.append("Mixes consolidados como promedio de distribución mensual (no suma directa)")
 
     return {
         "monthly_contract": normalized_rows,
@@ -411,6 +468,16 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
             "audience_segments": channel_mix[:5],
             "strategic_axes": [{"theme": item["label"], "weight": item["value"]} for item in strategic_axes],
             "internal_clients": internal_clients,
+        },
+        "validation": {
+            "is_valid": True,
+            "warnings": validation_warnings,
+            "mix_aggregation": {
+                "strategic_axes": "distribution_average" if strategic_axes_is_distribution else "weighted_sum",
+                "internal_clients": "distribution_average" if internal_clients_is_distribution else "weighted_sum",
+                "channel_mix": "distribution_average" if channel_mix_is_distribution else "weighted_sum",
+                "format_mix": "distribution_average" if format_mix_is_distribution else "weighted_sum",
+            },
         },
     }
 
