@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import unicodedata
 from datetime import UTC, datetime
@@ -12,12 +13,13 @@ from pypdf import PdfReader
 from config import CANONICAL_MONTHLY_DIR, RAW_EXTRACTED_DIR, VALIDATION_DIR, ensure_dir
 from metric_utils import normalize_percentage, to_float_locale
 
-NUMBER_PATTERN = re.compile(r"-?\d+(?:[.,]\d+)*%?")
+NUMBER_PATTERN = re.compile(r"-?\d+(?:[.,]\d{3})*(?:[.,]\d+)?%?")
 MAX_MAIL_TO_PLAN_RATIO = 10
 MIN_SITE_VIEWS_PER_NOTE = 10
 MIN_MAIL_TO_PLAN_RELATION = 0.2
 MIN_MAIL_ABSOLUTE = 10
 MIN_RATE_DIFFERENCE = 0.01
+logger = logging.getLogger(__name__)
 
 
 def _normalize_text(value: str) -> str:
@@ -42,16 +44,15 @@ def parse_integer_value(raw: str | None) -> int | None:
 
     def _is_thousands_format(candidate: str, separator: str) -> bool:
         parts = candidate.split(separator)
-        return len(parts) > 1 and all(part.isdigit() for part in parts) and all(len(part) == 3 for part in parts[1:])
+        if len(parts) <= 1:
+            return False
+        if not all(part.isdigit() for part in parts):
+            return False
+        if not (1 <= len(parts[0]) <= 3):
+            return False
+        return all(len(part) == 3 for part in parts[1:])
 
     if "." in clean and "," in clean:
-        dot_last = clean.rfind(".")
-        comma_last = clean.rfind(",")
-        decimal_sep = "." if dot_last > comma_last else ","
-        decimal_len = len(clean.split(decimal_sep)[-1])
-        if decimal_len == 3:
-            digits = re.sub(r"[^\d]", "", clean)
-            return sign * int(digits) if digits else None
         return sign * int(round(_to_float_locale(clean)))
 
     if "." in clean:
@@ -65,6 +66,8 @@ def parse_integer_value(raw: str | None) -> int | None:
         return sign * int(round(_to_float_locale(clean)))
 
     digits_only = re.sub(r"[^\d]", "", clean)
+    if clean != digits_only:
+        logger.warning("event=integer_parse_fallback raw=%s clean=%s", raw, clean)
     return sign * int(digits_only) if digits_only else None
 
 
@@ -238,10 +241,6 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
     if any(str(w).startswith("missing_anchor:") for w in extraction_warnings):
         errors.append("Faltan KPIs primarios por ancla exacta")
 
-    for metric in ("plan_total", "site_notes_total", "site_total_views", "mail_total"):
-        if canonical.get(metric, 0) < 0:
-            errors.append(f"{metric} no puede ser negativo")
-
     for metric in ("mail_open_rate", "mail_interaction_rate"):
         value = float(canonical.get(metric, 0))
         if value < 0 or value > 100:
@@ -261,7 +260,13 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
 
     if plan_total <= 0:
         errors.append("plan_total inválido: no puede ser 0 o negativo")
-    if mail_total > 0 and plan_total > 0 and mail_total < max(MIN_MAIL_ABSOLUTE, int(round(plan_total * MIN_MAIL_TO_PLAN_RELATION))):
+    if site_notes_total < 0:
+        errors.append("site_notes_total no puede ser negativo")
+    if site_total_views < 0:
+        errors.append("site_total_views no puede ser negativo")
+    if mail_total < 0:
+        errors.append("mail_total no puede ser negativo")
+    if mail_total >= 0 and plan_total > 0 and mail_total < max(MIN_MAIL_ABSOLUTE, int(round(plan_total * MIN_MAIL_TO_PLAN_RELATION))):
         errors.append("mail_total sospechosamente bajo respecto a plan_total")
     if site_notes_total > 0 and site_total_views < site_notes_total * MIN_SITE_VIEWS_PER_NOTE:
         errors.append("site_total_views sospechosamente bajo respecto a site_notes_total")
