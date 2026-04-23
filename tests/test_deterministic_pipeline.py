@@ -56,7 +56,7 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertEqual(raw["metrics"]["mail_open_rate"]["value"], 77.53)
         self.assertEqual(raw["metrics"]["mail_interaction_rate"]["value"], 8.86)
 
-    def test_extract_raw_monthly_pdf_ignores_anchor_on_wrong_page(self):
+    def test_extract_raw_monthly_pdf_marks_anchor_when_found_on_unexpected_page(self):
         pages = [
             "Nº total de comunicaciones 66",
             "Noticias Publicadas 17\nTotal Páginas Vistas 6205",
@@ -65,8 +65,8 @@ class DeterministicPipelineTests(unittest.TestCase):
         ]
         with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
             raw = extract_raw_monthly_pdf("2026-03", Path("/tmp/fake.pdf"))
-        self.assertIsNone(raw["metrics"]["mail_open_rate"]["value"])
-        self.assertTrue(any("missing_anchor:mail_open_rate" in w for w in raw["warnings"]))
+        self.assertEqual(raw["metrics"]["mail_open_rate"]["value"], 73.07)
+        self.assertTrue(any("anchor_out_of_expected_page:Tasa de apertura promedio" in w for w in raw["warnings"]))
 
     def test_extract_raw_monthly_pdf_missing_anchor_returns_null_and_warning(self):
         pages = [
@@ -110,6 +110,40 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertNotEqual(canonical["plan_total"], 0)
         self.assertGreater(canonical["site_total_views"], canonical["site_notes_total"])
         self.assertNotEqual(canonical["mail_total"], 5)
+
+
+    def test_extract_raw_monthly_pdf_prefers_number_after_anchor_not_last_number_in_line(self):
+        pages = [
+            "Resumen planificación\nN° total de comunicaciones 66 Media comunicaciones diarias 3",
+            "Resumen site\nNoticias Publicadas 17 Total Páginas Vistas 6.205 Promedio Vistas 365",
+            (
+                "Resumen mailing\nMails enviados 36\n"
+                "Tasa de apertura promedio 77,53% Tasa de interacción sobre mails enviados 8,86%\n"
+                "Tasa de interacción sobre mails abiertos 11,43%"
+            ),
+        ]
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-03", Path("/tmp/fake.pdf"))
+        self.assertEqual(raw["metrics"]["plan_total"]["value"], 66.0)
+        self.assertEqual(raw["metrics"]["mail_open_rate"]["value"], 77.53)
+        self.assertEqual(raw["metrics"]["mail_interaction_rate"]["value"], 8.86)
+
+    def test_extract_raw_monthly_pdf_falls_back_to_other_page_when_layout_is_shifted(self):
+        pages = [
+            "Carátula del dashboard",
+            "Panel planificación\nNº total de comunicaciones 58\nMedia comunicaciones diarias 3",
+            "Panel site\nNoticias Publicadas 16\nTotal Páginas Vistas 5,580\nPromedio Vistas 349",
+            "Panel mail\nMails enviados 42\nTasa de apertura promedio 78,68%\nTasa de interacción sobre mails enviados 9,20%\nTasa de interacción sobre mails abiertos 11,70%",
+        ]
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
+        canonical = canonicalize_monthly(raw)
+        validation = validate_canonical_monthly(canonical)
+        self.assertEqual(canonical["plan_total"], 58)
+        self.assertEqual(canonical["site_total_views"], 5580)
+        self.assertEqual(canonical["mail_open_rate"], 78.68)
+        self.assertTrue(validation["is_valid"])
+        self.assertTrue(any(str(w).startswith("anchor_out_of_expected_page:") for w in raw["warnings"]))
 
     def test_validate_canonical_monthly_rejects_missing_anchor(self):
         raw = {

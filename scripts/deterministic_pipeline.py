@@ -23,10 +23,49 @@ MIN_RATE_DIFFERENCE = 0.01
 logger = logging.getLogger(__name__)
 
 
+ANCHOR_VARIANTS: dict[str, tuple[str, ...]] = {
+    "Nº total de comunicaciones": (
+        "Nº total de comunicaciones",
+        "N° total de comunicaciones",
+        "No total de comunicaciones",
+        "N total de comunicaciones",
+    ),
+    "Media comunicaciones diarias": (
+        "Media comunicaciones diarias",
+    ),
+    "Noticias Publicadas": (
+        "Noticias Publicadas",
+    ),
+    "Total Páginas Vistas": (
+        "Total Páginas Vistas",
+        "Total Paginas Vistas",
+    ),
+    "Promedio Vistas": (
+        "Promedio Vistas",
+    ),
+    "Mails enviados": (
+        "Mails enviados",
+        "Mails Enviados",
+    ),
+    "Tasa de apertura promedio": (
+        "Tasa de apertura promedio",
+    ),
+    "Tasa de interacción sobre mails enviados": (
+        "Tasa de interacción sobre mails enviados",
+        "Tasa de interaccion sobre mails enviados",
+    ),
+    "Tasa de interacción sobre mails abiertos": (
+        "Tasa de interacción sobre mails abiertos",
+        "Tasa de interaccion sobre mails abiertos",
+    ),
+}
+
+
 def _normalize_text(value: str) -> str:
     normalized = unicodedata.normalize("NFKD", value or "")
     without_accents = "".join(ch for ch in normalized if not unicodedata.combining(ch))
-    return " ".join(without_accents.lower().split())
+    simplified = without_accents.replace("º", "o").replace("°", "o")
+    return " ".join(simplified.lower().split())
 
 
 def _to_float_locale(raw: str) -> float:
@@ -88,21 +127,78 @@ def _extract_pages_text(pdf_path: Path) -> list[str]:
     return pages
 
 
+def _anchor_variants(anchor: str) -> tuple[str, ...]:
+    variants = ANCHOR_VARIANTS.get(anchor)
+    if variants:
+        return variants
+    return (anchor,)
+
+
+def _extract_number_after_anchor(line: str, anchor: str) -> str | None:
+    if not line:
+        return None
+    anchor_norm = _normalize_text(anchor)
+    line_norm = _normalize_text(line)
+    anchor_pos = line_norm.find(anchor_norm)
+    if anchor_pos < 0:
+        return None
+
+    original_start = 0
+    if anchor_pos > 0:
+        prefix_norm = line_norm[:anchor_pos]
+        prefix_tokens = prefix_norm.split()
+        if prefix_tokens:
+            consumed = 0
+            tokens_seen = 0
+            for token in line.split():
+                token_norm = _normalize_text(token)
+                if tokens_seen < len(prefix_tokens) and token_norm == prefix_tokens[tokens_seen]:
+                    tokens_seen += 1
+                consumed += len(token) + 1
+                if tokens_seen >= len(prefix_tokens):
+                    break
+            original_start = min(consumed, len(line))
+
+    anchor_match = re.search(re.escape(anchor), line[original_start:], flags=re.IGNORECASE)
+    if anchor_match:
+        search_start = original_start + anchor_match.end()
+    else:
+        anchor_tokens = anchor.split()
+        search_start = original_start
+        if anchor_tokens:
+            matches_seen = 0
+            for token in line.split():
+                token_norm = _normalize_text(token)
+                if matches_seen < len(anchor_tokens) and token_norm == _normalize_text(anchor_tokens[matches_seen]):
+                    matches_seen += 1
+                search_start += len(token) + 1
+                if matches_seen >= len(anchor_tokens):
+                    break
+
+    search_segment = line[search_start:]
+    match = NUMBER_PATTERN.search(search_segment)
+    return match.group(0) if match else None
+
+
 def find_anchor_value(page_text: str, anchor: str, kind: str, page_number: int) -> dict[str, Any]:
     lines = page_text.splitlines()
-    anchor_norm = _normalize_text(anchor)
+    anchor_variants = _anchor_variants(anchor)
     for idx, line in enumerate(lines):
         line_norm = _normalize_text(line)
-        if anchor_norm not in line_norm:
+        matched_anchor = next((variant for variant in anchor_variants if _normalize_text(variant) in line_norm), None)
+        if not matched_anchor:
             continue
 
-        line_candidates = NUMBER_PATTERN.findall(line)
-        raw_value = line_candidates[-1] if line_candidates else None
-        if raw_value is None and idx + 1 < len(lines):
-            next_line = lines[idx + 1]
-            next_candidates = NUMBER_PATTERN.findall(next_line)
-            if next_candidates:
-                raw_value = next_candidates[0]
+        raw_value = _extract_number_after_anchor(line, matched_anchor)
+        if raw_value is None:
+            for offset in (1, 2):
+                if idx + offset >= len(lines):
+                    break
+                next_line = lines[idx + offset]
+                next_candidates = NUMBER_PATTERN.findall(next_line)
+                if next_candidates:
+                    raw_value = next_candidates[0]
+                    break
         if raw_value is None:
             continue
 
@@ -173,25 +269,73 @@ def extract_mail_page_metrics(page_text: str, page_number: int = 3) -> dict[str,
     }
 
 
+def _extract_metric_from_pages(
+    pages: list[str],
+    anchor: str,
+    kind: str,
+    expected_page_number: int,
+) -> tuple[dict[str, Any], list[str]]:
+    warnings: list[str] = []
+    if 1 <= expected_page_number <= len(pages):
+        preferred = find_anchor_value(pages[expected_page_number - 1], anchor, kind, expected_page_number)
+        if not preferred.get("missing", False):
+            return preferred, warnings
+
+    for actual_page_number, page_text in enumerate(pages, start=1):
+        if actual_page_number == expected_page_number:
+            continue
+        candidate = find_anchor_value(page_text, anchor, kind, actual_page_number)
+        if candidate.get("missing", False):
+            continue
+        warnings.append(
+            f"anchor_out_of_expected_page:{anchor}:Se encontró en página {actual_page_number} y no en la página esperada {expected_page_number}"
+        )
+        return candidate, warnings
+
+    missing = {
+        "anchor": anchor,
+        "raw_value": None,
+        "value": None,
+        "unit": "percent" if kind == "percent" else "count",
+        "page": expected_page_number,
+        "line": "",
+        "missing": True,
+    }
+    warnings.append(
+        f"missing_anchor:No se encontró ancla exacta '{anchor}' en página esperada {expected_page_number} ni en el resto del documento"
+    )
+    return missing, warnings
+
+
 def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
     pages = _extract_pages_text(pdf_path)
-    metrics: dict[str, Any] = {
-        **extract_planning_page_metrics(pages[0] if len(pages) >= 1 else "", 1),
-        **extract_site_page_metrics(pages[1] if len(pages) >= 2 else "", 2),
-        **extract_mail_page_metrics(pages[2] if len(pages) >= 3 else "", 3),
-    }
+    metric_specs = [
+        ("plan_total", "Nº total de comunicaciones", "count", 1),
+        ("plan_daily_average", "Media comunicaciones diarias", "count", 1),
+        ("site_notes_total", "Noticias Publicadas", "count", 2),
+        ("site_total_views", "Total Páginas Vistas", "count", 2),
+        ("site_average_views", "Promedio Vistas", "count", 2),
+        ("mail_total", "Mails enviados", "count", 3),
+        ("mail_open_rate", "Tasa de apertura promedio", "percent", 3),
+        ("mail_interaction_rate", "Tasa de interacción sobre mails enviados", "percent", 3),
+        ("mail_interaction_rate_over_opened", "Tasa de interacción sobre mails abiertos", "percent", 3),
+    ]
+
+    metrics: dict[str, Any] = {}
     warnings: list[str] = []
-    for metric, extracted in metrics.items():
+    for metric_key, anchor, kind, expected_page in metric_specs:
+        extracted, metric_warnings = _extract_metric_from_pages(pages, anchor, kind, expected_page)
+        metrics[metric_key] = extracted
         if extracted.get("missing", False):
-            warnings.append(
-                f"missing_anchor:{metric}:No se encontró ancla exacta '{extracted.get('anchor')}' en página {extracted.get('page')}"
-            )
+            warnings.append(f"missing_anchor:{metric_key}:{metric_warnings[-1]}")
+        else:
+            warnings.extend(metric_warnings)
 
     return {
         "month": month_key,
         "source_pdf": str(pdf_path),
         "extracted_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        "parser": "deterministic_pdf_v2",
+        "parser": "deterministic_pdf_v3",
         "page_count": len(pages),
         "metrics": metrics,
         "warnings": warnings,
