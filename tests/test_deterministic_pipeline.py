@@ -1,4 +1,5 @@
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -9,6 +10,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from deterministic_pipeline import (
     canonicalize_monthly,
+    extract_single_pdf_to_raw,
     extract_raw_monthly_pdf,
     parse_integer_value,
     parse_percent_value,
@@ -17,6 +19,19 @@ from deterministic_pipeline import (
 
 
 class DeterministicPipelineTests(unittest.TestCase):
+    def test_extract_single_pdf_to_raw_writes_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            input_pdf = tmp_dir / "2026-01_dashboard.pdf"
+            output_json = tmp_dir / "debug" / "2026-01_raw.json"
+            input_pdf.write_bytes(b"%PDF-1.4 fake")
+            fake_raw = {"month": "2026-01", "metrics": {"plan_total": {"value": 58}}}
+            with patch("deterministic_pipeline.extract_raw_monthly_pdf", return_value=fake_raw) as extract_mock:
+                result = extract_single_pdf_to_raw(input_pdf, output_json)
+            self.assertTrue(output_json.exists())
+        self.assertEqual(result["month"], "2026-01")
+        self.assertEqual(extract_mock.call_args[0][0], "2026-01")
+
     def _valid_sample_pages(self) -> list[str]:
         return [
             "Resumen planificación\nNº total de comunicaciones 66\nMedia comunicaciones diarias 3",

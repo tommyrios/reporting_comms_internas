@@ -4,7 +4,16 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from config import CANONICAL_MONTHLY_DIR, LEGACY_SUMMARIES_DIR, PDF_DIR, SUMMARIES_DIR, ensure_dir
+from config import (
+    CANONICAL_MONTHLY_DIR,
+    INBOX_PDF_DIR,
+    LEGACY_SUMMARIES_DIR,
+    PDF_DIR,
+    RAW_EXTRACTED_DIR,
+    SUMMARIES_DIR,
+    VALIDATION_DIR,
+    ensure_dir,
+)
 from deterministic_pipeline import (
     canonicalize_monthly,
     extract_raw_monthly_pdf,
@@ -72,17 +81,52 @@ def _persist_summary(summary: dict, month_key: str) -> None:
     logger.info("event=summary_saved month=%s path=%s", month_key, primary_path)
 
 
-def summarize_month(_client: Any, month_key: str, force_regenerate: bool = False) -> dict:
+def month_pdf_candidates(pdf_dir: Path, month_key: str) -> list[Path]:
+    return [
+        pdf_dir / f"{month_key}_dashboard.pdf",
+        pdf_dir / f"{month_key}.pdf",
+    ]
+
+
+def resolve_month_pdf_path(month_key: str, pdf_dir: Path | None = None) -> Path:
+    active_pdf_dir = Path(pdf_dir) if pdf_dir else INBOX_PDF_DIR
+    for candidate in month_pdf_candidates(active_pdf_dir, month_key):
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        f"No existe PDF mensual para {month_key} en {active_pdf_dir}. "
+        f"Se esperaba alguno de: {[str(path.name) for path in month_pdf_candidates(active_pdf_dir, month_key)]}"
+    )
+
+
+def resolve_period_month_pdfs(month_keys: list[str], pdf_dir: Path | None = None, allow_partial: bool = False) -> dict[str, Path]:
+    active_pdf_dir = Path(pdf_dir) if pdf_dir else INBOX_PDF_DIR
+    resolved: dict[str, Path] = {}
+    missing: list[str] = []
+    for month_key in month_keys:
+        try:
+            resolved[month_key] = resolve_month_pdf_path(month_key, active_pdf_dir)
+        except FileNotFoundError:
+            missing.append(month_key)
+    if missing and not allow_partial:
+        logger.error("event=missing_month_for_period pdf_dir=%s missing_months=%s", active_pdf_dir, missing)
+        raise FileNotFoundError(f"Faltan PDFs para el período solicitado en {active_pdf_dir}: {', '.join(missing)}")
+    return resolved
+
+
+def summarize_month(_client: Any, month_key: str, force_regenerate: bool = False, pdf_dir: Path | None = None) -> dict:
     cached_summary, cached_path = _read_cached_summary(month_key)
     if cached_summary and not force_regenerate:
         logger.info("event=summary_cache_hit month=%s path=%s", month_key, cached_path)
         return cached_summary
 
-    pdf_path = PDF_DIR / f"{month_key}.pdf"
-    if not pdf_path.exists():
-        raise FileNotFoundError(f"No existe el PDF mensual esperado: {pdf_path}")
+    active_pdf_dir = Path(pdf_dir) if pdf_dir else INBOX_PDF_DIR
+    if not active_pdf_dir.exists() and PDF_DIR.exists():
+        active_pdf_dir = PDF_DIR
 
-    logger.info("event=summary_start month=%s pdf=%s mode=deterministic_pdf", month_key, pdf_path.name)
+    pdf_path = resolve_month_pdf_path(month_key, active_pdf_dir)
+
+    logger.info("event=processing_started month=%s pdf=%s mode=deterministic_pdf", month_key, pdf_path.name)
     try:
         raw_extracted = extract_raw_monthly_pdf(month_key, pdf_path)
         canonical = canonicalize_monthly(raw_extracted)
@@ -91,6 +135,17 @@ def summarize_month(_client: Any, month_key: str, force_regenerate: bool = False
         if not validation.get("is_valid", False):
             raise ValueError(f"Resumen mensual inválido para {month_key}: {validation.get('errors', [])}")
         persist_monthly_artifacts(month_key, raw_extracted, canonical, validation)
+        logger.info("event=raw_json_written month=%s path=%s", month_key, ensure_dir(RAW_EXTRACTED_DIR) / f"{month_key}.json")
+        logger.info(
+            "event=canonical_json_written month=%s path=%s",
+            month_key,
+            ensure_dir(CANONICAL_MONTHLY_DIR) / f"{month_key}.json",
+        )
+        logger.info(
+            "event=validation_json_written month=%s path=%s",
+            month_key,
+            ensure_dir(VALIDATION_DIR) / f"{month_key}.json",
+        )
         _persist_summary(canonical, month_key)
         return canonical
     except Exception as exc:

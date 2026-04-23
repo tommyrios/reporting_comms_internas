@@ -9,10 +9,29 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.append(str(SCRIPTS_DIR))
 
-from pdf_processor import summarize_month
+from pdf_processor import resolve_period_month_pdfs, summarize_month
 
 
 class PdfProcessorTests(unittest.TestCase):
+    def test_resolve_period_month_pdfs_q1(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            (tmp_dir / "2026-01_dashboard.pdf").write_bytes(b"%PDF-1.4 jan")
+            (tmp_dir / "2026-02_dashboard.pdf").write_bytes(b"%PDF-1.4 feb")
+            (tmp_dir / "2026-03_dashboard.pdf").write_bytes(b"%PDF-1.4 mar")
+            resolved = resolve_period_month_pdfs(["2026-01", "2026-02", "2026-03"], pdf_dir=tmp_dir)
+        self.assertEqual(set(resolved.keys()), {"2026-01", "2026-02", "2026-03"})
+        self.assertTrue(all(path.name.endswith("_dashboard.pdf") for path in resolved.values()))
+
+    def test_resolve_period_month_pdfs_missing_month_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            (tmp_dir / "2026-01_dashboard.pdf").write_bytes(b"%PDF-1.4 jan")
+            (tmp_dir / "2026-03_dashboard.pdf").write_bytes(b"%PDF-1.4 mar")
+            with self.assertRaises(FileNotFoundError) as ctx:
+                resolve_period_month_pdfs(["2026-01", "2026-02", "2026-03"], pdf_dir=tmp_dir)
+        self.assertIn("2026-02", str(ctx.exception))
+
     def test_uses_primary_cache_when_available_and_not_forced(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
@@ -77,6 +96,28 @@ class PdfProcessorTests(unittest.TestCase):
         self.assertEqual(result["generation_mode"], "local_fallback")
         self.assertIn("No se pudo generar resumen mensual determinístico", result["warning"])
         self.assertEqual(persisted["generation_mode"], "local_fallback")
+
+    def test_process_only_mode_uses_local_pdf_dir_without_email(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            cache_dir = tmp_dir / "cache"
+            legacy_cache = tmp_dir / "legacy"
+            local_pdf_dir = tmp_dir / "local_data" / "inbox_pdfs"
+            local_pdf_dir.mkdir(parents=True, exist_ok=True)
+            (local_pdf_dir / "2026-03_dashboard.pdf").write_bytes(b"%PDF-1.4 mock content")
+            raw = {"month": "2026-03", "metrics": {}}
+            canonical = {"month": "2026-03", "generation_mode": "deterministic_pdf"}
+            validation = {"is_valid": True, "warnings": [], "errors": []}
+            with patch("pdf_processor.SUMMARIES_DIR", cache_dir), \
+                    patch("pdf_processor.CANONICAL_MONTHLY_DIR", cache_dir), \
+                    patch("pdf_processor.LEGACY_SUMMARIES_DIR", legacy_cache), \
+                    patch("pdf_processor.extract_raw_monthly_pdf", return_value=raw) as extract_mock, \
+                    patch("pdf_processor.canonicalize_monthly", return_value=canonical), \
+                    patch("pdf_processor.validate_canonical_monthly", return_value=validation), \
+                    patch("pdf_processor.persist_monthly_artifacts"):
+                summarize_month(Mock(), "2026-03", force_regenerate=True, pdf_dir=local_pdf_dir)
+        called_pdf_path = extract_mock.call_args[0][1]
+        self.assertEqual(called_pdf_path.name, "2026-03_dashboard.pdf")
 
     def test_persists_artifacts_when_deterministic_extraction_succeeds(self):
         with tempfile.TemporaryDirectory() as tmp:

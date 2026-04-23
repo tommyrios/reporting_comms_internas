@@ -68,6 +68,7 @@ class GenerateReportTests(unittest.TestCase):
         }
 
         with patch("generate_report.get_period_definition", return_value=period), \
+                patch("generate_report.resolve_period_month_pdfs", return_value={}), \
                 patch("generate_report.build_genai_client", side_effect=[object(), object()]), \
                 patch("generate_report.summarize_month", return_value=summary), \
                 patch("generate_report.apply_historical_comparison", side_effect=lambda period, payload: payload), \
@@ -86,6 +87,7 @@ class GenerateReportTests(unittest.TestCase):
         invalid_summary = {"plan_total": 1}
 
         with patch("generate_report.get_period_definition", return_value=period), \
+                patch("generate_report.resolve_period_month_pdfs", return_value={}), \
                 patch("generate_report.build_genai_client", return_value=object()), \
                 patch("generate_report.summarize_month", return_value=invalid_summary):
             with self.assertRaises(ValueError) as ctx:
@@ -125,6 +127,8 @@ class GenerateReportTests(unittest.TestCase):
         }
 
         with patch("generate_report.get_period_definition", return_value=period), patch(
+            "generate_report.resolve_period_month_pdfs", return_value={}
+        ), patch(
             "generate_report.summarize_month", side_effect=[invalid_month]
         ) as summarize_month_mock:
             with self.assertRaises(ValueError) as ctx:

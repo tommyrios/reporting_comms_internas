@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import re
@@ -67,7 +68,7 @@ def parse_integer_value(raw: str | None) -> int | None:
 
     digits_only = re.sub(r"[^\d]", "", clean)
     if clean != digits_only:
-        logger.warning("event=integer_parse_fallback raw=%s clean=%s", raw, clean)
+        logger.debug("event=integer_parse_fallback raw=%s clean=%s", raw, clean)
     return sign * int(digits_only) if digits_only else None
 
 
@@ -259,7 +260,7 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
     interaction_rate = float(canonical.get("mail_interaction_rate", 0) or 0)
 
     if plan_total <= 0:
-        errors.append("plan_total inválido: no puede ser 0 o negativo")
+        errors.append("plan_total inválido: debe ser mayor a 0")
     if site_notes_total < 0:
         errors.append("site_notes_total no puede ser negativo")
     if site_total_views < 0:
@@ -295,3 +296,32 @@ def persist_monthly_artifacts(month_key: str, raw_extracted: dict[str, Any], can
         json.dumps(validation, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def infer_month_key_from_pdf_path(pdf_path: Path) -> str:
+    match = re.search(r"(20\d{2}-\d{2})", pdf_path.name)
+    if match:
+        return match.group(1)
+    return datetime.now(UTC).strftime("%Y-%m")
+
+
+def extract_single_pdf_to_raw(input_pdf: Path, output_json: Path, month_key: str | None = None) -> dict[str, Any]:
+    resolved_month = month_key or infer_month_key_from_pdf_path(input_pdf)
+    raw_extracted = extract_raw_monthly_pdf(resolved_month, input_pdf)
+    ensure_dir(output_json.parent)
+    output_json.write_text(json.dumps(raw_extracted, ensure_ascii=False, indent=2), encoding="utf-8")
+    return raw_extracted
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Extracción determinística de dashboard PDF.")
+    parser.add_argument("--input", type=Path, required=True, help="Ruta local al PDF de entrada.")
+    parser.add_argument("--output", type=Path, required=True, help="Ruta local del JSON raw de salida.")
+    parser.add_argument("--month", default=None, help="Mes explícito YYYY-MM para el JSON raw.")
+    args = parser.parse_args(argv)
+    raw = extract_single_pdf_to_raw(args.input, args.output, args.month)
+    print(json.dumps({"status": "ok", "month": raw.get("month"), "output": str(args.output)}, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

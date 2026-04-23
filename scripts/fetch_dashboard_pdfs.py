@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import argparse
 import base64
+import hashlib
 import json
+import logging
 import os
 import re
 import unicodedata
@@ -20,15 +23,15 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.append(str(SCRIPT_DIR))
 
+from config import DATA_DIR, INBOX_PDF_DIR, ensure_dir
 from reporting_periods import (
     resolve_schedule_from_env,
     save_schedule,
     unique_months_from_periods,
 )
 
-DATA_DIR = Path("data")
-PDF_DIR = DATA_DIR / "monthly_pdfs"
-MANIFEST_PATH = DATA_DIR / "monthly_pdf_manifest.json"
+logger = logging.getLogger(__name__)
+
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 DEFAULT_SUBJECT_CONTAINS = "dashboard" # Relajamos un poco el filtro
 DEFAULT_QUERY = 'has:attachment filename:pdf newer_than:450d'
@@ -135,6 +138,20 @@ def month_slug_from_internal_date(internal_date_ms: str, tz_name: str) -> str:
     return f"{local_dt.year:04d}-{local_dt.month:02d}"
 
 
+def deterministic_pdf_filename(month_slug: str) -> str:
+    return f"{month_slug}_dashboard.pdf"
+
+
+def _manifest_path_for(pdf_dir: Path, manifest_path: Path | None = None) -> Path:
+    if manifest_path:
+        return manifest_path
+    return pdf_dir / "manifest.json"
+
+
+def _sha256_hex(file_bytes: bytes) -> str:
+    return hashlib.sha256(file_bytes).hexdigest()
+
+
 def iter_message_ids(service, query: str, max_pages: int = 10) -> List[str]:
     collected: List[str] = []
     request = service.users().messages().list(userId="me", q=query, maxResults=100)
@@ -158,20 +175,23 @@ def download_attachment(service, message_id: str, attachment_id: str) -> bytes:
     return base64.urlsafe_b64decode(attachment["data"].encode("utf-8"))
 
 
-def main() -> dict:
+def run_ingestion(pdf_dir: Path | None = None, manifest_path: Path | None = None) -> dict:
     schedule = resolve_schedule_from_env()
     save_schedule(schedule)
+    pdf_dir = ensure_dir(pdf_dir or INBOX_PDF_DIR)
+    manifest_path = _manifest_path_for(pdf_dir, manifest_path)
 
     if not schedule.periods:
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        ensure_dir(DATA_DIR)
         manifest = {
             "status": "skipped",
             "reason": "No hay períodos para generar en esta corrida.",
             "periods": [],
             "months_requested": [],
             "files": [],
+            "pdf_dir": str(pdf_dir),
         }
-        MANIFEST_PATH.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         print("No hay períodos para generar en esta corrida.")
         return manifest
 
@@ -188,8 +208,10 @@ def main() -> dict:
     months_needed = unique_months_from_periods(schedule.periods)
     current_year = schedule.periods[0].year if schedule.periods else 2026
 
+    logger.info("event=email_fetch_started query=%s months=%s", query, months_needed)
     service = build_gmail_service()
     message_ids = iter_message_ids(service, query=query)
+    logger.info("event=email_candidates_found count=%s", len(message_ids))
     print(f"Mensajes candidatos encontrados: {len(message_ids)}")
 
     candidates_by_month: Dict[str, List[dict]] = defaultdict(list)
@@ -240,7 +262,9 @@ def main() -> dict:
 
     selected_files = []
     missing_months = []
-    PDF_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(pdf_dir)
+    candidate_total = sum(len(items) for items in candidates_by_month.values())
+    logger.info("event=attachment_candidates_found total=%s by_month=%s", candidate_total, {k: len(v) for k, v in candidates_by_month.items()})
 
     for month_slug in months_needed:
         month_candidates = candidates_by_month.get(month_slug, [])
@@ -248,22 +272,36 @@ def main() -> dict:
             missing_months.append(month_slug)
             continue
 
-        selected = max(month_candidates, key=lambda item: item["internal_date"])
+        selected = max(
+            month_candidates,
+            key=lambda item: (item["internal_date"], item["message_id"], item["filename"]),
+        )
         file_bytes = download_attachment(
             service,
             message_id=selected["message_id"],
             attachment_id=selected["attachment_id"],
         )
 
-        output_path = PDF_DIR / f"{month_slug}.pdf"
+        output_filename = deterministic_pdf_filename(month_slug)
+        output_path = pdf_dir / output_filename
         output_path.write_bytes(file_bytes)
+        logger.info("event=email_attachment_saved month=%s path=%s", month_slug, output_path)
+        logger.info("event=month_assigned_to_file month=%s filename=%s", month_slug, output_filename)
 
         selected_files.append({
             "month": month_slug,
             "pdf_path": str(output_path),
+            "saved_filename": output_filename,
             "message_id": selected["message_id"],
+            "internal_date_ms": selected["internal_date"],
+            "email_date": datetime.fromtimestamp(selected["internal_date"] / 1000, tz=timezone.utc).isoformat(),
             "subject": selected["subject"],
-            "filename": selected["filename"],
+            "original_attachment_filename": selected["filename"],
+            "downloaded_at": datetime.now(timezone.utc).isoformat(),
+            "checksum_sha256": _sha256_hex(file_bytes),
+            "selection_rule": "max(internal_date,message_id,filename)",
+            "candidate_count_for_month": len(month_candidates),
+            "status": "downloaded",
         })
         print(f"Descargado {month_slug}: {selected['filename']} (Extraído de: {selected['subject']})")
 
@@ -273,10 +311,12 @@ def main() -> dict:
         "missing_months": missing_months,
         "files": selected_files,
         "periods": [period.to_dict() for period in schedule.periods],
+        "pdf_dir": str(pdf_dir),
+        "manifest_path": str(manifest_path),
     }
 
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    MANIFEST_PATH.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    ensure_dir(DATA_DIR)
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     (DATA_DIR / "fetch_result.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     (DATA_DIR / "selected_periods.json").write_text(json.dumps({"periods": manifest["periods"]}, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -286,6 +326,14 @@ def main() -> dict:
         raise RuntimeError("Faltan PDFs para completar el período: " + ", ".join(missing_months))
 
     return manifest
+
+
+def main(argv: list[str] | None = None) -> dict:
+    parser = argparse.ArgumentParser(description="Descarga dashboards PDF desde Gmail hacia un cache local.")
+    parser.add_argument("--pdf-dir", type=Path, default=INBOX_PDF_DIR, help="Directorio local de PDFs descargados.")
+    parser.add_argument("--manifest", type=Path, default=None, help="Ruta del manifest de descarga.")
+    args = parser.parse_args(argv)
+    return run_ingestion(pdf_dir=args.pdf_dir, manifest_path=args.manifest)
 
 
 if __name__ == "__main__":
