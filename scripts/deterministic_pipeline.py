@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -11,25 +12,68 @@ from pypdf import PdfReader
 from config import CANONICAL_MONTHLY_DIR, RAW_EXTRACTED_DIR, VALIDATION_DIR, ensure_dir
 from metric_utils import normalize_percentage, to_float_locale
 
-NUMBER_PATTERN = re.compile(r"-?\d+(?:[.,]\d+)?%?")
+NUMBER_PATTERN = re.compile(r"-?\d+(?:[.,]\d+)*(?:%|)")
 MAX_MAIL_TO_PLAN_RATIO = 10
+MIN_SITE_VIEWS_PER_NOTE = 10
+MIN_MAIL_TO_PLAN_RELATION = 0.2
+MIN_MAIL_ABSOLUTE = 10
+MIN_RATE_DIFFERENCE = 0.01
 
-METRIC_SPECS = {
-    "plan_total": {"keywords": ("plan", "planificación", "comunicaciones"), "kind": "count"},
-    "site_notes_total": {"keywords": ("notas", "noticias", "publicadas"), "kind": "count"},
-    "site_total_views": {"keywords": ("views", "lecturas", "páginas vistas"), "kind": "count"},
-    "mail_total": {"keywords": ("mail", "envíos", "push"), "kind": "count"},
-    "mail_open_rate": {"keywords": ("apertura", "open rate", "tasa apertura"), "kind": "percent"},
-    "mail_interaction_rate": {"keywords": ("interacción", "ctr", "click rate"), "kind": "percent"},
-}
+
+def _normalize_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value or "")
+    without_accents = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return " ".join(without_accents.lower().split())
 
 
 def _to_float_locale(raw: str) -> float:
     return to_float_locale(raw, 0.0)
 
 
-def _to_int_locale(raw: str) -> int:
-    return int(round(_to_float_locale(raw)))
+def parse_integer_value(raw: str | None) -> int | None:
+    if raw in (None, "", "-"):
+        return None
+
+    text = str(raw).strip()
+    sign = -1 if text.startswith("-") else 1
+    clean = re.sub(r"[^\d.,]", "", text)
+    if not clean:
+        return None
+
+    def _is_thousands_format(candidate: str, separator: str) -> bool:
+        parts = candidate.split(separator)
+        return len(parts) > 1 and all(part.isdigit() for part in parts) and all(len(part) == 3 for part in parts[1:])
+
+    if "." in clean and "," in clean:
+        dot_last = clean.rfind(".")
+        comma_last = clean.rfind(",")
+        decimal_sep = "." if dot_last > comma_last else ","
+        decimal_len = len(clean.split(decimal_sep)[-1])
+        if decimal_len == 3:
+            digits = re.sub(r"[^\d]", "", clean)
+            return sign * int(digits) if digits else None
+        return sign * int(round(_to_float_locale(clean)))
+
+    if "." in clean:
+        if _is_thousands_format(clean, "."):
+            return sign * int(clean.replace(".", ""))
+        return sign * int(round(_to_float_locale(clean)))
+
+    if "," in clean:
+        if _is_thousands_format(clean, ","):
+            return sign * int(clean.replace(",", ""))
+        return sign * int(round(_to_float_locale(clean)))
+
+    digits_only = re.sub(r"[^\d]", "", clean)
+    return sign * int(digits_only) if digits_only else None
+
+
+def parse_percent_value(raw: str | None) -> float | None:
+    if raw in (None, "", "-"):
+        return None
+    text = str(raw).strip()
+    value = normalize_percentage(text)
+    return round(value, 2)
 
 
 def _extract_pages_text(pdf_path: Path) -> list[str]:
@@ -40,67 +84,110 @@ def _extract_pages_text(pdf_path: Path) -> list[str]:
     return pages
 
 
-def _find_metric(pages: list[str], keywords: tuple[str, ...], kind: str) -> dict[str, Any]:
-    best: dict[str, Any] | None = None
-    for page_idx, page_text in enumerate(pages, start=1):
-        for line in page_text.splitlines():
-            line_norm = line.lower()
-            if not any(keyword in line_norm for keyword in keywords):
+def find_anchor_value(page_text: str, anchor: str, kind: str, page_number: int) -> dict[str, Any]:
+    lines = page_text.splitlines()
+    anchor_norm = _normalize_text(anchor)
+    for idx, line in enumerate(lines):
+        line_norm = _normalize_text(line)
+        if anchor_norm not in line_norm:
+            continue
+
+        line_candidates = NUMBER_PATTERN.findall(line)
+        raw_value = line_candidates[-1] if line_candidates else None
+        if raw_value is None and idx + 1 < len(lines):
+            next_line = lines[idx + 1]
+            next_candidates = NUMBER_PATTERN.findall(next_line)
+            if next_candidates:
+                raw_value = next_candidates[0]
+        if raw_value is None:
+            continue
+
+        if kind == "percent":
+            value = parse_percent_value(raw_value)
+            unit = "percent"
+        else:
+            if "%" in raw_value:
                 continue
-            candidates = NUMBER_PATTERN.findall(line)
-            if not candidates:
-                continue
-            for raw_number in candidates:
-                has_pct = "%" in raw_number
-                if kind == "percent":
-                    value = normalize_percentage(raw_number)
-                    unit = "percent"
-                else:
-                    if has_pct:
-                        continue
-                    value = float(_to_int_locale(raw_number))
-                    unit = "count"
-                confidence = 0
-                confidence += 2 if any(keyword in line_norm for keyword in keywords) else 0
-                confidence += 1 if has_pct and kind == "percent" else 0
-                row = {
-                    "raw_value": raw_number,
-                    "value": round(value, 2),
-                    "unit": unit,
-                    "page": page_idx,
-                    "line": " ".join(line.split())[:220],
-                    "confidence": confidence,
-                }
-                if best is None or row["confidence"] > best["confidence"]:
-                    best = row
-    if best is None:
+            parsed_int = parse_integer_value(raw_value)
+            value = float(parsed_int) if parsed_int is not None else None
+            unit = "count"
+        if value is None:
+            continue
+
         return {
-            "raw_value": None,
-            "value": 0.0 if kind == "percent" else 0,
-            "unit": "percent" if kind == "percent" else "count",
-            "page": None,
-            "line": "",
-            "confidence": 0,
-            "missing": True,
+            "anchor": anchor,
+            "raw_value": raw_value,
+            "value": round(value, 2),
+            "unit": unit,
+            "page": page_number,
+            "line": " ".join(line.split())[:220],
+            "missing": False,
         }
-    return best
+
+    return {
+        "anchor": anchor,
+        "raw_value": None,
+        "value": None,
+        "unit": "percent" if kind == "percent" else "count",
+        "page": page_number,
+        "line": "",
+        "missing": True,
+    }
+
+
+def extract_planning_page_metrics(page_text: str, page_number: int = 1) -> dict[str, dict[str, Any]]:
+    return {
+        "plan_total": find_anchor_value(page_text, "Nº total de comunicaciones", "count", page_number),
+        "plan_daily_average": find_anchor_value(page_text, "Media comunicaciones diarias", "count", page_number),
+    }
+
+
+def extract_site_page_metrics(page_text: str, page_number: int = 2) -> dict[str, dict[str, Any]]:
+    return {
+        "site_notes_total": find_anchor_value(page_text, "Noticias Publicadas", "count", page_number),
+        "site_total_views": find_anchor_value(page_text, "Total Páginas Vistas", "count", page_number),
+        "site_average_views": find_anchor_value(page_text, "Promedio Vistas", "count", page_number),
+    }
+
+
+def extract_mail_page_metrics(page_text: str, page_number: int = 3) -> dict[str, dict[str, Any]]:
+    return {
+        "mail_total": find_anchor_value(page_text, "Mails enviados", "count", page_number),
+        "mail_open_rate": find_anchor_value(page_text, "Tasa de apertura promedio", "percent", page_number),
+        "mail_interaction_rate": find_anchor_value(
+            page_text,
+            "Tasa de interacción sobre mails enviados",
+            "percent",
+            page_number,
+        ),
+        "mail_interaction_rate_over_opened": find_anchor_value(
+            page_text,
+            "Tasa de interacción sobre mails abiertos",
+            "percent",
+            page_number,
+        ),
+    }
 
 
 def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
     pages = _extract_pages_text(pdf_path)
-    metrics: dict[str, Any] = {}
+    metrics: dict[str, Any] = {
+        **extract_planning_page_metrics(pages[0] if len(pages) >= 1 else "", 1),
+        **extract_site_page_metrics(pages[1] if len(pages) >= 2 else "", 2),
+        **extract_mail_page_metrics(pages[2] if len(pages) >= 3 else "", 3),
+    }
     warnings: list[str] = []
-    for metric, spec in METRIC_SPECS.items():
-        extracted = _find_metric(pages, spec["keywords"], spec["kind"])
-        metrics[metric] = extracted
-        if extracted.get("missing"):
-            warnings.append(f"No se pudo extraer {metric} de forma determinística")
+    for metric, extracted in metrics.items():
+        if extracted.get("missing", False):
+            warnings.append(
+                f"missing_anchor:{metric}:No se encontró ancla exacta '{extracted.get('anchor')}' en página {extracted.get('page')}"
+            )
 
     return {
         "month": month_key,
         "source_pdf": str(pdf_path),
         "extracted_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        "parser": "deterministic_pdf_v1",
+        "parser": "deterministic_pdf_v2",
         "page_count": len(pages),
         "metrics": metrics,
         "warnings": warnings,
@@ -109,17 +196,17 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
 
 def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
     metrics = raw_extracted.get("metrics", {})
-    open_rate = float(metrics.get("mail_open_rate", {}).get("value", 0.0))
-    interaction_rate = float(metrics.get("mail_interaction_rate", {}).get("value", 0.0))
+    open_rate = float(metrics.get("mail_open_rate", {}).get("value") or 0.0)
+    interaction_rate = float(metrics.get("mail_interaction_rate", {}).get("value") or 0.0)
 
     return {
         "month": raw_extracted.get("month"),
         "generation_mode": "deterministic_pdf",
         "extraction_method": raw_extracted.get("parser"),
-        "plan_total": int(round(metrics.get("plan_total", {}).get("value", 0))),
-        "site_notes_total": int(round(metrics.get("site_notes_total", {}).get("value", 0))),
-        "site_total_views": int(round(metrics.get("site_total_views", {}).get("value", 0))),
-        "mail_total": int(round(metrics.get("mail_total", {}).get("value", 0))),
+        "plan_total": int(round(metrics.get("plan_total", {}).get("value") or 0)),
+        "site_notes_total": int(round(metrics.get("site_notes_total", {}).get("value") or 0)),
+        "site_total_views": int(round(metrics.get("site_total_views", {}).get("value") or 0)),
+        "mail_total": int(round(metrics.get("mail_total", {}).get("value") or 0)),
         "mail_open_rate": round(open_rate, 2),
         "mail_interaction_rate": round(interaction_rate, 2),
         "strategic_axes": [],
@@ -147,6 +234,10 @@ def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
 def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
     warnings: list[str] = []
     errors: list[str] = []
+    extraction_warnings = list(canonical.get("extraction_warnings", []))
+    if any(str(w).startswith("missing_anchor:") for w in extraction_warnings):
+        errors.append("Faltan KPIs primarios por ancla exacta")
+
     for metric in ("plan_total", "site_notes_total", "site_total_views", "mail_total"):
         if canonical.get(metric, 0) < 0:
             errors.append(f"{metric} no puede ser negativo")
@@ -161,12 +252,28 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
     if canonical.get("mail_total", 0) > canonical.get("plan_total", 0) * MAX_MAIL_TO_PLAN_RATIO and canonical.get("plan_total", 0) > 0:
         warnings.append("mail_total luce desproporcionado respecto a plan_total")
 
+    plan_total = int(canonical.get("plan_total", 0) or 0)
+    site_notes_total = int(canonical.get("site_notes_total", 0) or 0)
+    site_total_views = int(canonical.get("site_total_views", 0) or 0)
+    mail_total = int(canonical.get("mail_total", 0) or 0)
+    open_rate = float(canonical.get("mail_open_rate", 0) or 0)
+    interaction_rate = float(canonical.get("mail_interaction_rate", 0) or 0)
+
+    if plan_total <= 0:
+        errors.append("plan_total inválido: no puede ser 0 o negativo")
+    if mail_total > 0 and plan_total > 0 and mail_total < max(MIN_MAIL_ABSOLUTE, int(round(plan_total * MIN_MAIL_TO_PLAN_RELATION))):
+        errors.append("mail_total sospechosamente bajo respecto a plan_total")
+    if site_notes_total > 0 and site_total_views < site_notes_total * MIN_SITE_VIEWS_PER_NOTE:
+        errors.append("site_total_views sospechosamente bajo respecto a site_notes_total")
+    if open_rate > 0 and interaction_rate > 0 and abs(open_rate - interaction_rate) < MIN_RATE_DIFFERENCE:
+        errors.append("mail_open_rate y mail_interaction_rate no deberían colapsar al mismo valor")
+
     return {
         "month": canonical.get("month"),
         "validated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "is_valid": not errors,
         "errors": errors,
-        "warnings": warnings + list(canonical.get("extraction_warnings", [])),
+        "warnings": warnings + extraction_warnings,
     }
 
 

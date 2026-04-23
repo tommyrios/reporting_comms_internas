@@ -146,9 +146,11 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
     for month_key in period.get("months", []):
         summary = summarize_month(None, month_key, force_regenerate)
         monthly_summaries_raw.append(summary)
-        if summary.get("generation_mode") == "local_fallback":
-            warnings.append(summary.get("warning") or f"Summary mensual en fallback para {month_key}")
         validation = summary.get("validation") if isinstance(summary.get("validation"), dict) else {}
+        if summary.get("generation_mode") == "local_fallback":
+            raise ValueError(summary.get("warning") or f"Resumen mensual en fallback para {month_key}")
+        if summary.get("generation_mode") == "deterministic_pdf" and not validation.get("is_valid", False):
+            raise ValueError(f"Resumen mensual inválido para {month_key}: {validation.get('errors', [])}")
         if validation.get("warnings"):
             warnings.extend([f"{month_key}: {warning}" for warning in validation.get("warnings", [])])
 
