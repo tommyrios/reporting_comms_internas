@@ -2,8 +2,10 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
+LOCAL_DATA_DIR = BASE_DIR / "local_data"
 OUTPUT_DIR = BASE_DIR / "output"
 PDF_DIR = DATA_DIR / "monthly_pdfs"
+INBOX_PDF_DIR = LOCAL_DATA_DIR / "inbox_pdfs"
 REPORTS_DIR = OUTPUT_DIR / "reports"
 PROMPTS_DIR = BASE_DIR / "prompts"
 SUMMARIES_DIR = DATA_DIR / "monthly_summaries"

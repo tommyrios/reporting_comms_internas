@@ -1,8 +1,10 @@
+import argparse
 import json
 import logging
 import os
 from copy import deepcopy
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from analyzer import (
@@ -12,10 +14,11 @@ from analyzer import (
     validate_monthly_summary_contract,
     validate_report_json,
 )
-from config import DATA_DIR, MANUAL_CONTEXT_DIR, REPORTS_DIR, ensure_dir
+from config import DATA_DIR, INBOX_PDF_DIR, MANUAL_CONTEXT_DIR, REPORTS_DIR, ensure_dir
+from fetch_dashboard_pdfs import run_ingestion
 from history_manager import apply_historical_comparison, persist_calculated_totals
 from llm_client import build_genai_client, call_gemini_for_json, load_prompt
-from pdf_processor import summarize_month
+from pdf_processor import resolve_period_month_pdfs, summarize_month
 from pptx_renderer import create_pptx
 
 logger = logging.getLogger(__name__)
@@ -136,19 +139,26 @@ def _request_narrative(period: dict[str, Any], kpis: dict[str, Any], monthly_sum
         return _build_fallback_narrative(kpis), "fallback", f"Se generó narrativa fallback: {str(exc)}"
 
 
-def generate_period_report(period_slug: str, force_regenerate: bool = False) -> dict[str, Any]:
+def generate_period_report(period_slug: str, force_regenerate: bool = False, pdf_dir: Path | None = None) -> dict[str, Any]:
     period = get_period_definition(period_slug)
+    allow_partial = (os.environ.get("ALLOW_PARTIAL_PERIOD") or "false").lower() == "true"
+    resolve_period_month_pdfs(period.get("months", []), pdf_dir=pdf_dir, allow_partial=allow_partial)
 
     monthly_summaries_raw: list[dict[str, Any]] = []
     monthly_summaries_validated: list[dict[str, Any]] = []
     warnings: list[str] = []
 
     for month_key in period.get("months", []):
-        summary = summarize_month(None, month_key, force_regenerate)
+        summary = summarize_month(None, month_key, force_regenerate, pdf_dir=pdf_dir)
         monthly_summaries_raw.append(summary)
-        if summary.get("generation_mode") == "local_fallback":
-            warnings.append(summary.get("warning") or f"Summary mensual en fallback para {month_key}")
         validation = summary.get("validation") if isinstance(summary.get("validation"), dict) else {}
+        if summary.get("generation_mode") == "local_fallback":
+            raise ValueError(
+                f"No se pudo generar resumen mensual determinístico para {month_key}: "
+                f"{summary.get('warning', 'sin detalles')}"
+            )
+        if summary.get("generation_mode") == "deterministic_pdf" and not validation.get("is_valid", False):
+            raise ValueError(f"Resumen mensual inválido para {month_key}: {validation.get('errors', [])}")
         if validation.get("warnings"):
             warnings.extend([f"{month_key}: {warning}" for warning in validation.get("warnings", [])])
 
@@ -216,10 +226,41 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False) -> 
     }
 
 
+def _normalize_period_slug(period_arg: str | None) -> str | None:
+    if not period_arg:
+        return None
+    period_arg = period_arg.strip()
+    if period_arg.startswith(("month_", "quarter_", "year_")):
+        return period_arg
+    if len(period_arg) == 7 and period_arg[4] == "-" and period_arg[5:].isdigit():
+        return f"month_{period_arg[:4]}_{period_arg[5:]}"
+    if len(period_arg) == 7 and period_arg[4] == "-" and period_arg[5].upper() == "Q":
+        return f"quarter_{period_arg[:4]}_{period_arg[5:].upper()}"
+    return period_arg
+
+
 def main() -> None:
-    period_slug = os.environ.get("REPORT_SLUG", "").strip()
+    parser = argparse.ArgumentParser(description="Genera reporte de período desde PDFs locales (opcionalmente fetch email).")
+    parser.add_argument("--period", default=os.environ.get("REPORT_SLUG", "").strip(), help="Slug de período (o 2026-Q1 / 2026-03).")
+    parser.add_argument("--pdf-dir", type=Path, default=INBOX_PDF_DIR, help="Directorio local de PDFs mensuales.")
+    parser.add_argument("--force-regenerate", action="store_true", help="Ignora cache mensual y reextrae.")
+    fetch_group = parser.add_mutually_exclusive_group()
+    fetch_group.add_argument("--fetch-email", action="store_true", help="Primero ingiere PDFs desde email.")
+    fetch_group.add_argument("--skip-email-fetch", action="store_true", help="No usa email; procesa solo PDFs locales.")
+    args = parser.parse_args()
+
+    if args.fetch_email:
+        run_ingestion(pdf_dir=args.pdf_dir)
+
+    period_slug = _normalize_period_slug(args.period)
     if period_slug:
-        print(json.dumps(generate_period_report(period_slug), ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                generate_period_report(period_slug, force_regenerate=args.force_regenerate, pdf_dir=args.pdf_dir),
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
 
 
 if __name__ == "__main__":

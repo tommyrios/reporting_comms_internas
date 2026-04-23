@@ -92,16 +92,28 @@ npm install
 python -m unittest discover -s tests -p 'test*.py'
 ```
 
-### Generar reporte puntual
+### Generar reporte puntual (solo procesamiento local)
 
 ```bash
-REPORT_SLUG=month_2026_03 python scripts/generate_report.py
+python scripts/generate_report.py --period 2026-03 --skip-email-fetch --pdf-dir local_data/inbox_pdfs
+```
+
+### Fetch + process para un período
+
+```bash
+python scripts/generate_report.py --period 2026-Q1 --fetch-email --pdf-dir local_data/inbox_pdfs
 ```
 
 ### Pipeline completo (fetch + generate + send)
 
 ```bash
 python scripts/run_scheduled_reports.py
+```
+
+### Extracción directa de un PDF (debug raw)
+
+```bash
+python scripts/deterministic_pipeline.py --input local_data/inbox_pdfs/2026-01_dashboard.pdf --output local_data/debug/2026-01_raw.json
 ```
 
 ### Render de muestra del renderer JS (modo full demo)

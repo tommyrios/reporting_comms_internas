@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import fetch_dashboard_pdfs as fetch_step
+from config import INBOX_PDF_DIR
 from generate_report import generate_period_report
 from send_email import send_period_report
 
@@ -42,8 +43,9 @@ def _load_fetch_payload(fetch_result):
 
 
 def main() -> None:
-    fetch_result = fetch_step.main()
+    fetch_result = fetch_step.run_ingestion()
     fetch_payload = _load_fetch_payload(fetch_result)
+    pdf_dir = Path(fetch_payload.get("pdf_dir") or INBOX_PDF_DIR)
 
     periods = fetch_payload.get("periods", [])
     if not periods:
@@ -56,7 +58,7 @@ def main() -> None:
         print(f"Procesando período: {slug}")
 
         try:
-            generation = generate_period_report(slug)
+            generation = generate_period_report(slug, pdf_dir=pdf_dir)
             results.append(
                 {
                     "period": slug,

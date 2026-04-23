@@ -68,6 +68,7 @@ class GenerateReportTests(unittest.TestCase):
         }
 
         with patch("generate_report.get_period_definition", return_value=period), \
+                patch("generate_report.resolve_period_month_pdfs", return_value={}), \
                 patch("generate_report.build_genai_client", side_effect=[object(), object()]), \
                 patch("generate_report.summarize_month", return_value=summary), \
                 patch("generate_report.apply_historical_comparison", side_effect=lambda period, payload: payload), \
@@ -86,11 +87,54 @@ class GenerateReportTests(unittest.TestCase):
         invalid_summary = {"plan_total": 1}
 
         with patch("generate_report.get_period_definition", return_value=period), \
+                patch("generate_report.resolve_period_month_pdfs", return_value={}), \
                 patch("generate_report.build_genai_client", return_value=object()), \
                 patch("generate_report.summarize_month", return_value=invalid_summary):
             with self.assertRaises(ValueError) as ctx:
                 generate_period_report("month_2026_03")
         self.assertIn("Contrato mensual incompleto", str(ctx.exception))
+
+    def test_generate_period_report_does_not_consolidate_invalid_month_validation(self):
+        period = {"slug": "q1_2026", "months": ["2026-01", "2026-02", "2026-03"], "label": "Q1 2026", "email_subject": "Subj", "kind": "quarter"}
+        invalid_month = {
+            "month": "2026-01",
+            "generation_mode": "deterministic_pdf",
+            "validation": {"is_valid": False, "errors": ["site_total_views sospechosamente bajo respecto a site_notes_total"], "warnings": []},
+            "plan_total": 58,
+            "site_notes_total": 16,
+            "site_total_views": 64,
+            "mail_total": 5,
+            "mail_open_rate": 78.68,
+            "mail_interaction_rate": 78.68,
+            "strategic_axes": [],
+            "internal_clients": [],
+            "channel_mix": [],
+            "format_mix": [],
+            "top_push_by_interaction": [],
+            "top_push_by_open_rate": [],
+            "top_pull_notes": [],
+            "hitos": [],
+            "events": [],
+            "quality_flags": {
+                "scope_country": "AR",
+                "scope_mixed": False,
+                "site_has_no_data_sections": False,
+                "events_summary_available": False,
+                "push_ranking_available": False,
+                "pull_ranking_available": False,
+                "historical_comparison_allowed": True,
+            },
+        }
+
+        with patch("generate_report.get_period_definition", return_value=period), patch(
+            "generate_report.resolve_period_month_pdfs", return_value={}
+        ), patch(
+            "generate_report.summarize_month", side_effect=[invalid_month]
+        ) as summarize_month_mock:
+            with self.assertRaises(ValueError) as ctx:
+                generate_period_report("q1_2026")
+        self.assertIn("Resumen mensual inválido para 2026-01", str(ctx.exception))
+        self.assertEqual(summarize_month_mock.call_count, 1)
 
 
 if __name__ == "__main__":
