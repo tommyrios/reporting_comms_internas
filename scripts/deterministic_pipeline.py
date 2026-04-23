@@ -12,7 +12,7 @@ from pypdf import PdfReader
 from config import CANONICAL_MONTHLY_DIR, RAW_EXTRACTED_DIR, VALIDATION_DIR, ensure_dir
 from metric_utils import normalize_percentage, to_float_locale
 
-NUMBER_PATTERN = re.compile(r"-?\d+(?:[.,]\d+)*(?:%|)")
+NUMBER_PATTERN = re.compile(r"-?\d+(?:[.,]\d+)*%?")
 MAX_MAIL_TO_PLAN_RATIO = 10
 MIN_SITE_VIEWS_PER_NOTE = 10
 MIN_MAIL_TO_PLAN_RELATION = 0.2

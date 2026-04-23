@@ -93,7 +93,7 @@ class DeterministicPipelineTests(unittest.TestCase):
         validation = validate_canonical_monthly(canonical)
         self.assertTrue(validation["is_valid"])
         self.assertNotEqual(canonical["plan_total"], 0)
-        self.assertNotEqual(canonical["site_total_views"], 64)
+        self.assertGreater(canonical["site_total_views"], canonical["site_notes_total"])
         self.assertNotEqual(canonical["mail_total"], 5)
 
     def test_validate_canonical_monthly_rejects_missing_anchor(self):
