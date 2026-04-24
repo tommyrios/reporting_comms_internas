@@ -116,6 +116,8 @@ def _value_immediately_after_label(page_text: str, label: str, kind: str) -> str
             else:
                 nums = [n for n in nums if "%" not in n]
             if nums:
+                # El KPI válido es el primer número posterior al ancla; en algunas líneas
+                # aparecen otros KPIs después que no deben capturarse para esta métrica.
                 return nums[0]
 
         for j in range(i + 1, min(i + 4, len(lines))):
@@ -186,6 +188,11 @@ def _extract_metric_with_page_fallback(
             return _metric(anchor, raw_value, kind, idx), warning
 
     return _metric(anchor, None, kind, expected_page), None
+
+
+def _resolve_metric_page_index(metrics: dict[str, dict[str, Any]], metric_key: str, default_page: int, page_count: int) -> int:
+    page_number = int(metrics.get(metric_key, {}).get("page", default_page))
+    return max(0, min(page_count - 1, page_number - 1))
 
 def _extract_mail_table(page_text: str) -> list[dict[str, Any]]:
     lines = [line.strip() for line in page_text.splitlines() if line.strip()]
@@ -475,9 +482,13 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
         if warning:
             fallback_warnings.append(warning)
 
-    page_for_mail = pages[min(2, len(pages) - 1)]
-    page_for_site = pages[min(1, len(pages) - 1)]
-    page_for_plan = pages[0]
+    page_for_mail_idx = _resolve_metric_page_index(metrics, "mail_total", 3, len(pages))
+    page_for_site_idx = _resolve_metric_page_index(metrics, "site_total_views", 2, len(pages))
+    page_for_plan_idx = _resolve_metric_page_index(metrics, "plan_total", 1, len(pages))
+
+    page_for_mail = pages[page_for_mail_idx]
+    page_for_site = pages[page_for_site_idx]
+    page_for_plan = pages[page_for_plan_idx]
 
     mail_rows = _extract_mail_table(page_for_mail)
     top_push_open, top_push_interaction = _build_push_rankings(mail_rows)
