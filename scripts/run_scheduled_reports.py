@@ -110,6 +110,17 @@ def main() -> None:
                 }
             )
 
+    has_errors = any(
+    r.get("generate_status") == "error"
+    or r.get("send_status") == "error"
+    or r.get("send_status") == "skipped_missing_artifacts"
+    for r in results
+    )
+
+    if has_errors:
+        print(json.dumps({"status": "error", "results": results}, ensure_ascii=False, indent=2))
+        raise SystemExit(1)
+
     print(
         json.dumps(
             {
@@ -121,6 +132,10 @@ def main() -> None:
             indent=2,
         )
     )
+
+
+
+
 
 
 if __name__ == "__main__":

@@ -127,11 +127,10 @@ def send_period_report(period_slug: str) -> None:
 
     attachments: list[Path] = []
     attachment_label = "PPTX"
-    if pptx_path and pptx_path.exists():
-        attachments.append(pptx_path)
-    else:
-        attachments.append(html_path)
-        attachment_label = "HTML"
+    if not pptx_path or not pptx_path.exists():
+        raise FileNotFoundError(f"No existe report.pptx para el período {period_slug}")
+
+    attachments.append(pptx_path)
 
     plain_text, html_body = _build_email_bodies(metadata, attachment_label)
     sender = EmailSender()
