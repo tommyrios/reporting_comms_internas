@@ -46,6 +46,18 @@ class DeterministicPipelineTests(unittest.TestCase):
             ),
         ]
 
+    def _jan_2026_shifted_fixture_pages(self) -> list[str]:
+        return [
+            "Carátula del dashboard enero 2026",
+            "Panel planificación\nN° total de comunicaciones 58 Media comunicaciones diarias 3",
+            "Panel site\nNoticias Publicadas 16\nTotal Páginas Vistas 5,580\nPromedio Vistas 349",
+            (
+                "Panel mail\nMails enviados 42\n"
+                "Tasa de apertura promedio 78,68% Tasa de interacción sobre mails enviados 9,20%\n"
+                "Tasa de interacción sobre mails abiertos 11,70%"
+            ),
+        ]
+
     def test_extract_raw_monthly_pdf_extracts_exact_anchors(self):
         with patch("deterministic_pipeline._extract_pages_text", return_value=self._valid_sample_pages()):
             raw = extract_raw_monthly_pdf("2026-03", Path("/tmp/fake.pdf"))
@@ -57,15 +69,10 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertEqual(raw["metrics"]["mail_interaction_rate"]["value"], 8.86)
 
     def test_extract_raw_monthly_pdf_marks_anchor_when_found_on_unexpected_page(self):
-        pages = [
-            "Nº total de comunicaciones 66",
-            "Noticias Publicadas 17\nTotal Páginas Vistas 6205",
-            "Texto sin apertura",
-            "Tasa de apertura promedio 73,07%",
-        ]
+        pages = self._jan_2026_shifted_fixture_pages()
         with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
-            raw = extract_raw_monthly_pdf("2026-03", Path("/tmp/fake.pdf"))
-        self.assertEqual(raw["metrics"]["mail_open_rate"]["value"], 73.07)
+            raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
+        self.assertEqual(raw["metrics"]["mail_open_rate"]["value"], 78.68)
         self.assertTrue(any("anchor_out_of_expected_page:Tasa de apertura promedio" in w for w in raw["warnings"]))
 
     def test_extract_raw_monthly_pdf_missing_anchor_returns_null_and_warning(self):
@@ -113,20 +120,12 @@ class DeterministicPipelineTests(unittest.TestCase):
 
 
     def test_extract_raw_monthly_pdf_prefers_number_after_anchor_not_last_number_in_line(self):
-        pages = [
-            "Resumen planificación\nN° total de comunicaciones 66 Media comunicaciones diarias 3",
-            "Resumen site\nNoticias Publicadas 17 Total Páginas Vistas 6.205 Promedio Vistas 365",
-            (
-                "Resumen mailing\nMails enviados 36\n"
-                "Tasa de apertura promedio 77,53% Tasa de interacción sobre mails enviados 8,86%\n"
-                "Tasa de interacción sobre mails abiertos 11,43%"
-            ),
-        ]
+        pages = self._jan_2026_shifted_fixture_pages()
         with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
-            raw = extract_raw_monthly_pdf("2026-03", Path("/tmp/fake.pdf"))
-        self.assertEqual(raw["metrics"]["plan_total"]["value"], 66.0)
-        self.assertEqual(raw["metrics"]["mail_open_rate"]["value"], 77.53)
-        self.assertEqual(raw["metrics"]["mail_interaction_rate"]["value"], 8.86)
+            raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
+        self.assertEqual(raw["metrics"]["plan_total"]["value"], 58.0)
+        self.assertEqual(raw["metrics"]["mail_open_rate"]["value"], 78.68)
+        self.assertEqual(raw["metrics"]["mail_interaction_rate"]["value"], 9.2)
 
     def test_extract_raw_monthly_pdf_falls_back_to_other_page_when_layout_is_shifted(self):
         pages = [
@@ -144,6 +143,15 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertEqual(canonical["mail_open_rate"], 78.68)
         self.assertTrue(validation["is_valid"])
         self.assertTrue(any(str(w).startswith("anchor_out_of_expected_page:") for w in raw["warnings"]))
+
+    def test_jan_2026_fixture_does_not_collapse_mail_metrics(self):
+        pages = self._jan_2026_shifted_fixture_pages()
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
+        canonical = canonicalize_monthly(raw)
+        validation = validate_canonical_monthly(canonical)
+        self.assertNotEqual(canonical["mail_open_rate"], canonical["mail_interaction_rate"])
+        self.assertTrue(validation["is_valid"])
 
     def test_validate_canonical_monthly_rejects_missing_anchor(self):
         raw = {

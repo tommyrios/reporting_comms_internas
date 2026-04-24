@@ -22,6 +22,10 @@ on:
         description: 'Permitir período incompleto (true/false)'
         required: false
         default: 'false'
+      allow_partial_report:
+        description: 'Permitir continuar aunque generación/envío fallen (true/false)'
+        required: false
+        default: 'false'
 
 jobs:
   generate-and-send-report:
@@ -81,8 +85,16 @@ jobs:
           REPORT_MONTH: ${{ github.event.inputs.report_month }}
           REPORT_QUARTER: ${{ github.event.inputs.report_quarter }}
           ALLOW_PARTIAL_PERIOD: ${{ github.event.inputs.allow_partial_period || 'false' }}
+          ALLOW_PARTIAL_REPORT: ${{ github.event.inputs.allow_partial_report || 'false' }}
         run: |
           python scripts/run_scheduled_reports.py
+
+      - name: Upload report.pptx artifacts (required)
+        uses: actions/upload-artifact@v4
+        with:
+          name: comms-period-report-pptx
+          path: output/reports/**/report.pptx
+          if-no-files-found: error
 
       - name: Upload generated artifacts
         uses: actions/upload-artifact@v4
