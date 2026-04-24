@@ -34,27 +34,27 @@ class DeterministicPipelineTests(unittest.TestCase):
 
     def _valid_sample_pages(self) -> list[str]:
         return [
-            "Resumen planificación\nNº total de comunicaciones 66\nMedia comunicaciones diarias 3",
+            "Resumen planificación\nNº total de comunicaciones\n66\nMedia comunicaciones diarias\n3",
             (
-                "Resumen site\nNoticias Publicadas 17\nTotal Páginas Vistas 6.205\nPromedio Vistas 365\n"
+                "Resumen site\nNoticias Publicadas\n17\nTotal Páginas Vistas\n6.205\nPromedio Vistas\n365\n"
                 "Top five noticias\n1 Nota A 520\n2 Nota B 490\n3 Nota C 410\n4 Nota D 390\n5 Nota E 360"
             ),
             (
-                "Resumen mailing\nMails enviados 36\nTasa de apertura promedio 77,53%\n"
-                "Tasa de interacción sobre mails enviados 8,86%\n"
-                "Tasa de interacción sobre mails abiertos 11,43%"
+                "Resumen mailing\nMails enviados\n36\nTasa de apertura promedio\n77,53%\n"
+                "Tasa de interacción sobre mails enviados\n8,86%\n"
+                "Tasa de interacción sobre mails abiertos\n11,43%"
             ),
         ]
 
     def _jan_2026_shifted_fixture_pages(self) -> list[str]:
         return [
             "Carátula del dashboard enero 2026",
-            "Panel planificación\nN° total de comunicaciones 58 Media comunicaciones diarias 3",
-            "Panel site\nNoticias Publicadas 16\nTotal Páginas Vistas 5,580\nPromedio Vistas 349",
+            "Panel planificación\nN° total de comunicaciones\n58\nMedia comunicaciones diarias\n3",
+            "Panel site\nNoticias Publicadas\n16\nTotal Páginas Vistas\n5,580\nPromedio Vistas\n349",
             (
-                "Panel mail\nMails enviados 42\n"
-                "Tasa de apertura promedio 78,68% Tasa de interacción sobre mails enviados 9,20%\n"
-                "Tasa de interacción sobre mails abiertos 11,70%"
+                "Panel mail\nMails enviados\n42\n"
+                "Tasa de apertura promedio\n78,68%\nTasa de interacción sobre mails enviados\n9,20%\n"
+                "Tasa de interacción sobre mails abiertos\n11,70%"
             ),
         ]
 
@@ -77,9 +77,9 @@ class DeterministicPipelineTests(unittest.TestCase):
 
     def test_extract_raw_monthly_pdf_missing_anchor_returns_null_and_warning(self):
         pages = [
-            "Nº total de comunicaciones 66\nMedia comunicaciones diarias 3",
-            "Noticias Publicadas 17\nPromedio Vistas 365",
-            "Mails enviados 36\nTasa de apertura promedio 77,53%\nTasa de interacción sobre mails enviados 8,86%",
+            "Nº total de comunicaciones\n66\nMedia comunicaciones diarias\n3",
+            "Noticias Publicadas\n17\nPromedio Vistas\n365",
+            "Mails enviados\n36\nTasa de apertura promedio\n77,53%\nTasa de interacción sobre mails enviados\n8,86%",
         ]
         with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
             raw = extract_raw_monthly_pdf("2026-03", Path("/tmp/fake.pdf"))
@@ -95,9 +95,9 @@ class DeterministicPipelineTests(unittest.TestCase):
 
     def test_top_five_does_not_set_site_notes_to_five(self):
         pages = [
-            "Nº total de comunicaciones 70\nMedia comunicaciones diarias 3",
-            "Top five noticias\n1 A\n2 B\n3 C\n4 D\n5 E\nNoticias Publicadas 17\nTotal Páginas Vistas 6205\nPromedio Vistas 365",
-            "Mails enviados 36\nTasa de apertura promedio 77,53%\nTasa de interacción sobre mails enviados 8,86%\nTasa de interacción sobre mails abiertos 11,43%",
+            "Nº total de comunicaciones\n70\nMedia comunicaciones diarias\n3",
+            "Top five noticias\n1 A\n2 B\n3 C\n4 D\n5 E\nNoticias Publicadas\n17\nTotal Páginas Vistas\n6205\nPromedio Vistas\n365",
+            "Mails enviados\n36\nTasa de apertura promedio\n77,53%\nTasa de interacción sobre mails enviados\n8,86%\nTasa de interacción sobre mails abiertos\n11,43%",
         ]
         with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
             raw = extract_raw_monthly_pdf("2026-03", Path("/tmp/fake.pdf"))
@@ -105,9 +105,9 @@ class DeterministicPipelineTests(unittest.TestCase):
 
     def test_regression_jan_feb_mar_like_structure_does_not_produce_nonsense(self):
         pages = [
-            "Panel planificación\nNº total de comunicaciones 58\nMedia comunicaciones diarias 3",
-            "Panel site\nNoticias Publicadas 16\nTotal Páginas Vistas 5,580\nPromedio Vistas 349\nTop five",
-            "Panel mail\nMails enviados 42\nTasa de apertura promedio 78,68%\nTasa de interacción sobre mails enviados 9,20%\nTasa de interacción sobre mails abiertos 11,70%",
+            "Panel planificación\nNº total de comunicaciones\n58\nMedia comunicaciones diarias\n3",
+            "Panel site\nNoticias Publicadas\n16\nTotal Páginas Vistas\n5,580\nPromedio Vistas\n349\nTop five",
+            "Panel mail\nMails enviados\n42\nTasa de apertura promedio\n78,68%\nTasa de interacción sobre mails enviados\n9,20%\nTasa de interacción sobre mails abiertos\n11,70%",
         ]
         with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
             raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
@@ -130,9 +130,9 @@ class DeterministicPipelineTests(unittest.TestCase):
     def test_extract_raw_monthly_pdf_falls_back_to_other_page_when_layout_is_shifted(self):
         pages = [
             "Carátula del dashboard",
-            "Panel planificación\nNº total de comunicaciones 58\nMedia comunicaciones diarias 3",
-            "Panel site\nNoticias Publicadas 16\nTotal Páginas Vistas 5,580\nPromedio Vistas 349",
-            "Panel mail\nMails enviados 42\nTasa de apertura promedio 78,68%\nTasa de interacción sobre mails enviados 9,20%\nTasa de interacción sobre mails abiertos 11,70%",
+            "Panel planificación\nNº total de comunicaciones\n58\nMedia comunicaciones diarias\n3",
+            "Panel site\nNoticias Publicadas\n16\nTotal Páginas Vistas\n5,580\nPromedio Vistas\n349",
+            "Panel mail\nMails enviados\n42\nTasa de apertura promedio\n78,68%\nTasa de interacción sobre mails enviados\n9,20%\nTasa de interacción sobre mails abiertos\n11,70%",
         ]
         with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
             raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
@@ -143,6 +143,34 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertEqual(canonical["mail_open_rate"], 78.68)
         self.assertTrue(validation["is_valid"])
         self.assertTrue(any(str(w).startswith("anchor_out_of_expected_page:") for w in raw["warnings"]))
+
+    def test_extract_raw_monthly_pdf_realistic_extract_text_layout_regression(self):
+        pages = [
+            (
+                "Página 1\nMedia comunicaciones diarias\n0.06\nN total de comunicaciones por mes\n100\n"
+                "Nº total de comunicaciones\n54"
+            ),
+            "Página 2\nTotal Páginas Vistas\n4,071\nNoticias Publicadas\n10\nPromedio Vistas\n407",
+            (
+                "Página 3\nTasa de apertura promedio\n80.05%\nTasa de interacción sobre mails enviados\n12.54%\n"
+                "Tasa de interacción sobre mails abiertos\n15.67%\nMails enviados\n23"
+            ),
+        ]
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-02", Path("/tmp/fake.pdf"))
+        canonical = canonicalize_monthly(raw)
+        validation = validate_canonical_monthly(canonical)
+        self.assertEqual(canonical["plan_daily_average"], 0.06)
+        self.assertEqual(canonical["plan_total"], 54)
+        self.assertEqual(canonical["site_total_views"], 4071)
+        self.assertEqual(canonical["site_notes_total"], 10)
+        self.assertEqual(canonical["site_average_views"], 407)
+        self.assertEqual(canonical["mail_open_rate"], 80.05)
+        self.assertEqual(canonical["mail_interaction_rate"], 12.54)
+        self.assertEqual(canonical["mail_interaction_rate_over_opened"], 15.67)
+        self.assertEqual(canonical["mail_total"], 23)
+        self.assertNotEqual(canonical["mail_open_rate"], canonical["mail_interaction_rate"])
+        self.assertTrue(validation["is_valid"])
 
     def test_jan_2026_fixture_does_not_collapse_mail_metrics(self):
         pages = self._jan_2026_shifted_fixture_pages()

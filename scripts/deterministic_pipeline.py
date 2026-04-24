@@ -95,39 +95,33 @@ def _extract_pages_text(pdf_path: Path) -> list[str]:
     return [page.extract_text() or "" for page in reader.pages]
 
 
-def _value_immediately_after_label(page_text: str, label: str, kind: str) -> str | None:
+def _value_immediately_after_label(page_text: str, labels: str | list[str], kind: str) -> str | None:
     lines = [line.strip() for line in page_text.splitlines() if line.strip()]
-    label_norm = _normalize_text(label)
+    label_variants = labels if isinstance(labels, list) else [labels]
+    normalized_variants = {_normalize_text(label) for label in label_variants}
+    normalized_lines = [_normalize_text(line) for line in lines]
 
     matched_indexes = [
-        i for i, line in enumerate(lines)
-        if label_norm in _normalize_text(line)
+        i for i, line_norm in enumerate(normalized_lines)
+        if line_norm in normalized_variants
     ]
 
-    for i in reversed(matched_indexes):
-        same_line_nums = NUMBER_PATTERN.findall(lines[i])
-        if same_line_nums:
-            line_after_label = lines[i].split(label, 1)[1] if label in lines[i] else lines[i]
-            nums = NUMBER_PATTERN.findall(line_after_label) or same_line_nums
-            if kind == "percent":
-                nums = [n for n in nums if "%" in n]
-            else:
-                nums = [n for n in nums if "%" not in n]
-            if nums:
-                # The valid KPI is the first number immediately after the anchor label.
-                # Some lines include additional KPI values that must be ignored here.
-                return nums[0]
+    if not matched_indexes:
+        return None
 
-        for j in range(i + 1, min(i + 4, len(lines))):
-            nums = NUMBER_PATTERN.findall(lines[j])
+    anchor_index = matched_indexes[-1]
+    next_index = anchor_index + 1
+    if next_index >= len(lines):
+        return None
 
-            if kind == "percent":
-                nums = [n for n in nums if "%" in n]
-            else:
-                nums = [n for n in nums if "%" not in n]
+    nums = NUMBER_PATTERN.findall(lines[next_index])
+    if kind == "percent":
+        nums = [n for n in nums if "%" in n]
+    else:
+        nums = [n for n in nums if "%" not in n]
 
-            if nums:
-                return nums[0]
+    if nums:
+        return nums[0]
 
     return None
 
@@ -170,18 +164,20 @@ def _extract_metric_with_page_fallback(
     anchor: str,
     kind: str,
     expected_page: int,
+    anchor_variants: list[str] | None = None,
 ) -> tuple[dict[str, Any], str | None]:
     """Extrae una métrica desde su página esperada y, si falla, busca en el resto."""
+    labels = anchor_variants or [anchor]
     expected_index = expected_page - 1
     if 0 <= expected_index < len(pages):
-        expected_raw = _value_immediately_after_label(pages[expected_index], anchor, kind)
+        expected_raw = _value_immediately_after_label(pages[expected_index], labels, kind)
         if expected_raw is not None:
             return _metric(anchor, expected_raw, kind, expected_page), None
 
     for idx, page_text in enumerate(pages, start=1):
         if idx == expected_page:
             continue
-        raw_value = _value_immediately_after_label(page_text, anchor, kind)
+        raw_value = _value_immediately_after_label(page_text, labels, kind)
         if raw_value is not None:
             warning = f"anchor_out_of_expected_page:{anchor}:expected={expected_page}:found={idx}"
             return _metric(anchor, raw_value, kind, idx), warning
@@ -467,21 +463,32 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
         raise ValueError(f"El PDF debería tener al menos 3 páginas. Tiene {len(pages)}.")
 
     metric_specs = [
-        ("plan_daily_average", "Media comunicaciones diarias", "float", 1),
-        ("plan_total", "Nº total de comunicaciones", "count", 1),
-        ("site_total_views", "Total Páginas Vistas", "count", 2),
-        ("site_notes_total", "Noticias Publicadas", "count", 2),
-        ("site_average_views", "Promedio Vistas", "count", 2),
-        ("mail_open_rate", "Tasa de apertura promedio", "percent", 3),
-        ("mail_interaction_rate", "Tasa de interacción sobre mails enviados", "percent", 3),
-        ("mail_interaction_rate_over_opened", "Tasa de interacción sobre mails abiertos", "percent", 3),
-        ("mail_total", "Mails enviados", "count", 3),
+        ("plan_daily_average", "Media comunicaciones diarias", "float", 1, None),
+        (
+            "plan_total",
+            "Nº total de comunicaciones",
+            "count",
+            1,
+            [
+                "Nº total de comunicaciones",
+                "N° total de comunicaciones",
+                "No total de comunicaciones",
+                "N total de comunicaciones",
+            ],
+        ),
+        ("site_total_views", "Total Páginas Vistas", "count", 2, None),
+        ("site_notes_total", "Noticias Publicadas", "count", 2, None),
+        ("site_average_views", "Promedio Vistas", "count", 2, None),
+        ("mail_open_rate", "Tasa de apertura promedio", "percent", 3, None),
+        ("mail_interaction_rate", "Tasa de interacción sobre mails enviados", "percent", 3, None),
+        ("mail_interaction_rate_over_opened", "Tasa de interacción sobre mails abiertos", "percent", 3, None),
+        ("mail_total", "Mails enviados", "count", 3, None),
     ]
 
     metrics: dict[str, dict[str, Any]] = {}
     fallback_warnings: list[str] = []
-    for key, anchor, kind, expected_page in metric_specs:
-        metric, warning = _extract_metric_with_page_fallback(pages, anchor, kind, expected_page)
+    for key, anchor, kind, expected_page, anchor_variants in metric_specs:
+        metric, warning = _extract_metric_with_page_fallback(pages, anchor, kind, expected_page, anchor_variants)
         metrics[key] = metric
         if warning:
             fallback_warnings.append(warning)
