@@ -21,6 +21,10 @@ MIN_MAIL_ABSOLUTE = 10
 MIN_RATE_DIFFERENCE = 0.01
 
 
+# -------------------------
+# Utils reemplazo metric_utils.py
+# -------------------------
+
 def to_float_locale(raw: str | None, default: float = 0.0) -> float:
     if raw is None:
         return default
@@ -273,6 +277,141 @@ def _extract_top_pull_notes(page_text: str) -> list[dict[str, Any]]:
 
     return rows[:5]
 
+def _extract_percent_values_from_items(items: list[str]) -> list[float]:
+    values = []
+
+    for item in items:
+        cleaned = re.sub(r"(?<=\d)\s+(?=[.,]\d)", "", item)  # 1 .9 -> 1.9
+        cleaned = re.sub(r"(?<=[.,]\d)\s+(?=%)", "", cleaned)  # 1.9 % -> 1.9%
+        nums = re.findall(r"\d+(?:[.,]\d+)?%", cleaned)
+
+        for n in nums:
+            values.append(parse_percent_value(n))
+
+    return values
+
+def _extract_channel_mix(page_text: str) -> list[dict[str, Any]]:
+    lines = [line.strip() for line in page_text.splitlines() if line.strip()]
+
+    for i, line in enumerate(lines):
+        if "que canales y formatos se han utilizado" not in _normalize_text(line):
+            continue
+
+        window = lines[i + 1:i + 14]
+
+        pct_values = []
+        for item in window:
+            nums = re.findall(r"\d+(?:[.,]\d+)?\s*%", item)
+            for n in nums:
+                pct_values.append(parse_percent_value(n.replace(" ", "")))
+
+        labels = [
+            "Mail",
+            "Intranet",
+            "SITE",
+            "Cartelería / Pantallas",
+            "Widget #notelopierdas",
+        ]
+
+        return [
+            {"channel": label, "pct": pct}
+            for label, pct in zip(labels, pct_values[:len(labels)])
+            if pct is not None
+        ]
+
+    return []
+
+def _extract_format_mix(page_text: str) -> list[dict[str, Any]]:
+    lines = [line.strip() for line in page_text.splitlines() if line.strip()]
+
+    for i, line in enumerate(lines):
+        if "que canales y formatos se han utilizado" not in _normalize_text(line):
+            continue
+
+        window = lines[i + 1:i + 18]
+
+        pct_values = _extract_percent_values_from_items(window)
+
+        # Los primeros 5 porcentajes son canales.
+        # Los siguientes corresponden a formatos.
+        format_pcts = pct_values[5:]
+
+        labels = [
+            "Postal/Carta",
+            "Noticia propia",
+            "Noticia bbva.com",
+            "Video",
+        ]
+
+        return [
+            {"format": label, "pct": pct}
+            for label, pct in zip(labels, format_pcts[:len(labels)])
+            if pct is not None
+        ]
+
+    return []
+
+def _extract_strategic_axes(page_text: str) -> list[dict[str, Any]]:
+    lines = [line.strip() for line in page_text.splitlines() if line.strip()]
+
+    labels = [
+        "RCP",
+        "Sostenibilidad",
+        "Empresas",
+        "Creación de valor",
+        "Innovación",
+        "Equipo",
+        "Otros",
+    ]
+
+    for i, line in enumerate(lines):
+        if "distribucion por eje estrategico" not in _normalize_text(line):
+            continue
+
+        window = lines[i:i + 70]
+
+        # Normalizar casos rotos: "2 0" -> "20", "1 1" -> "11"
+        normalized_items = []
+        for item in window:
+            item = re.sub(r"^\s*2\s+0\s*$", "20", item)
+            item = re.sub(r"^\s*1\s+1\s*$", "11", item)
+            normalized_items.append(item)
+
+        values = []
+        started = False
+
+        for item in normalized_items:
+            norm = _normalize_text(item)
+
+            if norm == "impactos":
+                started = True
+                continue
+
+            if not started:
+                continue
+
+            if norm in {"rcp", "sostenibilidad", "empresas", "creacion de valor", "innovacion", "equipo", "otros"}:
+                break
+
+            if "%" in item:
+                continue
+
+            if re.fullmatch(r"\d+", item):
+                value = int(item)
+
+                values.append(value)
+
+                if len(values) >= 7:
+                    break
+
+        # La secuencia se repite muchas veces. Tomamos la primera tanda completa.
+        return [
+            {"axis": label, "count": count}
+            for label, count in zip(labels, values[:7])
+        ]
+
+    return []
+
 # -------------------------
 # Extracción principal
 # -------------------------
@@ -347,6 +486,9 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
     mail_rows = _extract_mail_table(p3)
     top_push_open, top_push_interaction = _build_push_rankings(mail_rows)
     top_pull_notes = _extract_top_pull_notes(p2)
+    channel_mix = _extract_channel_mix(p1)
+    format_mix = _extract_format_mix(p1)
+    strategic_axes = _extract_strategic_axes(p1)
 
     warnings = [
         f"missing_anchor:{k}:{v.get('anchor')}"
@@ -365,6 +507,9 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
         "top_push_open": top_push_open,
         "top_push_interaction": top_push_interaction,
         "top_pull_notes": top_pull_notes,
+        "channel_mix": channel_mix,
+        "format_mix": format_mix,
+        "strategic_axes": strategic_axes,
         "warnings": warnings,
     }
 
@@ -397,10 +542,10 @@ def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
             2,
         ),
 
-        "strategic_axes": [],
+        "strategic_axes": raw_extracted.get("strategic_axes", []),
         "internal_clients": [],
-        "channel_mix": [],
-        "format_mix": [],
+        "channel_mix": raw_extracted.get("channel_mix", []),
+        "format_mix": raw_extracted.get("format_mix", []),
         "top_push_by_interaction": raw_extracted.get("top_push_interaction", []),
         "top_push_by_open_rate": raw_extracted.get("top_push_open", []),
         "top_pull_notes": raw_extracted.get("top_pull_notes", []),
