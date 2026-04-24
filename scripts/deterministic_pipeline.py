@@ -107,17 +107,15 @@ def _value_immediately_after_label(page_text: str, label: str, kind: str) -> str
     for i in reversed(matched_indexes):
         same_line_nums = NUMBER_PATTERN.findall(lines[i])
         if same_line_nums:
-            line_after_label = lines[i]
-            if label in lines[i]:
-                line_after_label = lines[i].split(label, 1)[1]
+            line_after_label = lines[i].split(label, 1)[1] if label in lines[i] else lines[i]
             nums = NUMBER_PATTERN.findall(line_after_label) or same_line_nums
             if kind == "percent":
                 nums = [n for n in nums if "%" in n]
             else:
                 nums = [n for n in nums if "%" not in n]
             if nums:
-                # El KPI válido es el primer número posterior al ancla; en algunas líneas
-                # aparecen otros KPIs después que no deben capturarse para esta métrica.
+                # The valid KPI is the first number immediately after the anchor label.
+                # Some lines include additional KPI values that must be ignored here.
                 return nums[0]
 
         for j in range(i + 1, min(i + 4, len(lines))):
@@ -173,6 +171,7 @@ def _extract_metric_with_page_fallback(
     kind: str,
     expected_page: int,
 ) -> tuple[dict[str, Any], str | None]:
+    """Extrae una métrica desde su página esperada y, si falla, busca en el resto."""
     expected_index = expected_page - 1
     if 0 <= expected_index < len(pages):
         expected_raw = _value_immediately_after_label(pages[expected_index], anchor, kind)
@@ -191,6 +190,11 @@ def _extract_metric_with_page_fallback(
 
 
 def _resolve_metric_page_index(metrics: dict[str, dict[str, Any]], metric_key: str, default_page: int, page_count: int) -> int:
+    """Resolve a bounded 0-based page index from metric metadata.
+
+    Uses the metric page when present; if metric_key is missing (or has no page),
+    falls back to default_page. Then clamps the result to [0, page_count - 1].
+    """
     page_number = int(metrics.get(metric_key, {}).get("page", default_page))
     return max(0, min(page_count - 1, page_number - 1))
 
