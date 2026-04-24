@@ -101,23 +101,30 @@ def _value_immediately_after_label(page_text: str, label: str, kind: str) -> str
 
     matched_indexes = [
         i for i, line in enumerate(lines)
-        if _normalize_text(line) == label_norm
+        if label_norm in _normalize_text(line)
     ]
 
     for i in reversed(matched_indexes):
-        if i + 1 >= len(lines):
-            continue
+        same_line_nums = NUMBER_PATTERN.findall(lines[i])
+        if same_line_nums:
+            nums = same_line_nums
+            if kind == "percent":
+                nums = [n for n in nums if "%" in n]
+            else:
+                nums = [n for n in nums if "%" not in n]
+            if nums:
+                return nums[-1]
 
-        next_line = lines[i + 1]
-        nums = NUMBER_PATTERN.findall(next_line)
+        for j in range(i + 1, min(i + 4, len(lines))):
+            nums = NUMBER_PATTERN.findall(lines[j])
 
-        if kind == "percent":
-            nums = [n for n in nums if "%" in n]
-        else:
-            nums = [n for n in nums if "%" not in n]
+            if kind == "percent":
+                nums = [n for n in nums if "%" in n]
+            else:
+                nums = [n for n in nums if "%" not in n]
 
-        if nums:
-            return nums[0]
+            if nums:
+                return nums[0]
 
     return None
 
