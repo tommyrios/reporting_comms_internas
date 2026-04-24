@@ -133,6 +133,12 @@ def summarize_month(_client: Any, month_key: str, force_regenerate: bool = False
         validation = validate_canonical_monthly(canonical)
         canonical["validation"] = validation
         if not validation.get("is_valid", False):
+            logger.error(
+                "event=validation_failed month=%s errors=%s raw_metrics=%s",
+                month_key,
+                validation.get("errors", []),
+                raw_extracted.get("metrics", {}),
+            )
             raise ValueError(f"Resumen mensual inválido para {month_key}: {validation.get('errors', [])}")
         persist_monthly_artifacts(month_key, raw_extracted, canonical, validation)
         logger.info("event=raw_json_written month=%s path=%s", month_key, ensure_dir(RAW_EXTRACTED_DIR) / f"{month_key}.json")
