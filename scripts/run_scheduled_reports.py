@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -15,7 +16,11 @@ REPORTS_DIR = BASE_DIR / "output" / "reports"
 
 def report_exists(period_slug: str) -> bool:
     period_dir = REPORTS_DIR / period_slug
-    return (period_dir / "metadata.json").exists() and (period_dir / "report.html").exists()
+    return (
+        (period_dir / "metadata.json").exists()
+        and (period_dir / "report.html").exists()
+        and (period_dir / "report.pptx").exists()
+    )
 
 
 def _load_fetch_payload(fetch_result):
@@ -43,6 +48,7 @@ def _load_fetch_payload(fetch_result):
 
 
 def main() -> None:
+    allow_partial_report = (os.environ.get("ALLOW_PARTIAL_REPORT") or "false").strip().lower() == "true"
     fetch_result = fetch_step.run_ingestion()
     fetch_payload = _load_fetch_payload(fetch_result)
     pdf_dir = Path(fetch_payload.get("pdf_dir") or INBOX_PDF_DIR)
@@ -81,7 +87,7 @@ def main() -> None:
 
         if not report_exists(slug):
             print(
-                f"Reporte no generado para {slug}: faltan metadata.json o report.html. Se omite envío.",
+                f"Reporte no generado para {slug}: faltan metadata.json, report.html o report.pptx. Se omite envío.",
                 file=sys.stderr,
             )
             results.append(
@@ -117,9 +123,24 @@ def main() -> None:
     for r in results
     )
 
-    if has_errors:
+    if has_errors and not allow_partial_report:
         print(json.dumps({"status": "error", "results": results}, ensure_ascii=False, indent=2))
         raise SystemExit(1)
+
+    if has_errors and allow_partial_report:
+        print(
+            json.dumps(
+                {
+                    "status": "done_with_partial_errors",
+                    "allow_partial_report": True,
+                    "fetch_result_type": type(fetch_result).__name__,
+                    "results": results,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return
 
     print(
         json.dumps(

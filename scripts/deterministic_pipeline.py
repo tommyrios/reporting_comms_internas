@@ -107,13 +107,16 @@ def _value_immediately_after_label(page_text: str, label: str, kind: str) -> str
     for i in reversed(matched_indexes):
         same_line_nums = NUMBER_PATTERN.findall(lines[i])
         if same_line_nums:
-            nums = same_line_nums
+            line_after_label = lines[i]
+            if label in lines[i]:
+                line_after_label = lines[i].split(label, 1)[1]
+            nums = NUMBER_PATTERN.findall(line_after_label) or same_line_nums
             if kind == "percent":
                 nums = [n for n in nums if "%" in n]
             else:
                 nums = [n for n in nums if "%" not in n]
             if nums:
-                return nums[-1]
+                return nums[0]
 
         for j in range(i + 1, min(i + 4, len(lines))):
             nums = NUMBER_PATTERN.findall(lines[j])
@@ -160,6 +163,29 @@ def _metric(anchor: str, raw_value: str | None, kind: str, page: int) -> dict[st
         "line": "",
         "missing": value is None,
     }
+
+
+def _extract_metric_with_page_fallback(
+    pages: list[str],
+    anchor: str,
+    kind: str,
+    expected_page: int,
+) -> tuple[dict[str, Any], str | None]:
+    expected_index = expected_page - 1
+    if 0 <= expected_index < len(pages):
+        expected_raw = _value_immediately_after_label(pages[expected_index], anchor, kind)
+        if expected_raw is not None:
+            return _metric(anchor, expected_raw, kind, expected_page), None
+
+    for idx, page_text in enumerate(pages, start=1):
+        if idx == expected_page:
+            continue
+        raw_value = _value_immediately_after_label(page_text, anchor, kind)
+        if raw_value is not None:
+            warning = f"anchor_out_of_expected_page:{anchor}:expected={expected_page}:found={idx}"
+            return _metric(anchor, raw_value, kind, idx), warning
+
+    return _metric(anchor, None, kind, expected_page), None
 
 def _extract_mail_table(page_text: str) -> list[dict[str, Any]]:
     lines = [line.strip() for line in page_text.splitlines() if line.strip()]
@@ -429,75 +455,38 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
     if len(pages) < 3:
         raise ValueError(f"El PDF debería tener al menos 3 páginas. Tiene {len(pages)}.")
 
-    p1 = pages[0]
-    p2 = pages[1]
-    p3 = pages[2]
+    metric_specs = [
+        ("plan_daily_average", "Media comunicaciones diarias", "float", 1),
+        ("plan_total", "Nº total de comunicaciones", "count", 1),
+        ("site_total_views", "Total Páginas Vistas", "count", 2),
+        ("site_notes_total", "Noticias Publicadas", "count", 2),
+        ("site_average_views", "Promedio Vistas", "count", 2),
+        ("mail_open_rate", "Tasa de apertura promedio", "percent", 3),
+        ("mail_interaction_rate", "Tasa de interacción sobre mails enviados", "percent", 3),
+        ("mail_interaction_rate_over_opened", "Tasa de interacción sobre mails abiertos", "percent", 3),
+        ("mail_total", "Mails enviados", "count", 3),
+    ]
 
-    metrics = {
-        "plan_daily_average": _metric(
-            "Media comunicaciones diarias",
-            _value_immediately_after_label(p1, "Media comunicaciones diarias", "float"),
-            "float",
-            1,
-        ),
-        "plan_total": _metric(
-            "Nº total de comunicaciones",
-            _value_immediately_after_label(p1, "Nº total de comunicaciones", "count"),
-            "count",
-            1,
-        ),
-        "site_total_views": _metric(
-            "Total Páginas Vistas",
-            _value_immediately_after_label(p2, "Total Páginas Vistas", "count"),
-            "count",
-            2,
-        ),
-        "site_notes_total": _metric(
-            "Noticias Publicadas",
-            _value_immediately_after_label(p2, "Noticias Publicadas", "count"),
-            "count",
-            2,
-        ),
-        "site_average_views": _metric(
-            "Promedio Vistas",
-            _value_immediately_after_label(p2, "Promedio Vistas", "count"),
-            "count",
-            2,
-        ),
-        "mail_open_rate": _metric(
-            "Tasa de apertura promedio",
-            _value_immediately_after_label(p3, "Tasa de apertura promedio", "percent"),
-            "percent",
-            3,
-        ),
-        "mail_interaction_rate": _metric(
-            "Tasa de interacción sobre mails enviados",
-            _value_immediately_after_label(p3, "Tasa de interacción sobre mails enviados", "percent"),
-            "percent",
-            3,
-        ),
-        "mail_interaction_rate_over_opened": _metric(
-            "Tasa de interacción sobre mails abiertos",
-            _value_immediately_after_label(p3, "Tasa de interacción sobre mails abiertos", "percent"),
-            "percent",
-            3,
-        ),
-        "mail_total": _metric(
-            "Mails enviados",
-            _value_immediately_after_label(p3, "Mails enviados", "count"),
-            "count",
-            3,
-        ),
-    }
+    metrics: dict[str, dict[str, Any]] = {}
+    fallback_warnings: list[str] = []
+    for key, anchor, kind, expected_page in metric_specs:
+        metric, warning = _extract_metric_with_page_fallback(pages, anchor, kind, expected_page)
+        metrics[key] = metric
+        if warning:
+            fallback_warnings.append(warning)
 
-    mail_rows = _extract_mail_table(p3)
+    page_for_mail = pages[min(2, len(pages) - 1)]
+    page_for_site = pages[min(1, len(pages) - 1)]
+    page_for_plan = pages[0]
+
+    mail_rows = _extract_mail_table(page_for_mail)
     top_push_open, top_push_interaction = _build_push_rankings(mail_rows)
-    top_pull_notes = _extract_top_pull_notes(p2)
-    channel_mix = _extract_channel_mix(p1)
-    format_mix = _extract_format_mix(p1)
-    strategic_axes = _extract_strategic_axes(p1)
+    top_pull_notes = _extract_top_pull_notes(page_for_site)
+    channel_mix = _extract_channel_mix(page_for_plan)
+    format_mix = _extract_format_mix(page_for_plan)
+    strategic_axes = _extract_strategic_axes(page_for_plan)
 
-    warnings = [
+    warnings = fallback_warnings + [
         f"missing_anchor:{k}:{v.get('anchor')}"
         for k, v in metrics.items()
         if v.get("missing")
