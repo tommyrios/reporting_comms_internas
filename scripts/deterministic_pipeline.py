@@ -500,7 +500,7 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
         "month": month_key,
         "source_pdf": str(pdf_path),
         "extracted_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        "parser": "deterministic_pdf_v4_exact_next_line",
+        "parser": "deterministic_pdf_v6_kpi_push_pull",
         "page_count": len(pages),
         "metrics": metrics,
         "mail_table": mail_rows,
@@ -625,3 +625,51 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
         "errors": errors,
         "warnings": warnings + extraction_warnings,
     }
+
+def persist_monthly_artifacts(
+    month_key: str,
+    raw_extracted: dict[str, Any],
+    canonical: dict[str, Any],
+    validation: dict[str, Any],
+) -> None:
+    from config import CANONICAL_MONTHLY_DIR, RAW_EXTRACTED_DIR, VALIDATION_DIR, ensure_dir
+
+    ensure_dir(RAW_EXTRACTED_DIR).joinpath(f"{month_key}.json").write_text(
+        json.dumps(raw_extracted, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    ensure_dir(CANONICAL_MONTHLY_DIR).joinpath(f"{month_key}.json").write_text(
+        json.dumps(canonical, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    ensure_dir(VALIDATION_DIR).joinpath(f"{month_key}.json").write_text(
+        json.dumps(validation, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def infer_month_key_from_pdf_path(pdf_path: Path) -> str:
+    match = re.search(r"(20\d{2}-\d{2})", pdf_path.name)
+    if match:
+        return match.group(1)
+
+    return datetime.now(UTC).strftime("%Y-%m")
+
+
+def extract_single_pdf_to_raw(
+    input_pdf: Path,
+    output_json: Path,
+    month_key: str | None = None,
+) -> dict[str, Any]:
+    resolved_month = month_key or infer_month_key_from_pdf_path(input_pdf)
+    raw_extracted = extract_raw_monthly_pdf(resolved_month, input_pdf)
+
+    output_json.parent.mkdir(parents=True, exist_ok=True)
+    output_json.write_text(
+        json.dumps(raw_extracted, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    return raw_extracted
