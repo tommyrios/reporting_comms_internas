@@ -178,7 +178,7 @@ class DeterministicPipelineTests(unittest.TestCase):
             "Página 1\nMedia comunicaciones diarias0.06Nº total de comunicaciones54",
             (
                 "Página 2\nJan 22, 2026 Nota de ejemplo ARGENTINA 96 123Total Páginas Vistas\n"
-                "Noticias Publicadas10Total Páginas Vistas4071Promedio Vistas407"
+                "Total Páginas Vistas4071\nNoticias Publicadas10\nPromedio Vistas407"
             ),
             (
                 "Página 3\nTasa de apertura promedio80.05%Tasa de interacción sobre mails enviados12.54%\n"

@@ -191,16 +191,16 @@ def _numbers_after_label_in_line(line: str, label: str, kind: str) -> list[str]:
         return []
 
     label_pattern = r"\s*".join(re.escape(token) for token in label_tokens)
-    match = re.search(label_pattern, line_norm)
-    if not match:
-        return []
-
-    after_label = line_norm[match.end():]
-    nums = NUMBER_PATTERN.findall(after_label)
-
-    if kind == "percent":
-        return [n for n in nums if "%" in n]
-    return [n for n in nums if "%" not in n]
+    for match in re.finditer(label_pattern, line_norm):
+        after_label = line_norm[match.end():]
+        nums = NUMBER_PATTERN.findall(after_label)
+        if kind == "percent":
+            nums = [n for n in nums if "%" in n]
+        else:
+            nums = [n for n in nums if "%" not in n]
+        if nums:
+            return nums
+    return []
 
 
 def _extract_pages_text(pdf_path: Path) -> list[str]:
