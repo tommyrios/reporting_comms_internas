@@ -217,6 +217,42 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertIn("mail_total sospechosamente bajo respecto a plan_total", validation["errors"])
         self.assertIn("mail_open_rate y mail_interaction_rate no deberían colapsar al mismo valor", validation["errors"])
 
+    def test_canonicalize_monthly_normalizes_contract_aliases(self):
+        raw = {
+            "month": "2026-04",
+            "parser": "deterministic_pdf_v6_kpi_push_pull",
+            "metrics": {
+                "plan_daily_average": {"value": 2.4},
+                "plan_total": {"value": 48},
+                "site_notes_total": {"value": 15},
+                "site_total_views": {"value": 5200},
+                "site_average_views": {"value": 347},
+                "mail_total": {"value": 40},
+                "mail_open_rate": {"value": 79.12},
+                "mail_interaction_rate": {"value": 9.42},
+                "mail_interaction_rate_over_opened": {"value": 11.9},
+            },
+            "strategic_axes": [{"axis": "RCP", "count": "20"}],
+            "channel_mix": [{"channel": "Mail", "pct": "70%"}],
+            "format_mix": [{"format": "Noticia propia", "pct": "55,5%"}],
+            "top_push_interaction": [{"title": "Comms 1", "clicks": "123", "ctr": "10,5%", "open_rate": "80%"}],
+            "top_push_open": [{"name": "Comms 2", "clicks": "98", "interaction_rate": "8,2%", "open_rate": "78,4%"}],
+            "top_pull_notes": [{"name": "Nota A", "users": "250", "views": "340"}],
+            "warnings": [],
+        }
+
+        canonical = canonicalize_monthly(raw)
+
+        self.assertEqual(canonical["strategic_axes"], [{"label": "RCP", "value": 20.0}])
+        self.assertEqual(canonical["channel_mix"], [{"label": "Mail", "value": 70.0}])
+        self.assertEqual(canonical["format_mix"], [{"label": "Noticia propia", "value": 55.5}])
+        self.assertEqual(canonical["top_push_by_interaction"][0]["name"], "Comms 1")
+        self.assertEqual(canonical["top_push_by_interaction"][0]["interaction"], 10.5)
+        self.assertEqual(canonical["top_push_by_open_rate"][0]["interaction"], 8.2)
+        self.assertEqual(canonical["top_pull_notes"][0]["title"], "Nota A")
+        self.assertEqual(canonical["top_pull_notes"][0]["unique_reads"], 250)
+        self.assertEqual(canonical["top_pull_notes"][0]["total_reads"], 340)
+
 
 if __name__ == "__main__":
     unittest.main()

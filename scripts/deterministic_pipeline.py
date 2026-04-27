@@ -24,6 +24,7 @@ MAX_NUMBERS_IN_LABEL_LINE = 2
 LOOKAHEAD_LINES_AFTER_LABEL = 3
 ANCHOR_PREFIX_LENGTH = 8
 MAX_LOGGED_CANDIDATE_LINES = 20
+CANON_TITLE_MAX_LENGTH = 180
 
 
 # -------------------------
@@ -592,6 +593,89 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
 # Canonical
 # -------------------------
 
+def _first_present(item: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        value = item.get(key)
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def _canon_distribution(
+    items: list[dict[str, Any]],
+    label_keys: tuple[str, ...],
+    value_keys: tuple[str, ...],
+) -> list[dict[str, Any]]:
+    rows = []
+
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+
+        label = _first_present(item, *label_keys)
+        value = _first_present(item, *value_keys)
+
+        if label in (None, "") or value in (None, ""):
+            continue
+
+        rows.append({
+            "label": str(label).strip(),
+            "value": round(to_float_locale(str(value), 0.0), 2),
+        })
+
+    return rows
+
+
+def _canon_push_rows(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+
+        name = _first_present(item, "name", "title")
+        if not name:
+            continue
+
+        clicks_raw = _first_present(item, "clicks")
+        open_rate_raw = _first_present(item, "open_rate")
+        interaction_raw = _first_present(item, "interaction", "interaction_rate", "ctr")
+
+        rows.append({
+            "name": str(name).strip()[:CANON_TITLE_MAX_LENGTH],
+            "clicks": parse_integer_value(str(clicks_raw or 0)) or 0,
+            "open_rate": parse_percent_value(str(open_rate_raw or 0)) or 0.0,
+            "interaction": parse_percent_value(str(interaction_raw or 0)) or 0.0,
+            "date": item.get("date"),
+        })
+
+    return rows
+
+
+def _canon_pull_rows(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+
+        title = _first_present(item, "title", "name")
+        if not title:
+            continue
+
+        unique_reads_raw = _first_present(item, "unique_reads", "users", "reads")
+        total_reads_raw = _first_present(item, "total_reads", "views")
+
+        rows.append({
+            "title": str(title).strip()[:CANON_TITLE_MAX_LENGTH],
+            "unique_reads": parse_integer_value(str(unique_reads_raw or 0)) or 0,
+            "total_reads": parse_integer_value(str(total_reads_raw or 0)) or 0,
+            "date": item.get("date"),
+        })
+
+    return rows
+
+
 def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
     metrics = raw_extracted.get("metrics", {})
 
@@ -616,13 +700,25 @@ def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
             2,
         ),
 
-        "strategic_axes": raw_extracted.get("strategic_axes", []),
+        "strategic_axes": _canon_distribution(
+            raw_extracted.get("strategic_axes", []),
+            label_keys=("label", "theme", "axis", "name"),
+            value_keys=("value", "weight", "count"),
+        ),
         "internal_clients": [],
-        "channel_mix": raw_extracted.get("channel_mix", []),
-        "format_mix": raw_extracted.get("format_mix", []),
-        "top_push_by_interaction": raw_extracted.get("top_push_interaction", []),
-        "top_push_by_open_rate": raw_extracted.get("top_push_open", []),
-        "top_pull_notes": raw_extracted.get("top_pull_notes", []),
+        "channel_mix": _canon_distribution(
+            raw_extracted.get("channel_mix", []),
+            label_keys=("label", "channel", "name"),
+            value_keys=("value", "pct", "weight"),
+        ),
+        "format_mix": _canon_distribution(
+            raw_extracted.get("format_mix", []),
+            label_keys=("label", "format", "name"),
+            value_keys=("value", "pct", "weight"),
+        ),
+        "top_push_by_interaction": _canon_push_rows(raw_extracted.get("top_push_interaction", [])),
+        "top_push_by_open_rate": _canon_push_rows(raw_extracted.get("top_push_open", [])),
+        "top_pull_notes": _canon_pull_rows(raw_extracted.get("top_pull_notes", [])),
         "hitos": [],
         "events": [],
 
