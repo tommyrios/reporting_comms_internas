@@ -2,7 +2,12 @@
 const fs = require('fs');
 const path = require('path');
 const PptxGenJS = require('pptxgenjs');
-const { imageSizingContain, safeOuterShadow } = require('./pptx_helpers_local');
+const {
+  imageSizingContain,
+  safeOuterShadow,
+  warnIfSlideHasOverlaps,
+  warnIfSlideElementsOutOfBounds,
+} = require('./pptx_helpers_local');
 
 const inputJsonPath = process.argv[2];
 const outputPptxPath = process.argv[3];
@@ -23,6 +28,7 @@ pptx.company = 'BBVA';
 pptx.subject = 'Comunicaciones Internas';
 pptx.lang = 'es-AR';
 pptx.theme = { headFontFace: 'Source Serif 4', bodyFontFace: 'Lato', lang: 'es-AR' };
+pptx.margin = 0;
 
 const COLORS = {
   electricBlue: '001391',
@@ -33,14 +39,33 @@ const COLORS = {
   ice: '8BE1E9',
   lime: '88E783',
   canary: 'FFE761',
+  coral: 'F7893B',
+  purple: '6754B8',
   grey4: '46536D',
+  grey3: '8A94A6',
   grey2: 'CAD1D8',
   grey1: 'E2E6EA',
+  paleBlue: 'EEF7FF',
+  paleGreen: 'F1FBF3',
+  paleYellow: 'FFF9D6',
+  palePurple: 'F4F1FF',
 };
-const DEFAULT_EXECUTIVE_TAKEAWAY = 'Se consolidó el desempeño mensual con métricas verificables.';
 
+const CHART_COLORS = [
+  COLORS.electricBlue,
+  COLORS.sereneBlue,
+  COLORS.ice,
+  COLORS.lime,
+  COLORS.canary,
+  COLORS.purple,
+  COLORS.coral,
+];
+
+const DEFAULT_EXECUTIVE_TAKEAWAY = 'Se consolidó el desempeño mensual con métricas verificables.';
 const BRAND_ASSETS_DIR = path.resolve(__dirname, '..', 'assets', 'brand');
 const BBVA_LOGO_BLUE = path.join(BRAND_ASSETS_DIR, 'bbva_logo_blue.png');
+const BBVA_LOGO_WHITE = path.join(BRAND_ASSETS_DIR, 'bbva_logo_white.png');
+const SHOULD_WARN_LAYOUT = (process.env.PPTX_LAYOUT_WARNINGS || '').toLowerCase() === 'true';
 
 function resolveAsset(assetPath) {
   if (!assetPath) return null;
@@ -54,15 +79,20 @@ function cleanText(value, fallback = '-') {
 }
 
 function parseNumber(value) {
-  if (typeof value === 'number') return value;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
   if (value === null || value === undefined || value === '-') return 0;
-  const cleaned = String(value).replace(/%/g, '').replace(/\./g, '').replace(/,/g, '.').replace(/[^0-9.-]/g, '');
+  const text = String(value).trim();
+  if (!text) return 0;
+  const normalized = text.includes(',') && text.includes('.') && text.lastIndexOf(',') > text.lastIndexOf('.')
+    ? text.replace(/\./g, '').replace(',', '.')
+    : text.replace(/,/g, '.');
+  const cleaned = normalized.replace(/%/g, '').replace(/[^0-9.-]/g, '');
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : 0;
 }
 
-function fmtNum(value) {
-  return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(parseNumber(value));
+function fmtNum(value, digits = 0) {
+  return new Intl.NumberFormat('es-AR', { maximumFractionDigits: digits }).format(parseNumber(value));
 }
 
 function fmtPct(value) {
@@ -76,215 +106,445 @@ function clip(value, max = 80) {
   return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
 }
 
-function addLogo(slide) {
-  const logo = resolveAsset(BBVA_LOGO_BLUE);
-  if (logo) {
-    slide.addImage({ path: logo, ...imageSizingContain(logo, 12.0, 0.2, 0.72, 0.24) });
-  } else {
-    slide.addText('BBVA', { x: 11.9, y: 0.22, w: 0.9, h: 0.24, align: 'right', bold: true, color: COLORS.electricBlue, fontFace: 'Lato', fontSize: 16, margin: 0 });
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (Array.isArray(value) && value.length) return value;
+    if (typeof value === 'string' && value.trim()) return value;
+    if (value !== null && value !== undefined && typeof value !== 'string' && !Array.isArray(value)) return value;
   }
+  return null;
+}
+
+function weightedRows(source, limit = 5) {
+  if (!Array.isArray(source)) return [];
+  return source
+    .map((row) => {
+      if (!row || typeof row !== 'object') return null;
+      const label = cleanText(row.label || row.theme || row.channel || row.name || row.title, 'Sin dato');
+      const value = parseNumber(firstNonEmpty(row.value, row.weight, row.pct, row.count, row.total, 0));
+      return { label, value, raw: row };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, limit);
+}
+
+function sumValues(rows) {
+  return rows.reduce((acc, row) => acc + parseNumber(row.value), 0);
+}
+
+function valueAsPct(row, rows) {
+  const total = sumValues(rows);
+  const value = parseNumber(row.value);
+  if (value <= 100 && total > 95 && total < 105) return fmtPct(value);
+  if (total > 0) return fmtPct((value / total) * 100);
+  return fmtNum(value);
+}
+
+function bulletize(items, fallback) {
+  const rows = Array.isArray(items) ? items.filter(Boolean).map((item) => cleanText(item)).filter(Boolean) : [];
+  return rows.length ? rows : [fallback || DEFAULT_EXECUTIVE_TAKEAWAY];
+}
+
+function isGenericNarrative(value) {
+  const text = cleanText(value, '').toLowerCase();
+  if (!text) return true;
+  const genericMarkers = [
+    'métricas verificables',
+    'sin inferencias',
+    'desempeño de canales se consolidó',
+    'resumen ejecutivo del período',
+    'gestión consolidada',
+  ];
+  return genericMarkers.some((marker) => text.includes(marker));
+}
+
+function periodLabel() {
+  const rp = report?.render_plan?.period;
+  if (rp?.label) return cleanText(rp.label);
+  if (report?.period?.label) return cleanText(report.period.label);
+  if (report?.slide_1_cover?.period) return cleanText(report.slide_1_cover.period);
+  return '-';
+}
+
+function buildExecutiveMessage(p) {
+  const supplied = p.historical_note || p.headline;
+  if (supplied && !isGenericNarrative(supplied) && cleanText(supplied).length > 40) return cleanText(supplied);
+  return (
+    `En ${periodLabel()}, la comunicación interna registró ${fmtNum(p.plan_total)} comunicaciones planificadas, `
+    + `${fmtNum(p.mail_total)} envíos por mail y una tasa de apertura de ${fmtPct(p.mail_open_rate)}. `
+    + `En paralelo, SITE/Intranet concentró ${fmtNum(p.site_notes_total)} publicaciones y ${fmtNum(p.site_total_views)} páginas vistas.`
+  );
+}
+
+function buildExecutiveInsights(p) {
+  const provided = Array.isArray(p.takeaways) ? p.takeaways.filter(Boolean).map(cleanText).filter((t) => !isGenericNarrative(t)) : [];
+  const insights = [...provided];
+
+  if (parseNumber(p.mail_open_rate) > 0) {
+    const level = parseNumber(p.mail_open_rate) >= 75 ? 'alto' : 'moderado';
+    insights.push(`La tasa de apertura se ubicó en un nivel ${level} (${fmtPct(p.mail_open_rate)}), señal de buena llegada del canal push.`);
+  }
+  if (parseNumber(p.mail_interaction_rate) > 0) {
+    insights.push(`La interacción promedio fue de ${fmtPct(p.mail_interaction_rate)}, útil para identificar piezas con mayor capacidad de conversión.`);
+  }
+  if (parseNumber(p.site_total_views) > 0 && parseNumber(p.site_notes_total) > 0) {
+    insights.push(`El ecosistema pull promedió ${fmtNum(parseNumber(p.site_total_views) / parseNumber(p.site_notes_total), 0)} vistas por publicación.`);
+  }
+  return insights.slice(0, 3);
+}
+
+function buildChannelNarrative(p) {
+  const supplied = p.message;
+  if (supplied && !isGenericNarrative(supplied) && cleanText(supplied).length > 60) return cleanText(supplied);
+  const rows = weightedRows(p.channel_mix, 5);
+  if (!rows.length) return 'No hay datos suficientes para describir la mezcla de canales del período.';
+  const top = rows.slice(0, 3);
+  return `La distribución se concentró en ${top.map((row) => `${row.label} (${valueAsPct(row, rows)})`).join(', ')}. La lectura permite comparar peso relativo entre canales y detectar oportunidades en soportes de menor participación.`;
+}
+
+function buildAxesNarrative(p) {
+  const supplied = p.message;
+  if (supplied && !isGenericNarrative(supplied) && cleanText(supplied).length > 50) return cleanText(supplied);
+  const axes = weightedRows(p.strategic_axes, 5);
+  if (!axes.length) return 'No hay datos suficientes para describir la distribución temática.';
+  const top = axes.slice(0, 3).map((row) => `${row.label} (${valueAsPct(row, axes)})`).join(', ');
+  return `Los ejes con mayor presencia fueron ${top}. Esta priorización ayuda a leer qué temas concentraron la agenda interna del período.`;
+}
+
+function buildPushNarrative(p) {
+  const supplied = p.message;
+  if (supplied && !isGenericNarrative(supplied) && cleanText(supplied).length > 50) return cleanText(supplied);
+  const best = Array.isArray(p.by_interaction) ? p.by_interaction[0] : null;
+  if (!best) return 'No hay ranking push suficiente para construir una lectura ejecutiva.';
+  return `La pieza con mejor desempeño por interacción fue “${clip(best.name || best.title, 72)}”, con ${fmtNum(best.clicks)} clics y ${fmtPct(best.interaction || best.ctr)} de interacción.`;
+}
+
+function buildPullNarrative(p) {
+  const supplied = p.message;
+  if (supplied && !isGenericNarrative(supplied) && cleanText(supplied).length > 50) return cleanText(supplied);
+  const best = Array.isArray(p.top_pull_notes) ? p.top_pull_notes[0] : null;
+  if (!best) return 'No hay ranking pull suficiente para construir una lectura ejecutiva.';
+  return `La nota con mayor tracción fue “${clip(best.title || best.name, 72)}”, con ${fmtNum(best.unique_reads || best.users)} lecturas únicas y ${fmtNum(best.total_reads || best.views)} lecturas totales.`;
+}
+
+function addLogo(slide, variant = 'blue') {
+  const logo = resolveAsset(variant === 'white' ? BBVA_LOGO_WHITE : BBVA_LOGO_BLUE);
+  if (logo) {
+    slide.addImage({ path: logo, ...imageSizingContain(logo, 11.92, 0.22, 0.78, 0.26) });
+  } else {
+    slide.addText('BBVA', { x: 11.82, y: 0.22, w: 0.9, h: 0.24, align: 'right', bold: true, color: variant === 'white' ? COLORS.white : COLORS.electricBlue, fontFace: 'Lato', fontSize: 16, margin: 0 });
+  }
+}
+
+function markSafeZone(slide, subtitle) {
+  if (subtitle) {
+    slide.addText(cleanText(subtitle, ''), {
+      x: 0.62, y: 0.24, w: 4.8, h: 0.18, fontFace: 'Lato', fontSize: 9.2, color: COLORS.grey4, margin: 0,
+    });
+  }
+  slide.addShape(pptx.ShapeType.rect, { x: 0.62, y: 1.12, w: 0.52, h: 0.05, fill: { color: COLORS.sereneBlue }, line: { color: COLORS.sereneBlue } });
 }
 
 function baseSlide(title, subtitle = '') {
   const slide = pptx.addSlide();
   slide.background = { color: COLORS.sand };
   addLogo(slide);
-  if (subtitle) {
-    slide.addText(cleanText(subtitle, ''), {
-      x: 0.62, y: 0.24, w: 4.8, h: 0.18, fontFace: 'Lato', fontSize: 9.2, color: COLORS.grey4, margin: 0,
-    });
-  }
+  markSafeZone(slide, subtitle);
   slide.addText(cleanText(title, 'Reporte ejecutivo'), {
-    x: 0.62, y: 0.54, w: 8.3, h: 0.52, fontFace: 'Source Serif 4', bold: true, fontSize: 24, color: COLORS.electricBlue, margin: 0,
+    x: 0.62, y: 0.52, w: 8.7, h: 0.46, fontFace: 'Source Serif 4', bold: true, fontSize: 24, color: COLORS.electricBlue, margin: 0, breakLine: false,
   });
   return slide;
 }
 
-function panel(slide, x, y, w, h, header = '') {
+function panel(slide, x, y, w, h, header = '', options = {}) {
   slide.addShape(pptx.ShapeType.roundRect, {
     x, y, w, h, rectRadius: 0.06,
-    fill: { color: COLORS.white },
-    line: { color: COLORS.grey1, width: 1 },
-    shadow: safeOuterShadow('000000', 0.1, 45, 0.8, 0.4),
+    fill: { color: options.fill || COLORS.white },
+    line: { color: options.line || COLORS.grey1, width: 1 },
+    shadow: options.shadow === false ? undefined : safeOuterShadow('000000', 0.08, 45, 0.7, 0.35),
   });
   if (header) {
     slide.addText(cleanText(header), {
-      x: x + 0.16, y: y + 0.12, w: w - 0.32, h: 0.16,
-      fontFace: 'Lato', fontSize: 10, bold: true, color: COLORS.electricBlue, margin: 0,
+      x: x + 0.16, y: y + 0.13, w: w - 0.32, h: 0.18,
+      fontFace: 'Lato', fontSize: 10, bold: true, color: options.headerColor || COLORS.electricBlue, margin: 0,
     });
   }
 }
 
-function card(slide, x, y, w, h, label, value, accent = COLORS.sereneBlue) {
-  panel(slide, x, y, w, h);
+function card(slide, x, y, w, h, label, value, accent = COLORS.sereneBlue, options = {}) {
+  panel(slide, x, y, w, h, '', { fill: options.fill || COLORS.white });
   slide.addShape(pptx.ShapeType.rect, { x, y, w, h: 0.06, fill: { color: accent }, line: { color: accent } });
-  slide.addText(cleanText(label), { x: x + 0.12, y: y + 0.14, w: w - 0.24, h: 0.14, fontFace: 'Lato', fontSize: 8.5, color: COLORS.grey4, margin: 0 });
-  slide.addText(String(value ?? '-'), { x: x + 0.12, y: y + 0.30, w: w - 0.24, h: 0.24, fontFace: 'Source Serif 4', bold: true, fontSize: 18, color: COLORS.electricBlue, margin: 0 });
+  slide.addText(cleanText(label), { x: x + 0.12, y: y + 0.14, w: w - 0.24, h: 0.14, fontFace: 'Lato', fontSize: options.labelSize || 8.5, color: COLORS.grey4, margin: 0, fit: 'shrink' });
+  slide.addText(String(value ?? '-'), { x: x + 0.12, y: y + 0.33, w: w - 0.24, h: 0.25, fontFace: 'Source Serif 4', bold: true, fontSize: options.valueSize || 18, color: COLORS.electricBlue, margin: 0, fit: 'shrink' });
 }
 
-function emptyState(slide, x, y, w, h, message) {
-  panel(slide, x, y, w, h, 'Sin datos suficientes');
-  slide.addText(clip(message || 'No hay datos consolidados para este módulo.', 120), {
-    x: x + 0.20, y: y + 0.52, w: w - 0.4, h: h - 0.72,
-    fontFace: 'Source Serif 4', bold: true, fontSize: 18, color: COLORS.electricBlue, align: 'center', valign: 'mid', margin: 0,
+function emptyState(slide, x, y, w, h, message, options = {}) {
+  panel(slide, x, y, w, h, options.title || 'Sin datos suficientes', { fill: options.fill || COLORS.paleBlue, line: COLORS.grey1, shadow: false });
+  slide.addText(clip(message || 'No hay datos consolidados para este módulo.', options.max || 150), {
+    x: x + 0.20, y: y + 0.54, w: w - 0.4, h: h - 0.72,
+    fontFace: 'Lato', fontSize: options.fontSize || 11, color: COLORS.midnight, align: 'center', valign: 'mid', margin: 0, breakLine: false,
   });
 }
 
-function tableRows(slide, x, y, w, headers, rows) {
-  const colW = w / headers.length;
-  headers.forEach((header, idx) => {
-    slide.addText(cleanText(header), {
-      x: x + idx * colW + 0.02, y, w: colW - 0.04, h: 0.2,
-      fontFace: 'Lato', fontSize: 9.5, bold: true, color: COLORS.grey4, margin: 0,
-      align: idx === 0 ? 'left' : 'right',
+function notePill(slide, x, y, w, text) {
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x, y, w, h: 0.42, rectRadius: 0.08,
+    fill: { color: COLORS.paleBlue },
+    line: { color: COLORS.grey1, width: 1 },
+  });
+  slide.addText(clip(text, 120), {
+    x: x + 0.16, y: y + 0.12, w: w - 0.32, h: 0.16,
+    fontFace: 'Lato', fontSize: 9.2, color: COLORS.grey4, margin: 0,
+  });
+}
+
+function paragraphBlock(slide, x, y, w, h, body, options = {}) {
+  slide.addText(clip(body, options.max || 260), {
+    x, y, w, h,
+    fontFace: options.fontFace || 'Lato',
+    fontSize: options.fontSize || 11,
+    bold: !!options.bold,
+    color: options.color || COLORS.midnight,
+    valign: options.valign || 'top',
+    breakLine: false,
+    margin: 0,
+    fit: 'shrink',
+  });
+}
+
+function bulletList(slide, x, y, w, items, options = {}) {
+  const rows = bulletize(items, options.fallback).slice(0, options.limit || 3);
+  rows.forEach((item, idx) => {
+    slide.addText(`• ${clip(item, options.max || 118)}`, {
+      x, y: y + idx * (options.step || 0.46), w, h: 0.27,
+      fontFace: 'Lato', fontSize: options.fontSize || 10.8, color: COLORS.midnight, margin: 0, fit: 'shrink',
     });
   });
-  rows.slice(0, 5).forEach((row, rowIndex) => {
-    const rowY = y + 0.28 + rowIndex * 0.42;
+}
+
+function tableRows(slide, x, y, w, headers, rows, options = {}) {
+  const widths = options.widths || headers.map(() => 1 / headers.length);
+  const total = widths.reduce((a, b) => a + b, 0);
+  const normalized = widths.map((n) => (n / total) * w);
+  const rowHeight = options.rowHeight || 0.40;
+  const maxRows = options.maxRows || 5;
+  let cursor = x;
+  headers.forEach((header, idx) => {
+    const colW = normalized[idx];
+    slide.addText(cleanText(header), {
+      x: cursor + 0.02, y, w: colW - 0.04, h: 0.18,
+      fontFace: 'Lato', fontSize: options.headerSize || 9.2, bold: true, color: COLORS.grey4, margin: 0,
+      align: idx === 0 ? 'left' : 'right', fit: 'shrink',
+    });
+    cursor += colW;
+  });
+  rows.slice(0, maxRows).forEach((row, rowIndex) => {
+    const rowY = y + 0.28 + rowIndex * rowHeight;
     if (rowIndex % 2 === 0) {
-      slide.addShape(pptx.ShapeType.rect, {
-        x, y: rowY - 0.04, w, h: 0.34,
+      slide.addShape(pptx.ShapeType.roundRect, {
+        x, y: rowY - 0.055, w, h: rowHeight - 0.06, rectRadius: 0.03,
         fill: { color: 'F9FBFD' }, line: { color: 'F9FBFD' },
       });
     }
+    let xCursor = x;
     row.forEach((value, colIndex) => {
-      slide.addText(clip(value, colIndex === 0 ? 60 : 16), {
-        x: x + colIndex * colW + 0.02, y: rowY, w: colW - 0.04, h: 0.18,
+      const colW = normalized[colIndex] || normalized[normalized.length - 1];
+      slide.addText(clip(value, options.clip?.[colIndex] || (colIndex === 0 ? 54 : 20)), {
+        x: xCursor + 0.04, y: rowY, w: colW - 0.08, h: 0.18,
         fontFace: colIndex === 0 ? 'Lato' : 'Source Serif 4',
         bold: colIndex !== 0,
-        fontSize: colIndex === 0 ? 10 : 11,
+        fontSize: colIndex === 0 ? (options.firstColSize || 9.6) : (options.valueSize || 10.5),
         color: colIndex === 0 ? COLORS.midnight : COLORS.electricBlue,
         align: colIndex === 0 ? 'left' : 'right',
         margin: 0,
+        fit: 'shrink',
       });
+      xCursor += colW;
     });
   });
+}
+
+function renderHorizontalBarChart(slide, x, y, w, h, rows, options = {}) {
+  if (!rows.length) return;
+  slide.addChart('bar', [{
+    name: options.name || 'Participación',
+    labels: rows.map((row) => clip(row.label, options.labelMax || 22)),
+    values: rows.map((row) => parseNumber(row.value)),
+  }], {
+    x, y, w, h,
+    showLegend: false,
+    chartColors: [options.color || COLORS.electricBlue],
+    catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: options.catSize || 8.4,
+    valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 8,
+    valGridLine: { color: COLORS.grey1, width: 1 },
+    showValue: true,
+    dataLabelColor: COLORS.electricBlue,
+    dataLabelFontFace: 'Lato',
+    dataLabelFontSize: 8.5,
+    dataLabelPosition: 'outEnd',
+    showTitle: false,
+  });
+}
+
+function renderColumnChart(slide, x, y, w, h, rows, options = {}) {
+  if (!rows.length) return;
+  slide.addChart('col', [{
+    name: options.name || 'Volumen',
+    labels: rows.map((row) => clip(row.label, options.labelMax || 18)),
+    values: rows.map((row) => parseNumber(row.value)),
+  }], {
+    x, y, w, h,
+    showLegend: false,
+    chartColors: [options.color || COLORS.electricBlue],
+    catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: options.catSize || 8,
+    valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 8,
+    valGridLine: { color: COLORS.grey1, width: 1 },
+    showValue: true,
+    dataLabelColor: COLORS.electricBlue,
+    dataLabelFontFace: 'Lato',
+    dataLabelFontSize: 8,
+    dataLabelPosition: 'outEnd',
+    showTitle: false,
+  });
+}
+
+function renderDoughnut(slide, x, y, w, h, rows, options = {}) {
+  if (!rows.length) return;
+  slide.addChart('doughnut', [{
+    name: options.name || 'Mix',
+    labels: rows.map((row) => clip(row.label, options.labelMax || 16)),
+    values: rows.map((row) => parseNumber(row.value)),
+  }], {
+    x, y, w, h,
+    holeSize: options.holeSize || 66,
+    chartColors: CHART_COLORS,
+    showLegend: false,
+    showValue: false,
+  });
+}
+
+function renderLegend(slide, x, y, w, rows, options = {}) {
+  rows.slice(0, options.limit || 5).forEach((row, idx) => {
+    const yy = y + idx * (options.step || 0.34);
+    const color = CHART_COLORS[idx % CHART_COLORS.length];
+    slide.addShape(pptx.ShapeType.roundRect, { x, y: yy + 0.03, w: 0.12, h: 0.12, rectRadius: 0.02, fill: { color }, line: { color } });
+    slide.addText(`${clip(row.label, options.labelMax || 22)} ${valueAsPct(row, rows)}`, {
+      x: x + 0.18, y: yy, w: w - 0.18, h: 0.18,
+      fontFace: 'Lato', fontSize: options.fontSize || 8.6, color: COLORS.midnight, margin: 0, fit: 'shrink',
+    });
+  });
+}
+
+function finalizeSlide(slide) {
+  if (!SHOULD_WARN_LAYOUT) return;
+  warnIfSlideHasOverlaps(slide);
+  warnIfSlideElementsOutOfBounds(slide, pptx);
 }
 
 function renderExecutiveSummary(module) {
   const p = module.payload || {};
   const slide = baseSlide(module.title || 'Resumen ejecutivo del período', 'Resumen');
-  card(slide, 0.62, 1.4, 1.95, 0.96, 'Planificación', fmtNum(p.plan_total), COLORS.sereneBlue);
-  card(slide, 2.72, 1.4, 1.95, 0.96, 'Noticias site', fmtNum(p.site_notes_total), COLORS.ice);
-  card(slide, 4.82, 1.4, 1.95, 0.96, 'Vistas site', fmtNum(p.site_total_views), COLORS.lime);
-  card(slide, 6.92, 1.4, 1.95, 0.96, 'Mails enviados', fmtNum(p.mail_total), COLORS.canary);
-  card(slide, 9.02, 1.4, 1.72, 0.96, 'Apertura', fmtPct(p.mail_open_rate), COLORS.sereneBlue);
-  card(slide, 10.86, 1.4, 1.82, 0.96, 'Interacción', fmtPct(p.mail_interaction_rate), COLORS.ice);
-
-  panel(slide, 0.62, 2.62, 8.2, 3.72, 'Lectura ejecutiva');
-  slide.addText(clip(p.historical_note || p.headline || '-', 240), {
-    x: 0.86, y: 3.04, w: 7.6, h: 0.84,
-    fontFace: 'Source Serif 4', bold: true, fontSize: 20, color: COLORS.midnight, margin: 0,
-  });
-  const takeaways = Array.isArray(p.takeaways) ? p.takeaways.filter(Boolean).slice(0, 3) : [];
-  (takeaways.length ? takeaways : [DEFAULT_EXECUTIVE_TAKEAWAY]).forEach((item, idx) => {
-    slide.addText(`• ${clip(item, 120)}`, {
-      x: 0.9, y: 4.1 + idx * 0.48, w: 7.5, h: 0.24,
-      fontFace: 'Lato', fontSize: 11, color: COLORS.midnight, margin: 0,
-    });
+  const kpis = [
+    ['Planificación', fmtNum(p.plan_total), COLORS.sereneBlue],
+    ['Noticias site', fmtNum(p.site_notes_total), COLORS.ice],
+    ['Vistas site', fmtNum(p.site_total_views), COLORS.lime],
+    ['Mails enviados', fmtNum(p.mail_total), COLORS.canary],
+    ['Apertura', fmtPct(p.mail_open_rate), COLORS.sereneBlue],
+    ['Interacción', fmtPct(p.mail_interaction_rate), COLORS.ice],
+  ];
+  kpis.forEach((item, idx) => {
+    card(slide, 0.62 + idx * 2.03, 1.35, idx >= 4 ? 1.75 : 1.86, 0.98, item[0], item[1], item[2], { valueSize: idx >= 4 ? 17 : 18 });
   });
 
-  panel(slide, 8.98, 2.62, 3.7, 3.72, 'Mensaje clave');
-  slide.addText(clip(p.historical_note || '-', 160), {
-    x: 9.2, y: 3.1, w: 3.25, h: 2.8,
-    fontFace: 'Lato', fontSize: 11, color: COLORS.midnight, valign: 'mid', margin: 0,
-  });
+  panel(slide, 0.62, 2.62, 7.35, 3.72, 'Mensaje clave');
+  paragraphBlock(slide, 0.9, 3.05, 6.78, 1.18, buildExecutiveMessage(p), { fontFace: 'Source Serif 4', fontSize: 18.5, bold: true, max: 260, color: COLORS.midnight });
+
+  notePill(slide, 0.9, 4.55, 6.76, `Período: ${periodLabel()} · Fuente: dashboard mensual consolidado`);
+  paragraphBlock(slide, 0.9, 5.18, 6.76, 0.62, 'Lectura basada en KPIs extraídos y validados de forma determinística para reducir dependencia de narrativa generativa.', { fontSize: 10.2, color: COLORS.grey4, max: 150 });
+
+  panel(slide, 8.28, 2.62, 4.38, 3.72, 'Lectura ejecutiva');
+  bulletList(slide, 8.56, 3.1, 3.82, buildExecutiveInsights(p), { fallback: DEFAULT_EXECUTIVE_TAKEAWAY, max: 115, step: 0.62, fontSize: 10.6 });
+  finalizeSlide(slide);
 }
 
 function renderChannelManagement(module) {
   const p = module.payload || {};
   const slide = baseSlide(module.title || 'Gestión de canales', 'Canales');
-  card(slide, 0.62, 1.4, 2.1, 0.96, 'Mails enviados', fmtNum(p.mail_total), COLORS.sereneBlue);
-  card(slide, 2.88, 1.4, 2.1, 0.96, 'Apertura', fmtPct(p.mail_open_rate), COLORS.ice);
-  card(slide, 5.14, 1.4, 2.1, 0.96, 'Interacción', fmtPct(p.mail_interaction_rate), COLORS.lime);
-  card(slide, 7.4, 1.4, 2.1, 0.96, 'Noticias site', fmtNum(p.site_notes_total), COLORS.canary);
-  card(slide, 9.66, 1.4, 3.0, 0.96, 'Páginas vistas', fmtNum(p.site_total_views), COLORS.sereneBlue);
+  const cards = [
+    ['Mails enviados', fmtNum(p.mail_total), COLORS.sereneBlue],
+    ['Apertura', fmtPct(p.mail_open_rate), COLORS.ice],
+    ['Interacción', fmtPct(p.mail_interaction_rate), COLORS.lime],
+    ['Noticias site', fmtNum(p.site_notes_total), COLORS.canary],
+    ['Páginas vistas', fmtNum(p.site_total_views), COLORS.sereneBlue],
+  ];
+  cards.forEach((item, idx) => {
+    const x = [0.62, 2.78, 4.94, 7.1, 9.26][idx];
+    const w = idx === 4 ? 3.4 : 1.98;
+    card(slide, x, 1.35, w, 0.92, item[0], item[1], item[2]);
+  });
 
-  panel(slide, 0.62, 2.62, 6.2, 3.72, 'Mix de canales');
-  const mix = Array.isArray(p.channel_mix) ? p.channel_mix.slice(0, 5) : [];
+  const mix = weightedRows(p.channel_mix, 6);
+  panel(slide, 0.62, 2.54, 7.0, 3.92, 'Mix de canales');
   if (!mix.length) {
-    emptyState(slide, 0.82, 2.94, 5.8, 3.2, p.site_has_no_data_sections ? 'El sitio reporta secciones sin datos en el período.' : 'No hay mix de canales para mostrar.');
+    emptyState(slide, 0.9, 3.04, 6.42, 2.86, p.site_has_no_data_sections ? 'El sitio reporta secciones sin datos en el período.' : 'No hay mix de canales para mostrar.');
   } else {
-    slide.addChart('bar', [{
-      name: 'Canales',
-      labels: mix.map((x) => clip(x.label || x.theme, 18)),
-      values: mix.map((x) => parseNumber(x.value || x.weight)),
-    }], {
-      x: 0.9, y: 3.1, w: 5.45, h: 2.8,
-      showLegend: false,
-      chartColors: [COLORS.electricBlue],
-      catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: 8.5,
-      valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 8,
-      valGridLine: { color: COLORS.grey1, width: 1 },
-      showValue: true, dataLabelColor: COLORS.electricBlue, dataLabelPosition: 'outEnd',
-    });
+    renderHorizontalBarChart(slide, 1.0, 3.0, 5.88, 2.78, mix, { labelMax: 25, catSize: 8.3 });
+    notePill(slide, 1.0, 5.92, 5.88, `Principal canal: ${mix[0].label} (${valueAsPct(mix[0], mix)})`);
   }
 
-  panel(slide, 6.98, 2.62, 5.7, 3.72, 'Narrativa');
-  slide.addText(clip(p.message || '-', 260), {
-    x: 7.22, y: 3.1, w: 5.2, h: 2.9,
-    fontFace: 'Lato', fontSize: 11, color: COLORS.midnight, valign: 'mid', margin: 0,
-  });
+  panel(slide, 7.92, 2.54, 4.74, 3.92, 'Narrativa');
+  paragraphBlock(slide, 8.18, 3.0, 4.2, 1.64, buildChannelNarrative(p), { max: 240, fontSize: 10.8 });
+  if (mix.length) {
+    tableRows(
+      slide,
+      8.18,
+      4.9,
+      4.22,
+      ['Canal', 'Peso'],
+      mix.slice(0, 4).map((row) => [row.label, valueAsPct(row, mix)]),
+      { widths: [0.72, 0.28], rowHeight: 0.32, maxRows: 4, clip: [32, 14], firstColSize: 8.8, valueSize: 9.6, headerSize: 8.8 }
+    );
+  }
+  finalizeSlide(slide);
 }
 
 function renderMix(module) {
   const p = module.payload || {};
-  const strategic = Array.isArray(p.strategic_axes) ? p.strategic_axes.slice(0, 5) : [];
-  const clients = Array.isArray(p.internal_clients) ? p.internal_clients.slice(0, 5) : [];
-  const formats = Array.isArray(p.format_mix) ? p.format_mix.slice(0, 5) : [];
+  const strategic = weightedRows(p.strategic_axes, 6);
+  const clients = weightedRows(p.internal_clients, 5);
+  const formats = weightedRows(p.format_mix, 6);
   const slide = baseSlide(module.title || 'Mix temático y áreas solicitantes', 'Contenido');
 
-  panel(slide, 0.62, 1.4, 3.95, 4.94, 'Ejes estratégicos');
+  panel(slide, 0.62, 1.35, 7.1, 5.06, 'Ejes estratégicos');
   if (!strategic.length) {
-    emptyState(slide, 0.84, 2.0, 3.5, 4.1, 'No hay distribución temática consolidada.');
+    emptyState(slide, 0.92, 2.05, 6.48, 3.74, 'No hay distribución temática consolidada.');
   } else {
-    slide.addChart('doughnut', [{
-      name: 'Ejes',
-      labels: strategic.map((x) => clip(x.label || x.theme, 14)),
-      values: strategic.map((x) => parseNumber(x.value || x.weight)),
-    }], {
-      x: 0.9, y: 2.0, w: 2.0, h: 2.1,
-      holeSize: 68,
-      chartColors: [COLORS.electricBlue, COLORS.sereneBlue, COLORS.ice, COLORS.lime, COLORS.canary],
-      showLegend: false,
-      showValue: false,
-    });
-    strategic.forEach((row, idx) => {
-      slide.addText(`${idx + 1}. ${clip(row.label || row.theme, 16)} ${fmtPct(row.value || row.weight)}`, {
-        x: 3.0, y: 2.06 + idx * 0.34, w: 1.4, h: 0.16,
-        fontFace: 'Lato', fontSize: 8.5, color: COLORS.midnight, margin: 0,
-      });
-    });
+    renderColumnChart(slide, 1.0, 2.02, 5.96, 2.75, strategic.slice(0, 5), { labelMax: 16, catSize: 7.8 });
+    renderLegend(slide, 1.0, 5.12, 6.16, strategic.slice(0, 5), { labelMax: 30, step: 0.25, fontSize: 8.2 });
   }
 
-  panel(slide, 4.82, 1.4, 3.95, 4.94, 'Áreas solicitantes');
-  if (!clients.length) {
-    emptyState(slide, 5.04, 2.0, 3.5, 4.1, 'No hay datos de áreas solicitantes.');
-  } else {
-    slide.addChart('bar', [{
-      name: 'Áreas',
-      labels: clients.map((x) => clip(x.label, 14)),
-      values: clients.map((x) => parseNumber(x.value)),
-    }], {
-      x: 5.1, y: 2.0, w: 3.4, h: 2.95,
-      showLegend: false,
-      chartColors: [COLORS.sereneBlue],
-      catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: 8,
-      valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 8,
-      showValue: true, dataLabelColor: COLORS.electricBlue, dataLabelPosition: 'outEnd',
-    });
-  }
+  panel(slide, 7.96, 1.35, 4.7, 2.42, 'Lectura temática');
+  paragraphBlock(slide, 8.2, 1.82, 4.24, 1.4, buildAxesNarrative(p), { max: 210, fontSize: 10.4 });
 
-  panel(slide, 9.02, 1.4, 3.66, 4.94, 'Mix de formatos');
+  panel(slide, 7.96, 4.0, 2.24, 2.41, 'Formatos');
   if (!formats.length) {
-    emptyState(slide, 9.2, 2.0, 3.3, 2.5, 'No hay mix de formatos disponible.');
+    emptyState(slide, 8.16, 4.5, 1.84, 1.46, 'Sin mix de formatos.', { title: 'Observación', fontSize: 9.2, max: 60 });
   } else {
-    tableRows(slide, 9.24, 2.02, 3.2, ['Formato', 'Peso'], formats.map((x) => [x.label || x.theme || '-', fmtPct(x.value || x.weight)]));
+    tableRows(slide, 8.16, 4.46, 1.84, ['Formato', 'Peso'], formats.slice(0, 4).map((x) => [x.label, valueAsPct(x, formats)]), {
+      widths: [0.64, 0.36], rowHeight: 0.31, maxRows: 4, clip: [18, 10], firstColSize: 8.0, valueSize: 8.8, headerSize: 8.0,
+    });
   }
-  slide.addText(clip(p.message || '-', 145), {
-    x: 9.24, y: 4.95, w: 3.2, h: 1.1,
-    fontFace: 'Lato', fontSize: 10.3, color: COLORS.midnight, margin: 0,
-  });
+
+  panel(slide, 10.42, 4.0, 2.24, 2.41, 'Áreas');
+  if (!clients.length) {
+    emptyState(slide, 10.62, 4.5, 1.84, 1.46, 'Áreas solicitantes no informadas en la fuente.', { title: 'Observación', fontSize: 9.2, max: 72, fill: COLORS.paleYellow });
+  } else {
+    tableRows(slide, 10.62, 4.46, 1.84, ['Área', 'Peso'], clients.slice(0, 4).map((x) => [x.label, valueAsPct(x, clients)]), {
+      widths: [0.64, 0.36], rowHeight: 0.31, maxRows: 4, clip: [18, 10], firstColSize: 8.0, valueSize: 8.8, headerSize: 8.0,
+    });
+  }
+  finalizeSlide(slide);
 }
 
 function renderPushRanking(module) {
@@ -295,62 +555,71 @@ function renderPushRanking(module) {
 
   if (!p.available || (!interaction.length && !openRate.length)) {
     emptyState(slide, 1.0, 2.0, 11.3, 3.4, 'No hay ranking push suficiente para el período.');
+    finalizeSlide(slide);
     return;
   }
 
-  panel(slide, 0.62, 1.4, 6.08, 4.94, 'Top por interacción');
-  tableRows(
-    slide,
-    0.84,
-    2.0,
-    5.6,
-    ['Comunicación', 'Clics', 'Interacción'],
-    interaction.map((row) => [cleanText(row.name), fmtNum(row.clicks), fmtPct(row.interaction)])
-  );
+  panel(slide, 0.62, 1.35, 6.08, 4.86, 'Top por interacción');
+  if (interaction.length) {
+    tableRows(
+      slide,
+      0.84,
+      1.94,
+      5.62,
+      ['Comunicación', 'Clics', 'Interacción'],
+      interaction.map((row) => [cleanText(row.name || row.title), fmtNum(row.clicks), fmtPct(row.interaction || row.ctr)]),
+      { widths: [0.62, 0.17, 0.21], rowHeight: 0.52, maxRows: 5, clip: [44, 12, 12], firstColSize: 9.2, valueSize: 10.1 }
+    );
+  } else {
+    emptyState(slide, 0.9, 2.14, 5.5, 3.4, 'No hay ranking por interacción para este período.', { title: 'Observación' });
+  }
 
-  panel(slide, 6.92, 1.4, 5.74, 4.94, 'Top por apertura');
-  tableRows(
-    slide,
-    7.14,
-    2.0,
-    5.3,
-    ['Comunicación', 'Clics', 'Open rate'],
-    openRate.map((row) => [cleanText(row.name), fmtNum(row.clicks), fmtPct(row.open_rate)])
-  );
+  panel(slide, 6.92, 1.35, 5.74, 4.86, 'Top por apertura');
+  if (openRate.length) {
+    tableRows(
+      slide,
+      7.14,
+      1.94,
+      5.3,
+      ['Comunicación', 'Clics', 'Open rate'],
+      openRate.map((row) => [cleanText(row.name || row.title), fmtNum(row.clicks), fmtPct(row.open_rate)]),
+      { widths: [0.60, 0.18, 0.22], rowHeight: 0.52, maxRows: 5, clip: [40, 12, 12], firstColSize: 9.2, valueSize: 10.1 }
+    );
+  } else {
+    emptyState(slide, 7.18, 2.14, 5.22, 3.4, 'La fuente no informó ranking por apertura consolidado.', { title: 'Observación' });
+  }
 
-  slide.addText(clip(p.message || '-', 180), {
-    x: 0.84, y: 6.48, w: 11.5, h: 0.3,
-    fontFace: 'Lato', fontSize: 10.5, color: COLORS.midnight, margin: 0,
-  });
+  notePill(slide, 0.84, 6.42, 11.56, buildPushNarrative(p));
+  finalizeSlide(slide);
 }
 
 function renderPullRanking(module) {
   const p = module.payload || {};
-  const rows = Array.isArray(p.top_pull_notes) ? p.top_pull_notes.slice(0, 5) : [];
+  const rows = Array.isArray(p.top_pull_notes) ? p.top_pull_notes.slice(0, 6) : [];
   const slide = baseSlide(module.title || 'Ranking pull', 'Site / intranet');
 
-  card(slide, 0.62, 1.4, 2.8, 0.96, 'Promedio lecturas por nota', fmtNum(p.average_reads_per_note), COLORS.sereneBlue);
-  card(slide, 3.62, 1.4, 2.8, 0.96, 'Vistas totales site', fmtNum(p.site_total_views), COLORS.ice);
+  card(slide, 0.62, 1.35, 2.8, 0.92, 'Promedio lecturas por nota', fmtNum(p.average_reads_per_note), COLORS.sereneBlue, { labelSize: 8.2 });
+  card(slide, 3.62, 1.35, 2.8, 0.92, 'Vistas totales site', fmtNum(p.site_total_views), COLORS.ice);
 
-  panel(slide, 0.62, 2.62, 8.2, 3.72, 'Top notas pull');
+  panel(slide, 0.62, 2.54, 8.4, 3.92, 'Top notas pull');
   if (!p.available || !rows.length) {
-    emptyState(slide, 0.84, 2.94, 7.8, 3.2, 'No hay ranking pull suficiente para este período.');
+    emptyState(slide, 0.9, 3.04, 7.84, 2.86, 'No hay ranking pull suficiente para este período.');
   } else {
     tableRows(
       slide,
       0.9,
       3.0,
-      7.8,
+      7.84,
       ['Nota', 'Lecturas únicas', 'Lecturas totales'],
-      rows.map((row) => [cleanText(row.title), fmtNum(row.unique_reads), fmtNum(row.total_reads)])
+      rows.map((row) => [cleanText(row.title || row.name), fmtNum(row.unique_reads || row.users), fmtNum(row.total_reads || row.views)]),
+      { widths: [0.66, 0.17, 0.17], rowHeight: 0.40, maxRows: 6, clip: [58, 12, 12], firstColSize: 9.1, valueSize: 10.0 }
     );
   }
 
-  panel(slide, 8.98, 2.62, 3.7, 3.72, 'Lectura ejecutiva');
-  slide.addText(clip(p.message || '-', 180), {
-    x: 9.2, y: 3.2, w: 3.25, h: 2.9,
-    fontFace: 'Lato', fontSize: 11, color: COLORS.midnight, valign: 'mid', margin: 0,
-  });
+  panel(slide, 9.28, 2.54, 3.38, 3.92, 'Lectura ejecutiva');
+  paragraphBlock(slide, 9.52, 3.04, 2.88, 2.32, buildPullNarrative(p), { max: 180, fontSize: 10.6 });
+  if (rows.length) notePill(slide, 9.52, 5.68, 2.88, `Top 1: ${clip(rows[0].title || rows[0].name, 44)}`);
+  finalizeSlide(slide);
 }
 
 function renderMilestones(module) {
@@ -359,30 +628,33 @@ function renderMilestones(module) {
   const slide = baseSlide(module.title || 'Hitos del mes', 'Gestión');
 
   if (!items.length) {
-    emptyState(slide, 1.0, 2.0, 11.3, 3.4, 'No se registraron hitos consolidados en este período.');
+    panel(slide, 0.82, 1.55, 11.68, 4.82, 'Cierre de gestión');
+    slide.addText('Sin hitos consolidados para este período', {
+      x: 1.18, y: 2.32, w: 6.6, h: 0.42,
+      fontFace: 'Source Serif 4', bold: true, fontSize: 24, color: COLORS.electricBlue, margin: 0,
+    });
+    paragraphBlock(slide, 1.18, 3.1, 5.9, 1.2, cleanText(p.message || 'No se registraron hitos consolidados en la fuente mensual. La slide se conserva como control de calidad para distinguir ausencia de datos de error de generación.'), { max: 220, fontSize: 11 });
+    emptyState(slide, 8.08, 2.18, 3.58, 2.74, 'No se detectaron hitos manuales ni automáticos. Puede completarse desde manual_context si el equipo quiere destacar acciones cualitativas.', { title: 'Observación', fill: COLORS.paleYellow, fontSize: 10.2, max: 150 });
+    finalizeSlide(slide);
     return;
   }
 
   items.forEach((item, idx) => {
     const x = 0.62 + idx * 4.18;
-    panel(slide, x, 1.4, 3.56, 4.94, `Hito ${idx + 1}`);
-    slide.addText(clip(item.title || item.description || '-', 48), {
-      x: x + 0.16, y: 1.92, w: 3.2, h: 0.48,
-      fontFace: 'Source Serif 4', bold: true, fontSize: 16, color: COLORS.electricBlue, margin: 0,
+    panel(slide, x, 1.35, 3.56, 5.06, `Hito ${idx + 1}`);
+    slide.addText(clip(item.title || item.description || '-', 50), {
+      x: x + 0.18, y: 1.9, w: 3.15, h: 0.58,
+      fontFace: 'Source Serif 4', bold: true, fontSize: 15.5, color: COLORS.electricBlue, margin: 0, fit: 'shrink',
     });
     const bullets = Array.isArray(item.bullets) ? item.bullets.filter(Boolean).slice(0, 3) : [];
     const lines = bullets.length ? bullets : [item.description || 'Sin detalle adicional.'];
-    lines.forEach((line, lineIdx) => {
-      slide.addText(`• ${clip(line, 70)}`, {
-        x: x + 0.18, y: 2.64 + lineIdx * 0.46, w: 3.15, h: 0.24,
-        fontFace: 'Lato', fontSize: 10.2, color: COLORS.midnight, margin: 0,
-      });
-    });
+    bulletList(slide, x + 0.2, 2.72, 3.08, lines, { max: 68, limit: 3, fontSize: 9.8, step: 0.48 });
     slide.addText(cleanText(item.period || ''), {
-      x: x + 0.18, y: 5.94, w: 3.1, h: 0.14,
+      x: x + 0.2, y: 5.9, w: 3.1, h: 0.14,
       fontFace: 'Lato', fontSize: 8.5, color: COLORS.grey4, margin: 0,
     });
   });
+  finalizeSlide(slide);
 }
 
 function renderEvents(module) {
@@ -390,29 +662,29 @@ function renderEvents(module) {
   const events = Array.isArray(p.events) ? p.events.slice(0, 5) : [];
   const slide = baseSlide(module.title || 'Eventos del mes', 'Activaciones');
 
-  card(slide, 0.62, 1.4, 2.6, 0.96, 'Eventos', fmtNum(p.total_events || events.length), COLORS.sereneBlue);
-  card(slide, 3.42, 1.4, 2.8, 0.96, 'Participaciones', fmtNum(p.total_participants), COLORS.ice);
+  card(slide, 0.62, 1.35, 2.6, 0.92, 'Eventos', fmtNum(p.total_events || events.length), COLORS.sereneBlue);
+  card(slide, 3.42, 1.35, 2.8, 0.92, 'Participaciones', fmtNum(p.total_participants), COLORS.ice);
 
   if (!events.length) {
-    emptyState(slide, 0.62, 2.62, 7.8, 3.72, 'No hay detalle de eventos suficiente, por lo que este módulo debería omitirse.');
+    emptyState(slide, 0.62, 2.54, 7.8, 3.92, 'No hay detalle de eventos suficiente, por lo que este módulo debería omitirse.');
+    finalizeSlide(slide);
     return;
   }
 
-  panel(slide, 0.62, 2.62, 7.8, 3.72, 'Detalle de eventos');
+  panel(slide, 0.62, 2.54, 7.8, 3.92, 'Detalle de eventos');
   tableRows(
     slide,
     0.86,
     3.0,
     7.2,
     ['Evento', 'Participantes', 'Fecha'],
-    events.map((row) => [row.name || row.title || '-', fmtNum(row.participants), row.date || '-'])
+    events.map((row) => [row.name || row.title || '-', fmtNum(row.participants), row.date || '-']),
+    { widths: [0.58, 0.22, 0.20], rowHeight: 0.42, maxRows: 5, clip: [46, 14, 14] }
   );
 
-  panel(slide, 8.62, 2.62, 4.04, 3.72, 'Mensaje');
-  slide.addText(clip(p.message || '-', 170), {
-    x: 8.88, y: 3.2, w: 3.55, h: 2.9,
-    fontFace: 'Lato', fontSize: 11, color: COLORS.midnight, valign: 'mid', margin: 0,
-  });
+  panel(slide, 8.62, 2.54, 4.04, 3.92, 'Mensaje');
+  paragraphBlock(slide, 8.88, 3.1, 3.55, 2.9, cleanText(p.message || '-'), { max: 170, fontSize: 11 });
+  finalizeSlide(slide);
 }
 
 function buildLegacyRenderPlan(payload) {
@@ -426,6 +698,7 @@ function buildLegacyRenderPlan(payload) {
   const s8 = payload.slide_8_events || payload.slide_7_events || {};
   const includeEvents = Array.isArray(s8.event_breakdown) && s8.event_breakdown.length > 0;
   return {
+    period: { label: payload?.slide_1_cover?.period || payload?.period?.label || '-' },
     modules: [
       {
         key: 'executive_summary',
@@ -462,7 +735,7 @@ function buildLegacyRenderPlan(payload) {
         payload: {
           strategic_axes: s4.content_distribution || [],
           internal_clients: s4.internal_clients || [],
-          format_mix: [],
+          format_mix: s4.format_mix || [],
           message: s4.conclusion || s4.theme_message,
         },
       },
@@ -471,7 +744,7 @@ function buildLegacyRenderPlan(payload) {
         title: 'Ranking push',
         payload: {
           by_interaction: s5.top_communications || [],
-          by_open_rate: [],
+          by_open_rate: s5.top_by_open_rate || [],
           available: Array.isArray(s5.top_communications) && s5.top_communications.length > 0,
           message: s5.key_learning,
         },
@@ -513,14 +786,24 @@ function renderFullCover() {
   const s = report?.period || report?.slide_1_cover || {};
   const slide = pptx.addSlide();
   slide.background = { color: COLORS.electricBlue };
-  slide.addText(cleanText(s.label || s.period || '-'), { x: 0.8, y: 2.8, w: 6, h: 0.6, fontFace: 'Source Serif 4', bold: true, fontSize: 34, color: COLORS.white, margin: 0 });
-  slide.addText('Comunicaciones Internas BBVA', { x: 0.8, y: 3.6, w: 8, h: 0.4, fontFace: 'Lato', fontSize: 16, color: COLORS.white, margin: 0 });
+  const whiteLogo = resolveAsset(BBVA_LOGO_WHITE);
+  if (whiteLogo) slide.addImage({ path: whiteLogo, ...imageSizingContain(whiteLogo, 10.9, 0.45, 1.25, 0.42) });
+  slide.addShape(pptx.ShapeType.rect, { x: 0.0, y: 0, w: 0.16, h: 7.5, fill: { color: COLORS.sereneBlue }, line: { color: COLORS.sereneBlue } });
+  slide.addText(cleanText(s.label || s.period || periodLabel()), { x: 0.8, y: 2.58, w: 6.4, h: 0.6, fontFace: 'Source Serif 4', bold: true, fontSize: 35, color: COLORS.white, margin: 0 });
+  slide.addText('Comunicaciones Internas', { x: 0.8, y: 3.43, w: 8, h: 0.4, fontFace: 'Lato', fontSize: 16, color: COLORS.white, margin: 0 });
+  slide.addText('Informe ejecutivo mensual', { x: 0.8, y: 3.9, w: 8, h: 0.32, fontFace: 'Lato', fontSize: 11, color: COLORS.sereneBlue, margin: 0 });
+  finalizeSlide(slide);
 }
 
 function renderFullClosing() {
   const slide = pptx.addSlide();
   slide.background = { color: COLORS.electricBlue };
+  const whiteLogo = resolveAsset(BBVA_LOGO_WHITE);
+  if (whiteLogo) slide.addImage({ path: whiteLogo, ...imageSizingContain(whiteLogo, 10.9, 0.45, 1.25, 0.42) });
+  slide.addShape(pptx.ShapeType.rect, { x: 0.0, y: 0, w: 0.16, h: 7.5, fill: { color: COLORS.sereneBlue }, line: { color: COLORS.sereneBlue } });
   slide.addText('Fin del informe', { x: 0.8, y: 3.1, w: 6, h: 0.5, fontFace: 'Source Serif 4', bold: true, fontSize: 30, color: COLORS.white, margin: 0 });
+  slide.addText(periodLabel(), { x: 0.8, y: 3.7, w: 4, h: 0.25, fontFace: 'Lato', fontSize: 11, color: COLORS.sereneBlue, margin: 0 });
+  finalizeSlide(slide);
 }
 
 const renderPlan = report?.render_plan && Array.isArray(report.render_plan.modules)
