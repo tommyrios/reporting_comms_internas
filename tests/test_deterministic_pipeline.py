@@ -173,6 +173,86 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertNotEqual(canonical["mail_open_rate"], canonical["mail_interaction_rate"])
         self.assertTrue(validation["is_valid"])
 
+    def test_plan_total_does_not_take_daily_average_when_anchors_are_close(self):
+        pages = [
+            (
+                "Página 1\nMedia comunicaciones diarias\n0.06\nN total de comunicaciones por mes\n100\n"
+                "Nº total de comunicaciones\n54"
+            ),
+            "Página 2\nTotal Páginas Vistas\n4,071\nNoticias Publicadas\n10\nPromedio Vistas\n407",
+            (
+                "Página 3\nTasa de apertura promedio\n80.05%\nTasa de interacción sobre mails enviados\n12.54%\n"
+                "Tasa de interacción sobre mails abiertos\n15.67%\nMails enviados\n23"
+            ),
+        ]
+
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
+
+        self.assertEqual(raw["metrics"]["plan_daily_average"]["value"], 0.06)
+        self.assertEqual(raw["metrics"]["plan_total"]["value"], 54.0)
+
+    def test_site_total_views_does_not_take_number_before_anchor(self):
+        pages = [
+            "Página 1\nMedia comunicaciones diarias\n0.06\nNº total de comunicaciones\n54",
+            (
+                "Página 2\nJan 22, 2026 43 equipos en Argentina compiten para transformar BBVA con IA ARGENTINA 96 123Total Páginas Vistas\n"
+                "4,071\nNoticias Publicadas\n10\nPromedio Vistas\n407"
+            ),
+            (
+                "Página 3\nMails enviados\n23\nTasa de apertura promedio\n80.05%\n"
+                "Tasa de interacción sobre mails enviados\n12.54%\nTasa de interacción sobre mails abiertos\n15.67%"
+            ),
+        ]
+
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
+
+        self.assertEqual(raw["metrics"]["site_total_views"]["value"], 4071.0)
+
+    def test_mail_interaction_rate_does_not_take_open_rate(self):
+        pages = [
+            "Página 1\nMedia comunicaciones diarias\n0.06\nNº total de comunicaciones\n54",
+            "Página 2\nTotal Páginas Vistas\n4,071\nNoticias Publicadas\n10\nPromedio Vistas\n407",
+            (
+                "Página 3\nTasa de apertura promedio\n80.05%\nTasa de interacción sobre mails enviados\n12.54%\n"
+                "Tasa de interacción sobre mails abiertos\n15.67%\nMails enviados\n23"
+            ),
+        ]
+
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
+
+        self.assertEqual(raw["metrics"]["mail_open_rate"]["value"], 80.05)
+        self.assertEqual(raw["metrics"]["mail_interaction_rate"]["value"], 12.54)
+        self.assertEqual(raw["metrics"]["mail_interaction_rate_over_opened"]["value"], 15.67)
+
+    def test_extract_raw_monthly_pdf_real_layout_with_glued_anchors_does_not_cross_kpis(self):
+        pages = [
+            "Página 1\nMedia comunicaciones diarias0.06Nº total de comunicaciones54",
+            (
+                "Página 2\nJan 22, 2026 Nota de ejemplo ARGENTINA 96 123Total Páginas Vistas\n"
+                "Total Páginas Vistas4071\nNoticias Publicadas10\nPromedio Vistas407"
+            ),
+            (
+                "Página 3\nTasa de apertura promedio80.05%Tasa de interacción sobre mails enviados12.54%\n"
+                "Tasa de interacción sobre mails abiertos15.67%Mails enviados23"
+            ),
+        ]
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
+        canonical = canonicalize_monthly(raw)
+        validation = validate_canonical_monthly(canonical)
+        self.assertEqual(canonical["plan_daily_average"], 0.06)
+        self.assertEqual(canonical["plan_total"], 54)
+        self.assertNotEqual(canonical["plan_total"], 0)
+        self.assertEqual(canonical["site_total_views"], 4071)
+        self.assertNotEqual(canonical["site_total_views"], 123)
+        self.assertEqual(canonical["mail_open_rate"], 80.05)
+        self.assertEqual(canonical["mail_interaction_rate"], 12.54)
+        self.assertNotEqual(canonical["mail_open_rate"], canonical["mail_interaction_rate"])
+        self.assertTrue(validation["is_valid"])
+
     def test_jan_2026_fixture_does_not_collapse_mail_metrics(self):
         pages = self._jan_2026_shifted_fixture_pages()
         with patch("deterministic_pipeline._extract_pages_text", return_value=pages):

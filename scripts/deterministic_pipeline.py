@@ -27,6 +27,21 @@ LOOKAHEAD_LINES_AFTER_LABEL = 3
 ANCHOR_PREFIX_LENGTH = 8
 MAX_LOGGED_CANDIDATE_LINES = 20
 CANON_TITLE_MAX_LENGTH = 180
+KNOWN_KPI_LABELS = [
+    "Media comunicaciones diarias",
+    "Nº total de comunicaciones",
+    "N° total de comunicaciones",
+    "No total de comunicaciones",
+    "N total de comunicaciones",
+    "N total de comunicaciones por mes",
+    "Total Páginas Vistas",
+    "Noticias Publicadas",
+    "Promedio Vistas",
+    "Tasa de apertura promedio",
+    "Tasa de interacción sobre mails enviados",
+    "Tasa de interacción sobre mails abiertos",
+    "Mails enviados",
+]
 REQUIRED_METRIC_KEYS = {
     "plan_total",
     "site_notes_total",
@@ -138,13 +153,58 @@ def _line_matches_label(line: str, label: str) -> bool:
     if line_compact == label_compact:
         return True
 
-    # Flexible pero controlado: permite "Panel ... label" o label con texto pegado,
-    # pero evita líneas de tablas con muchos números.
-    if label_compact in line_compact:
-        numbers = NUMBER_PATTERN.findall(line)
-        return len(numbers) <= MAX_NUMBERS_IN_LABEL_LINE
+    if label_compact not in line_compact:
+        return False
 
+    label_pos = line_compact.find(label_compact)
+    same_start_matches = [
+        known
+        for known in KNOWN_KPI_LABELS
+        if line_compact.find(_compact_text(known)) == label_pos
+    ]
+    if same_start_matches:
+        longest = max(same_start_matches, key=lambda known: len(_compact_text(known)))
+        if _compact_text(longest) != label_compact:
+            return False
+
+    trailing = line_compact[label_pos + len(label_compact):]
+    if trailing == "":
+        return True
+
+    numbers = NUMBER_PATTERN.findall(_normalize_number_spacing(line))
+    return len(numbers) <= MAX_NUMBERS_IN_LABEL_LINE
+
+
+def _line_contains_any_known_anchor(line: str, current_labels: list[str]) -> bool:
+    line_compact = _compact_text(line)
+    current_compacts = {_compact_text(label) for label in current_labels}
+    for known_label in KNOWN_KPI_LABELS:
+        known_compact = _compact_text(known_label)
+        if known_compact in current_compacts:
+            continue
+        if known_compact in line_compact:
+            return True
     return False
+
+
+def _numbers_after_label_in_line(line: str, label: str, kind: str) -> list[str]:
+    line_for_numbers = _normalize_number_spacing(line)
+    line_norm = _normalize_text(line_for_numbers)
+    label_tokens = _normalize_text(label).split()
+    if not label_tokens:
+        return []
+
+    label_pattern = r"\s*".join(re.escape(token) for token in label_tokens)
+    for match in re.finditer(label_pattern, line_norm):
+        after_label = line_norm[match.end():]
+        nums = NUMBER_PATTERN.findall(after_label)
+        if kind == "percent":
+            nums = [n for n in nums if "%" in n]
+        else:
+            nums = [n for n in nums if "%" not in n]
+        if nums:
+            return nums
+    return []
 
 
 def _extract_pages_text(pdf_path: Path) -> list[str]:
@@ -168,19 +228,14 @@ def _value_immediately_after_label(page_text: str, labels: str | list[str], kind
         # Caso 1: valor en la misma línea.
         for label in label_variants:
             if _compact_text(label) in _compact_text(line):
-                line_for_numbers = _normalize_number_spacing(line)
-                nums = NUMBER_PATTERN.findall(line_for_numbers)
-
-                if kind == "percent":
-                    nums = [n for n in nums if "%" in n]
-                else:
-                    nums = [n for n in nums if "%" not in n]
-
+                nums = _numbers_after_label_in_line(line, label, kind)
                 if nums:
                     return nums[0]
 
         # Caso 2: valor en líneas siguientes.
         for j in range(i + 1, min(i + 1 + LOOKAHEAD_LINES_AFTER_LABEL, len(lines))):
+            if _line_contains_any_known_anchor(lines[j], label_variants):
+                break
             line_for_numbers = _normalize_number_spacing(lines[j])
             nums = NUMBER_PATTERN.findall(line_for_numbers)
 
@@ -479,7 +534,7 @@ def _extract_strategic_axes(page_text: str) -> list[dict[str, Any]]:
 
         window = lines[i:i + 70]
 
-        # Normalizar casos rotos: "2 0" -> "20", "1 1" -> "11"
+        # Normalizar números partidos por extracción PDF: "2 0" -> "20", "1 2 0" -> "120".
         normalized_items = []
         for item in window:
             stripped_item = item.strip()
