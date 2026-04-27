@@ -19,6 +19,11 @@ MIN_SITE_VIEWS_PER_NOTE = 10
 MIN_MAIL_TO_PLAN_RELATION = 0.2
 MIN_MAIL_ABSOLUTE = 10
 MIN_RATE_DIFFERENCE = 0.01
+# Permite encabezado + valor(es) sin abrir demasiado la puerta a filas tabulares.
+MAX_NUMBERS_IN_LABEL_LINE = 2
+LOOKAHEAD_LINES_AFTER_LABEL = 3
+ANCHOR_PREFIX_LENGTH = 8
+MAX_LOGGED_CANDIDATE_LINES = 20
 
 
 # -------------------------
@@ -90,6 +95,35 @@ def _normalize_text(value: str) -> str:
     return " ".join(simplified.lower().split())
 
 
+def _compact_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value or "")
+    without_accents = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    simplified = without_accents.replace("º", "o").replace("°", "o")
+    return re.sub(r"[^a-z0-9]", "", simplified.lower())
+
+
+def _line_matches_label(line: str, label: str) -> bool:
+    line_norm = _normalize_text(line)
+    label_norm = _normalize_text(label)
+
+    line_compact = _compact_text(line)
+    label_compact = _compact_text(label)
+
+    if line_norm == label_norm:
+        return True
+
+    if line_compact == label_compact:
+        return True
+
+    # Flexible pero controlado: permite "Panel ... label" o label con texto pegado,
+    # pero evita líneas de tablas con muchos números.
+    if label_compact in line_compact:
+        numbers = NUMBER_PATTERN.findall(line)
+        return len(numbers) <= MAX_NUMBERS_IN_LABEL_LINE
+
+    return False
+
+
 def _extract_pages_text(pdf_path: Path) -> list[str]:
     reader = PdfReader(str(pdf_path))
     return [page.extract_text() or "" for page in reader.pages]
@@ -98,30 +132,40 @@ def _extract_pages_text(pdf_path: Path) -> list[str]:
 def _value_immediately_after_label(page_text: str, labels: str | list[str], kind: str) -> str | None:
     lines = [line.strip() for line in page_text.splitlines() if line.strip()]
     label_variants = labels if isinstance(labels, list) else [labels]
-    normalized_variants = {_normalize_text(label) for label in label_variants}
-    normalized_lines = [_normalize_text(line) for line in lines]
 
     matched_indexes = [
-        i for i, line_norm in enumerate(normalized_lines)
-        if line_norm in normalized_variants
+        i
+        for i, line in enumerate(lines)
+        if any(_line_matches_label(line, label) for label in label_variants)
     ]
 
-    if not matched_indexes:
-        return None
+    for i in reversed(matched_indexes):
+        line = lines[i]
 
-    anchor_index = matched_indexes[-1]
-    next_index = anchor_index + 1
-    if next_index >= len(lines):
-        return None
+        # Caso 1: valor en la misma línea.
+        for label in label_variants:
+            if _compact_text(label) in _compact_text(line):
+                nums = NUMBER_PATTERN.findall(line)
 
-    nums = NUMBER_PATTERN.findall(lines[next_index])
-    if kind == "percent":
-        nums = [n for n in nums if "%" in n]
-    else:
-        nums = [n for n in nums if "%" not in n]
+                if kind == "percent":
+                    nums = [n for n in nums if "%" in n]
+                else:
+                    nums = [n for n in nums if "%" not in n]
 
-    if nums:
-        return nums[0]
+                if nums:
+                    return nums[0]
+
+        # Caso 2: valor en líneas siguientes.
+        for j in range(i + 1, min(i + 1 + LOOKAHEAD_LINES_AFTER_LABEL, len(lines))):
+            nums = NUMBER_PATTERN.findall(lines[j])
+
+            if kind == "percent":
+                nums = [n for n in nums if "%" in n]
+            else:
+                nums = [n for n in nums if "%" not in n]
+
+            if nums:
+                return nums[0]
 
     return None
 
@@ -492,6 +536,18 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
         metrics[key] = metric
         if warning:
             fallback_warnings.append(warning)
+
+    for key, anchor, _, expected_page, _ in metric_specs:
+        if metrics.get(key, {}).get("missing"):
+            logger.error(
+                "event=metric_missing anchor=%s page=%s candidate_lines=%s",
+                anchor,
+                expected_page,
+                [
+                    line for page in pages for line in page.splitlines()
+                    if _compact_text(anchor)[:ANCHOR_PREFIX_LENGTH] in _compact_text(line)
+                ][:MAX_LOGGED_CANDIDATE_LINES],
+            )
 
     page_for_mail_idx = _resolve_metric_page_index(metrics, "mail_total", 3, len(pages))
     page_for_site_idx = _resolve_metric_page_index(metrics, "site_total_views", 2, len(pages))
