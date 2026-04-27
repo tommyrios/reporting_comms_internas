@@ -141,6 +141,47 @@ function valueAsPct(row, rows) {
   return fmtNum(value);
 }
 
+
+function valueLabel(row, rows, options = {}) {
+  if (options.valueMode === 'number') return fmtNum(row.value, options.digits || 0);
+  if (options.valueMode === 'percent') return fmtPct(row.value);
+  return valueAsPct(row, rows);
+}
+
+function axisMetricLabel(row, rows, options = {}) {
+  const label = clip(row.label, options.labelMax || 18);
+  const value = valueLabel(row, rows, options);
+  return `${label}\n${value}`;
+}
+
+function wrapText(value, maxLine = 34, maxLines = 2) {
+  const text = cleanText(value, '');
+  if (!text) return '-';
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  words.forEach((word) => {
+    const candidate = line ? `${line} ${word}` : word;
+    if (candidate.length <= maxLine) {
+      line = candidate;
+      return;
+    }
+    if (line) lines.push(line);
+    line = word;
+  });
+  if (line) lines.push(line);
+  if (lines.length > maxLines) {
+    const kept = lines.slice(0, maxLines);
+    kept[maxLines - 1] = `${kept[maxLines - 1].slice(0, Math.max(0, maxLine - 1)).trim()}…`;
+    return kept.join('\n');
+  }
+  return lines.join('\n');
+}
+
+function hasTimeline(rows) {
+  return Array.isArray(rows) && rows.length >= 2 && rows.some((row) => parseNumber(row.value) > 0);
+}
+
 function bulletize(items, fallback) {
   const rows = Array.isArray(items) ? items.filter(Boolean).map((item) => cleanText(item)).filter(Boolean) : [];
   return rows.length ? rows : [fallback || DEFAULT_EXECUTIVE_TAKEAWAY];
@@ -327,61 +368,68 @@ function tableRows(slide, x, y, w, headers, rows, options = {}) {
   const widths = options.widths || headers.map(() => 1 / headers.length);
   const total = widths.reduce((a, b) => a + b, 0);
   const normalized = widths.map((n) => (n / total) * w);
-  const rowHeight = options.rowHeight || 0.40;
+  const rowHeight = options.rowHeight || 0.46;
   const maxRows = options.maxRows || 5;
   let cursor = x;
   headers.forEach((header, idx) => {
     const colW = normalized[idx];
     slide.addText(cleanText(header), {
-      x: cursor + 0.02, y, w: colW - 0.04, h: 0.18,
-      fontFace: 'Lato', fontSize: options.headerSize || 9.2, bold: true, color: COLORS.grey4, margin: 0,
-      align: idx === 0 ? 'left' : 'right', fit: 'shrink',
+      x: cursor + 0.02, y, w: colW - 0.04, h: 0.22,
+      fontFace: 'Lato', fontSize: options.headerSize || 8.8, bold: true, color: COLORS.grey4, margin: 0,
+      align: idx === 0 ? 'left' : 'right', fit: 'shrink', breakLine: false,
     });
     cursor += colW;
   });
   rows.slice(0, maxRows).forEach((row, rowIndex) => {
-    const rowY = y + 0.28 + rowIndex * rowHeight;
+    const rowY = y + 0.34 + rowIndex * rowHeight;
     if (rowIndex % 2 === 0) {
       slide.addShape(pptx.ShapeType.roundRect, {
-        x, y: rowY - 0.055, w, h: rowHeight - 0.06, rectRadius: 0.03,
+        x, y: rowY - 0.07, w, h: rowHeight - 0.06, rectRadius: 0.03,
         fill: { color: 'F9FBFD' }, line: { color: 'F9FBFD' },
       });
     }
     let xCursor = x;
     row.forEach((value, colIndex) => {
       const colW = normalized[colIndex] || normalized[normalized.length - 1];
-      slide.addText(clip(value, options.clip?.[colIndex] || (colIndex === 0 ? 54 : 20)), {
-        x: xCursor + 0.04, y: rowY, w: colW - 0.08, h: 0.18,
-        fontFace: colIndex === 0 ? 'Lato' : 'Source Serif 4',
-        bold: colIndex !== 0,
-        fontSize: colIndex === 0 ? (options.firstColSize || 9.6) : (options.valueSize || 10.5),
-        color: colIndex === 0 ? COLORS.midnight : COLORS.electricBlue,
-        align: colIndex === 0 ? 'left' : 'right',
+      const isFirst = colIndex === 0;
+      const cellText = isFirst && options.wrapFirst !== false
+        ? wrapText(value, options.wrapMax || 34, options.wrapLines || 2)
+        : clip(value, options.clip?.[colIndex] || 20);
+      slide.addText(cellText, {
+        x: xCursor + 0.04, y: rowY - 0.01, w: colW - 0.08, h: rowHeight - 0.12,
+        fontFace: isFirst ? 'Lato' : 'Source Serif 4',
+        bold: !isFirst,
+        fontSize: isFirst ? (options.firstColSize || 8.7) : (options.valueSize || 9.6),
+        color: isFirst ? COLORS.midnight : COLORS.electricBlue,
+        align: isFirst ? 'left' : 'right',
         margin: 0,
         fit: 'shrink',
+        breakLine: false,
+        valign: 'mid',
       });
       xCursor += colW;
     });
   });
 }
 
+
 function renderHorizontalBarChart(slide, x, y, w, h, rows, options = {}) {
   if (!rows.length) return;
   slide.addChart('bar', [{
     name: options.name || 'Participación',
-    labels: rows.map((row) => clip(row.label, options.labelMax || 22)),
+    labels: rows.map((row) => axisMetricLabel(row, rows, { ...options, labelMax: options.labelMax || 22 })),
     values: rows.map((row) => parseNumber(row.value)),
   }], {
     x, y, w, h,
     showLegend: false,
     chartColors: [options.color || COLORS.electricBlue],
-    catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: options.catSize || 8.4,
-    valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 8,
+    catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: options.catSize || 8,
+    valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 7.5,
     valGridLine: { color: COLORS.grey1, width: 1 },
     showValue: true,
     dataLabelColor: COLORS.electricBlue,
     dataLabelFontFace: 'Lato',
-    dataLabelFontSize: 8.5,
+    dataLabelFontSize: options.dataSize || 8,
     dataLabelPosition: 'outEnd',
     showTitle: false,
   });
@@ -389,25 +437,53 @@ function renderHorizontalBarChart(slide, x, y, w, h, rows, options = {}) {
 
 function renderColumnChart(slide, x, y, w, h, rows, options = {}) {
   if (!rows.length) return;
-  slide.addChart('col', [{
-    name: options.name || 'Volumen',
-    labels: rows.map((row) => clip(row.label, options.labelMax || 18)),
+  const maxVal = Math.max(...rows.map((row) => parseNumber(row.value)), 1);
+  const chartTop = y + 0.12;
+  const chartH = Math.max(0.42, h - 0.64);
+  const gap = options.gap || 0.12;
+  const slotW = w / rows.length;
+  const barW = Math.max(0.16, Math.min(slotW - gap, options.barW || 0.48));
+  const baseY = chartTop + chartH;
+  rows.forEach((row, idx) => {
+    const value = parseNumber(row.value);
+    const barH = Math.max(0.05, (value / maxVal) * chartH);
+    const cx = x + idx * slotW + (slotW - barW) / 2;
+    const color = CHART_COLORS[idx % CHART_COLORS.length];
+    slide.addShape(pptx.ShapeType.rect, {
+      x: cx, y: baseY - barH, w: barW, h: barH,
+      fill: { color },
+      line: { color },
+    });
+    slide.addText(`${wrapText(row.label, options.labelMax || 14, 1)}\n${valueLabel(row, rows, options)}`, {
+      x: x + idx * slotW + 0.01, y: baseY + 0.06, w: slotW - 0.02, h: 0.48,
+      fontFace: 'Lato', fontSize: options.catSize || 6.8, color: COLORS.midnight,
+      align: 'center', margin: 0, fit: 'shrink', breakLine: false, valign: 'mid',
+    });
+  });
+  // Línea base discreta: refuerza que el valor se lee desde la etiqueta inferior y el número sobre la barra.
+  slide.addShape(pptx.ShapeType.line, { x, y: baseY, w, h: 0, line: { color: COLORS.grey1, width: 1 } });
+}
+
+
+function renderMiniLineChart(slide, x, y, w, h, rows, options = {}) {
+  if (!hasTimeline(rows)) return;
+  slide.addChart('line', [{
+    name: options.name || 'Evolución',
+    labels: rows.map((row) => clip(row.label || row.month || row.period, 12)),
     values: rows.map((row) => parseNumber(row.value)),
   }], {
     x, y, w, h,
     showLegend: false,
     chartColors: [options.color || COLORS.electricBlue],
-    catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: options.catSize || 8,
-    valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 8,
-    valGridLine: { color: COLORS.grey1, width: 1 },
-    showValue: true,
-    dataLabelColor: COLORS.electricBlue,
-    dataLabelFontFace: 'Lato',
-    dataLabelFontSize: 8,
-    dataLabelPosition: 'outEnd',
+    catAxisLabelFontFace: 'Lato', catAxisLabelFontSize: 7,
+    valAxisLabelFontFace: 'Lato', valAxisLabelFontSize: 7,
+    valGridLine: { color: COLORS.grey1, width: 0.5 },
+    showValue: false,
+    lineSize: 2,
     showTitle: false,
   });
 }
+
 
 function renderDoughnut(slide, x, y, w, h, rows, options = {}) {
   if (!rows.length) return;
@@ -481,76 +557,103 @@ function renderChannelManagement(module) {
   cards.forEach((item, idx) => {
     const x = [0.62, 2.78, 4.94, 7.1, 9.26][idx];
     const w = idx === 4 ? 3.4 : 1.98;
-    card(slide, x, 1.35, w, 0.92, item[0], item[1], item[2]);
+    card(slide, x, 1.28, w, 0.88, item[0], item[1], item[2], { valueSize: idx >= 1 && idx <= 2 ? 16 : 17 });
   });
 
   const mix = weightedRows(p.channel_mix, 6);
-  panel(slide, 0.62, 2.54, 7.0, 3.92, 'Mix de canales');
+  panel(slide, 0.62, 2.42, 7.2, 4.18, 'Mix de canales');
   if (!mix.length) {
-    emptyState(slide, 0.9, 3.04, 6.42, 2.86, p.site_has_no_data_sections ? 'El sitio reporta secciones sin datos en el período.' : 'No hay mix de canales para mostrar.');
+    emptyState(slide, 0.9, 3.0, 6.56, 2.98, p.site_has_no_data_sections ? 'El sitio reporta secciones sin datos en el período.' : 'No hay mix de canales para mostrar.');
   } else {
-    renderHorizontalBarChart(slide, 1.0, 3.0, 5.88, 2.78, mix, { labelMax: 25, catSize: 8.3 });
-    notePill(slide, 1.0, 5.92, 5.88, `Principal canal: ${mix[0].label} (${valueAsPct(mix[0], mix)})`);
+    renderColumnChart(slide, 0.96, 2.98, 6.34, 2.92, mix.slice(0, 6), { labelMax: 18, catSize: 7.2, valueMode: 'percent', dataSize: 7.5 });
+    notePill(slide, 0.96, 6.02, 6.32, `Cada barra indica participación sobre el mix. Principal canal: ${mix[0].label} (${valueAsPct(mix[0], mix)})`);
   }
 
-  panel(slide, 7.92, 2.54, 4.74, 3.92, 'Narrativa');
-  paragraphBlock(slide, 8.18, 3.0, 4.2, 1.64, buildChannelNarrative(p), { max: 240, fontSize: 10.8 });
-  if (mix.length) {
+  panel(slide, 8.08, 2.42, 4.58, 1.84, 'Lectura ejecutiva');
+  paragraphBlock(slide, 8.32, 2.9, 4.08, 0.94, buildChannelNarrative(p), { max: 210, fontSize: 9.8 });
+
+  panel(slide, 8.08, 4.48, 2.16, 2.12, 'Evolución mail');
+  if (hasTimeline(p.timeline_mail)) {
+    renderMiniLineChart(slide, 8.30, 4.94, 1.72, 1.18, p.timeline_mail, { name: 'Mails', color: COLORS.electricBlue });
+  } else if (mix.length) {
     tableRows(
       slide,
-      8.18,
-      4.9,
-      4.22,
+      8.30,
+      4.92,
+      1.72,
       ['Canal', 'Peso'],
-      mix.slice(0, 4).map((row) => [row.label, valueAsPct(row, mix)]),
-      { widths: [0.72, 0.28], rowHeight: 0.32, maxRows: 4, clip: [32, 14], firstColSize: 8.8, valueSize: 9.6, headerSize: 8.8 }
+      mix.slice(0, 3).map((row) => [row.label, valueAsPct(row, mix)]),
+      { widths: [0.62, 0.38], rowHeight: 0.34, maxRows: 3, wrapLines: 1, wrapMax: 14, firstColSize: 7.6, valueSize: 8.4, headerSize: 7.5 }
     );
+  } else {
+    emptyState(slide, 8.28, 4.9, 1.78, 1.2, 'Sin timeline', { title: 'Obs.', fontSize: 8, max: 24 });
+  }
+
+  panel(slide, 10.50, 4.48, 2.16, 2.12, 'Evolución site');
+  if (hasTimeline(p.timeline_site)) {
+    renderMiniLineChart(slide, 10.72, 4.94, 1.72, 1.18, p.timeline_site, { name: 'Notas', color: COLORS.sereneBlue });
+  } else if (mix.length) {
+    renderLegend(slide, 10.72, 4.92, 1.70, mix.slice(0, 4), { labelMax: 14, step: 0.30, fontSize: 7.4 });
+  } else {
+    emptyState(slide, 10.70, 4.9, 1.78, 1.2, 'Sin timeline', { title: 'Obs.', fontSize: 8, max: 24 });
   }
   finalizeSlide(slide);
 }
+
 
 function renderMix(module) {
   const p = module.payload || {};
   const strategic = weightedRows(p.strategic_axes, 6);
-  const clients = weightedRows(p.internal_clients, 5);
+  const clients = weightedRows(p.internal_clients, 6);
   const formats = weightedRows(p.format_mix, 6);
   const slide = baseSlide(module.title || 'Mix temático y áreas solicitantes', 'Contenido');
 
-  panel(slide, 0.62, 1.35, 7.1, 5.06, 'Ejes estratégicos');
+  panel(slide, 0.62, 1.28, 6.72, 3.02, 'Ejes estratégicos');
   if (!strategic.length) {
-    emptyState(slide, 0.92, 2.05, 6.48, 3.74, 'No hay distribución temática consolidada.');
+    emptyState(slide, 0.9, 1.86, 6.12, 1.9, 'No hay distribución temática consolidada.');
   } else {
-    renderColumnChart(slide, 1.0, 2.02, 5.96, 2.75, strategic.slice(0, 5), { labelMax: 16, catSize: 7.8 });
-    renderLegend(slide, 1.0, 5.12, 6.16, strategic.slice(0, 5), { labelMax: 30, step: 0.25, fontSize: 8.2 });
+    renderColumnChart(slide, 0.96, 1.86, 5.94, 1.94, strategic.slice(0, 6), { labelMax: 14, catSize: 6.8, dataSize: 7.2 });
   }
 
-  panel(slide, 7.96, 1.35, 4.7, 2.42, 'Lectura temática');
-  paragraphBlock(slide, 8.2, 1.82, 4.24, 1.4, buildAxesNarrative(p), { max: 210, fontSize: 10.4 });
-
-  panel(slide, 7.96, 4.0, 2.24, 2.41, 'Formatos');
-  if (!formats.length) {
-    emptyState(slide, 8.16, 4.5, 1.84, 1.46, 'Sin mix de formatos.', { title: 'Observación', fontSize: 9.2, max: 60 });
-  } else {
-    tableRows(slide, 8.16, 4.46, 1.84, ['Formato', 'Peso'], formats.slice(0, 4).map((x) => [x.label, valueAsPct(x, formats)]), {
-      widths: [0.64, 0.36], rowHeight: 0.31, maxRows: 4, clip: [18, 10], firstColSize: 8.0, valueSize: 8.8, headerSize: 8.0,
-    });
-  }
-
-  panel(slide, 10.42, 4.0, 2.24, 2.41, 'Áreas');
+  panel(slide, 7.62, 1.28, 5.04, 3.02, 'Áreas solicitantes');
   if (!clients.length) {
-    emptyState(slide, 10.62, 4.5, 1.84, 1.46, 'Áreas solicitantes no informadas en la fuente.', { title: 'Observación', fontSize: 9.2, max: 72, fill: COLORS.paleYellow });
+    emptyState(slide, 7.92, 1.9, 4.42, 1.82, 'No se detectó el bloque de áreas solicitantes en planificación. Revisar extracción de página 1 o nombre de sección.', { title: 'Dato pendiente', fontSize: 9.2, max: 135, fill: COLORS.paleYellow });
   } else {
-    tableRows(slide, 10.62, 4.46, 1.84, ['Área', 'Peso'], clients.slice(0, 4).map((x) => [x.label, valueAsPct(x, clients)]), {
-      widths: [0.64, 0.36], rowHeight: 0.31, maxRows: 4, clip: [18, 10], firstColSize: 8.0, valueSize: 8.8, headerSize: 8.0,
+    renderHorizontalBarChart(slide, 7.92, 1.86, 4.24, 1.94, clients.slice(0, 5), { labelMax: 18, catSize: 7.0, dataSize: 7.2 });
+    notePill(slide, 7.92, 3.82, 4.2, `Mayor demanda: ${clients[0].label} (${valueAsPct(clients[0], clients)})`);
+  }
+
+  panel(slide, 0.62, 4.54, 3.4, 1.94, 'Formatos');
+  if (!formats.length) {
+    emptyState(slide, 0.9, 5.05, 2.82, 0.92, 'Sin mix de formatos.', { title: 'Observación', fontSize: 8.6, max: 60 });
+  } else {
+    renderDoughnut(slide, 0.86, 4.96, 1.10, 1.10, formats.slice(0, 4), { labelMax: 12, holeSize: 62 });
+    renderLegend(slide, 2.08, 4.95, 1.72, formats.slice(0, 4), { labelMax: 16, step: 0.28, fontSize: 7.4 });
+  }
+
+  panel(slide, 4.28, 4.54, 3.06, 1.94, 'Lectura temática');
+  paragraphBlock(slide, 4.52, 5.02, 2.58, 0.86, buildAxesNarrative(p), { max: 160, fontSize: 8.8 });
+
+  panel(slide, 7.62, 4.54, 5.04, 1.94, 'Resumen de distribución');
+  const summaryRows = [];
+  if (strategic[0]) summaryRows.push(['Eje líder', strategic[0].label, valueAsPct(strategic[0], strategic)]);
+  if (clients[0]) summaryRows.push(['Área líder', clients[0].label, valueAsPct(clients[0], clients)]);
+  if (formats[0]) summaryRows.push(['Formato líder', formats[0].label, valueAsPct(formats[0], formats)]);
+  if (summaryRows.length) {
+    tableRows(slide, 7.9, 5.0, 4.48, ['Métrica', 'Nombre', 'Peso'], summaryRows, {
+      widths: [0.26, 0.49, 0.25], rowHeight: 0.34, maxRows: 3, wrapLines: 1, wrapMax: 20, firstColSize: 7.8, valueSize: 8.4, headerSize: 7.6, clip: [16, 26, 10]
     });
+  } else {
+    emptyState(slide, 7.92, 5.04, 4.42, 0.92, 'Sin distribuciones para resumir.', { title: 'Observación', fontSize: 8.6, max: 60 });
   }
   finalizeSlide(slide);
 }
 
+
 function renderPushRanking(module) {
   const p = module.payload || {};
-  const interaction = Array.isArray(p.by_interaction) ? p.by_interaction.slice(0, 5) : [];
-  const openRate = Array.isArray(p.by_open_rate) ? p.by_open_rate.slice(0, 5) : [];
+  const interaction = Array.isArray(p.by_interaction) ? p.by_interaction.slice(0, 4) : [];
+  const openRate = Array.isArray(p.by_open_rate) ? p.by_open_rate.slice(0, 4) : [];
   const slide = baseSlide(module.title || 'Ranking push', 'Push');
 
   if (!p.available || (!interaction.length && !openRate.length)) {
@@ -559,68 +662,83 @@ function renderPushRanking(module) {
     return;
   }
 
-  panel(slide, 0.62, 1.35, 6.08, 4.86, 'Top por interacción');
+  panel(slide, 0.62, 1.28, 6.08, 3.12, 'Top por interacción');
   if (interaction.length) {
     tableRows(
       slide,
       0.84,
-      1.94,
+      1.82,
       5.62,
       ['Comunicación', 'Clics', 'Interacción'],
       interaction.map((row) => [cleanText(row.name || row.title), fmtNum(row.clicks), fmtPct(row.interaction || row.ctr)]),
-      { widths: [0.62, 0.17, 0.21], rowHeight: 0.52, maxRows: 5, clip: [44, 12, 12], firstColSize: 9.2, valueSize: 10.1 }
+      { widths: [0.62, 0.17, 0.21], rowHeight: 0.56, maxRows: 4, wrapMax: 34, wrapLines: 2, firstColSize: 8.2, valueSize: 9.4, headerSize: 8.4 }
     );
   } else {
-    emptyState(slide, 0.9, 2.14, 5.5, 3.4, 'No hay ranking por interacción para este período.', { title: 'Observación' });
+    emptyState(slide, 0.9, 1.94, 5.5, 1.92, 'No hay ranking por interacción para este período.', { title: 'Observación' });
   }
 
-  panel(slide, 6.92, 1.35, 5.74, 4.86, 'Top por apertura');
+  panel(slide, 6.92, 1.28, 5.74, 3.12, 'Top por apertura');
   if (openRate.length) {
     tableRows(
       slide,
       7.14,
-      1.94,
+      1.82,
       5.3,
       ['Comunicación', 'Clics', 'Open rate'],
       openRate.map((row) => [cleanText(row.name || row.title), fmtNum(row.clicks), fmtPct(row.open_rate)]),
-      { widths: [0.60, 0.18, 0.22], rowHeight: 0.52, maxRows: 5, clip: [40, 12, 12], firstColSize: 9.2, valueSize: 10.1 }
+      { widths: [0.60, 0.18, 0.22], rowHeight: 0.56, maxRows: 4, wrapMax: 32, wrapLines: 2, firstColSize: 8.2, valueSize: 9.4, headerSize: 8.4 }
     );
   } else {
-    emptyState(slide, 7.18, 2.14, 5.22, 3.4, 'La fuente no informó ranking por apertura consolidado.', { title: 'Observación' });
+    emptyState(slide, 7.18, 1.94, 5.22, 1.92, 'La fuente no informó ranking por apertura consolidado.', { title: 'Observación' });
   }
 
-  notePill(slide, 0.84, 6.42, 11.56, buildPushNarrative(p));
+  panel(slide, 0.62, 4.64, 7.2, 1.86, 'Interacción por pieza');
+  if (interaction.length) {
+    const chartRows = interaction.map((row) => ({ label: row.name || row.title, value: parseNumber(row.interaction || row.ctr) }));
+    renderColumnChart(slide, 0.96, 5.06, 6.34, 0.94, chartRows, { labelMax: 18, catSize: 6.4, valueMode: 'percent', dataSize: 6.8 });
+  }
+
+  panel(slide, 8.08, 4.64, 4.58, 1.86, 'Lectura ejecutiva');
+  paragraphBlock(slide, 8.32, 5.08, 4.08, 0.68, buildPushNarrative(p), { max: 160, fontSize: 9.0 });
   finalizeSlide(slide);
 }
 
+
 function renderPullRanking(module) {
   const p = module.payload || {};
-  const rows = Array.isArray(p.top_pull_notes) ? p.top_pull_notes.slice(0, 6) : [];
+  const rows = Array.isArray(p.top_pull_notes) ? p.top_pull_notes.slice(0, 5) : [];
   const slide = baseSlide(module.title || 'Ranking pull', 'Site / intranet');
 
-  card(slide, 0.62, 1.35, 2.8, 0.92, 'Promedio lecturas por nota', fmtNum(p.average_reads_per_note), COLORS.sereneBlue, { labelSize: 8.2 });
-  card(slide, 3.62, 1.35, 2.8, 0.92, 'Vistas totales site', fmtNum(p.site_total_views), COLORS.ice);
+  card(slide, 0.62, 1.28, 2.8, 0.88, 'Promedio lecturas por nota', fmtNum(p.average_reads_per_note), COLORS.sereneBlue, { labelSize: 8.2, valueSize: 17 });
+  card(slide, 3.62, 1.28, 2.8, 0.88, 'Vistas totales site', fmtNum(p.site_total_views), COLORS.ice, { valueSize: 17 });
 
-  panel(slide, 0.62, 2.54, 8.4, 3.92, 'Top notas pull');
+  panel(slide, 0.62, 2.42, 7.42, 4.08, 'Top notas pull');
   if (!p.available || !rows.length) {
-    emptyState(slide, 0.9, 3.04, 7.84, 2.86, 'No hay ranking pull suficiente para este período.');
+    emptyState(slide, 0.9, 3.04, 6.84, 2.86, 'No hay ranking pull suficiente para este período.');
   } else {
     tableRows(
       slide,
       0.9,
-      3.0,
-      7.84,
-      ['Nota', 'Lecturas únicas', 'Lecturas totales'],
+      2.9,
+      6.88,
+      ['Nota', 'Únicas', 'Totales'],
       rows.map((row) => [cleanText(row.title || row.name), fmtNum(row.unique_reads || row.users), fmtNum(row.total_reads || row.views)]),
-      { widths: [0.66, 0.17, 0.17], rowHeight: 0.40, maxRows: 6, clip: [58, 12, 12], firstColSize: 9.1, valueSize: 10.0 }
+      { widths: [0.66, 0.17, 0.17], rowHeight: 0.50, maxRows: 5, wrapMax: 42, wrapLines: 2, firstColSize: 8.1, valueSize: 9.2, headerSize: 8.3 }
     );
   }
 
-  panel(slide, 9.28, 2.54, 3.38, 3.92, 'Lectura ejecutiva');
-  paragraphBlock(slide, 9.52, 3.04, 2.88, 2.32, buildPullNarrative(p), { max: 180, fontSize: 10.6 });
-  if (rows.length) notePill(slide, 9.52, 5.68, 2.88, `Top 1: ${clip(rows[0].title || rows[0].name, 44)}`);
+  panel(slide, 8.30, 1.28, 4.36, 2.42, 'Lecturas totales por nota');
+  if (rows.length) {
+    const chartRows = rows.slice(0, 5).map((row) => ({ label: row.title || row.name, value: parseNumber(row.total_reads || row.views) }));
+    renderHorizontalBarChart(slide, 8.58, 1.82, 3.78, 1.34, chartRows, { labelMax: 20, catSize: 6.8, valueMode: 'number', dataSize: 6.8 });
+  }
+
+  panel(slide, 8.30, 4.00, 4.36, 2.50, 'Lectura ejecutiva');
+  paragraphBlock(slide, 8.58, 4.48, 3.80, 0.96, buildPullNarrative(p), { max: 170, fontSize: 9.2 });
+  if (rows.length) notePill(slide, 8.58, 5.72, 3.78, `Top 1: ${clip(rows[0].title || rows[0].name, 54)}`);
   finalizeSlide(slide);
 }
+
 
 function renderMilestones(module) {
   const p = module.payload || {};
@@ -827,4 +945,7 @@ for (const module of renderPlan.modules || []) {
 }
 if (renderMode === 'full') renderFullClosing();
 
-pptx.writeFile({ fileName: outputPptxPath });
+pptx.writeFile({ fileName: outputPptxPath }).catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

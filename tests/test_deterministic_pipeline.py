@@ -420,6 +420,28 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertEqual(raw["metrics"]["mail_interaction_rate"]["value"], 9.17)
         self.assertEqual(raw["metrics"]["mail_interaction_rate_over_opened"]["value"], 11.83)
 
+
+    def test_extracts_internal_clients_from_planification_page(self):
+        pages = [
+            (
+                "Página 1\nMedia comunicaciones diarias\n2.1\nNº total de comunicaciones\n66\n"
+                "Áreas solicitantes\nTalento y Cultura 38%\nRetail 27%\nRiesgos 12%\n"
+                "¿Qué canales y formatos se han utilizado?\nMail 50%\nIntranet 30%"
+            ),
+            "Página 2\nTotal Páginas Vistas\n5,580\nNoticias Publicadas\n17\nPromedio Vistas\n328",
+            (
+                "Página 3\nMails enviados\n61\nTasa de apertura promedio\n77,53%\n"
+                "Tasa de interacción sobre mails enviados\n9,17%\nTasa de interacción sobre mails abiertos\n11,83%"
+            ),
+        ]
+
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-03", Path("/tmp/fake.pdf"))
+
+        canonical = canonicalize_monthly(raw)
+        self.assertEqual(canonical["internal_clients"][0], {"label": "Talento y Cultura", "value": 38.0})
+        self.assertEqual(canonical["internal_clients"][1], {"label": "Retail", "value": 27.0})
+
     def test_infer_month_key_requires_explicit_month_when_filename_has_no_yyyy_mm(self):
         with self.assertRaisesRegex(ValueError, "No pude inferir month_key.*Pasa month_key explícitamente"):
             infer_month_key_from_pdf_path(Path("/tmp/Dashboard_Marzo.pdf"))

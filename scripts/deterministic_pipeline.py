@@ -735,6 +735,118 @@ def _extract_strategic_axes(page_text: str) -> list[dict[str, Any]]:
     return []
 
 
+def _clean_distribution_label(raw: str) -> str:
+    label = re.sub(r"\s+", " ", str(raw or "")).strip(" -–—:\t")
+    label = re.sub(r"^(?:argentina|total|subtotal)\s+", "", label, flags=re.IGNORECASE).strip()
+    return label[:80]
+
+
+def _is_probable_distribution_label(label: str) -> bool:
+    norm = _normalize_text(label)
+    if not norm or len(norm) < 2:
+        return False
+    blocked = {
+        "area", "areas", "area solicitante", "areas solicitantes", "solicitante", "peso", "impactos",
+        "canal", "canales", "formato", "formatos", "distribucion", "total", "argentina",
+    }
+    if norm in blocked:
+        return False
+    if any(anchor in norm for anchor in [
+        "n total de comunicaciones", "media comunicaciones", "que canales", "distribucion por eje",
+        "tasa de", "mails enviados", "noticias publicadas", "paginas vistas",
+    ]):
+        return False
+    return bool(re.search(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]", label))
+
+
+def _extract_internal_clients(page_text: str) -> list[dict[str, Any]]:
+    """Extrae áreas solicitantes desde la página de planificación.
+
+    En los PDFs reales el bloque suele estar en página 1, pero pypdf puede devolver
+    filas como "Talento y Cultura 18%" o secuencias separadas de labels y valores.
+    Esta función prioriza porcentajes explícitos en el bloque de "área solicitante"
+    y cae a conteos si no hay porcentajes.
+    """
+    lines = [line.strip() for line in page_text.splitlines() if line.strip()]
+    if not lines:
+        return []
+
+    start_idx: int | None = None
+    start_markers = [
+        "area solicitante", "areas solicitantes", "areas solicitante", "area requirente",
+        "gerencia solicitante", "cliente interno", "clientes internos", "solicitantes",
+    ]
+    for i, line in enumerate(lines):
+        norm = _normalize_text(line)
+        if any(marker in norm for marker in start_markers):
+            start_idx = i
+            break
+
+    if start_idx is None:
+        return []
+
+    stop_markers = [
+        "que canales y formatos", "distribucion por eje estrategico", "distribucion por eje",
+        "canales y formatos", "formatos se han utilizado", "eje estrategico", "mails enviados",
+        "total paginas vistas", "noticias publicadas",
+    ]
+    window: list[str] = []
+    for line in lines[start_idx + 1:start_idx + 80]:
+        norm = _normalize_text(line)
+        if any(marker in norm for marker in stop_markers):
+            break
+        window.append(line)
+
+    rows: list[dict[str, Any]] = []
+    pending_label: str | None = None
+
+    for item in window:
+        item = re.sub(r"(?<=\d)\s+(?=[.,]\d)", "", item)
+        item = re.sub(r"(?<=[.,]\d)\s+(?=%)", "", item)
+        norm = _normalize_text(item)
+        if not norm:
+            continue
+        if norm in {"area", "areas", "peso", "impactos", "cantidad", "comunicaciones", "solicitante"}:
+            continue
+
+        pct_match = re.search(r"(\d+(?:[.,]\d+)?)\s*%", item)
+        if pct_match:
+            value = parse_percent_value(pct_match.group(0))
+            before = _clean_distribution_label(item[:pct_match.start()])
+            label = before or pending_label or "Sin dato"
+            if value is not None and _is_probable_distribution_label(label):
+                rows.append({"area": label, "pct": value, "raw": item})
+            pending_label = None
+            continue
+
+        number_matches = [n for n in NUMBER_PATTERN.findall(item) if "%" not in n]
+        if number_matches:
+            value = parse_integer_value(number_matches[-1])
+            label = _clean_distribution_label(NUMBER_PATTERN.sub("", item)) or pending_label or "Sin dato"
+            if value is not None and value > 0 and _is_probable_distribution_label(label):
+                rows.append({"area": label, "count": value, "raw": item})
+            pending_label = None
+            continue
+
+        label = _clean_distribution_label(item)
+        if _is_probable_distribution_label(label):
+            pending_label = label
+
+    # Deduplicar conservando mayor valor por label normalizado.
+    merged: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        label = _clean_distribution_label(row.get("area") or row.get("label") or "Sin dato")
+        key = _normalize_text(label)
+        value = float(row.get("pct") or row.get("count") or 0)
+        if not label or value <= 0:
+            continue
+        current = merged.get(key)
+        if current is None or value > float(current.get("pct") or current.get("count") or 0):
+            merged[key] = {"area": label, **({"pct": value} if "pct" in row else {"count": value})}
+
+    return sorted(merged.values(), key=lambda r: float(r.get("pct") or r.get("count") or 0), reverse=True)[:8]
+
+
 # -------------------------
 # Extracción principal
 # -------------------------
@@ -862,6 +974,7 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
     channel_mix = _extract_channel_mix(page_for_plan)
     format_mix = _extract_format_mix(page_for_plan)
     strategic_axes = _extract_strategic_axes(page_for_plan)
+    internal_clients = _extract_internal_clients(page_for_plan)
 
     warnings = fallback_warnings + [
         f"missing_anchor:{k}:{v.get('anchor')}"
@@ -883,6 +996,7 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
         "channel_mix": channel_mix,
         "format_mix": format_mix,
         "strategic_axes": strategic_axes,
+        "internal_clients": internal_clients,
         "warnings": warnings,
     }
 
@@ -1013,7 +1127,11 @@ def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
             label_keys=("label", "theme", "axis", "name"),
             value_keys=("value", "weight", "count"),
         ),
-        "internal_clients": [],
+        "internal_clients": _canon_distribution(
+            raw_extracted.get("internal_clients", []),
+            label_keys=("label", "area", "client", "name"),
+            value_keys=("value", "pct", "weight", "count"),
+        ),
         "channel_mix": _canon_distribution(
             raw_extracted.get("channel_mix", []),
             label_keys=("label", "channel", "name"),
