@@ -173,6 +173,32 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertNotEqual(canonical["mail_open_rate"], canonical["mail_interaction_rate"])
         self.assertTrue(validation["is_valid"])
 
+    def test_extract_raw_monthly_pdf_real_layout_with_glued_anchors_does_not_cross_kpis(self):
+        pages = [
+            "Página 1\nMedia comunicaciones diarias0.06Nº total de comunicaciones54",
+            (
+                "Página 2\nJan 22, 2026 Nota de ejemplo ARGENTINA 96 123Total Páginas Vistas\n"
+                "Noticias Publicadas10Total Páginas Vistas4071Promedio Vistas407"
+            ),
+            (
+                "Página 3\nTasa de apertura promedio80.05%Tasa de interacción sobre mails enviados12.54%\n"
+                "Tasa de interacción sobre mails abiertos15.67%Mails enviados23"
+            ),
+        ]
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
+        canonical = canonicalize_monthly(raw)
+        validation = validate_canonical_monthly(canonical)
+        self.assertEqual(canonical["plan_daily_average"], 0.06)
+        self.assertEqual(canonical["plan_total"], 54)
+        self.assertNotEqual(canonical["plan_total"], 0)
+        self.assertEqual(canonical["site_total_views"], 4071)
+        self.assertNotEqual(canonical["site_total_views"], 123)
+        self.assertEqual(canonical["mail_open_rate"], 80.05)
+        self.assertEqual(canonical["mail_interaction_rate"], 12.54)
+        self.assertNotEqual(canonical["mail_open_rate"], canonical["mail_interaction_rate"])
+        self.assertTrue(validation["is_valid"])
+
     def test_jan_2026_fixture_does_not_collapse_mail_metrics(self):
         pages = self._jan_2026_shifted_fixture_pages()
         with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
