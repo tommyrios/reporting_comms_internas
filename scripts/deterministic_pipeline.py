@@ -167,6 +167,10 @@ def _line_matches_label(line: str, label: str) -> bool:
         if _compact_text(longest) != label_compact:
             return False
 
+    trailing = line_compact[label_pos + len(label_compact):]
+    if trailing == "":
+        return True
+
     numbers = NUMBER_PATTERN.findall(_normalize_number_spacing(line))
     return len(numbers) <= MAX_NUMBERS_IN_LABEL_LINE
 
@@ -530,7 +534,7 @@ def _extract_strategic_axes(page_text: str) -> list[dict[str, Any]]:
 
         window = lines[i:i + 70]
 
-        # Normalizar casos rotos: "2 0" -> "20", "1 1" -> "11"
+        # Normalizar números partidos por extracción PDF: "2 0" -> "20", "1 2 0" -> "120".
         normalized_items = []
         for item in window:
             stripped_item = item.strip()
