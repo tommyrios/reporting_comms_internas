@@ -12,6 +12,7 @@ from deterministic_pipeline import (
     canonicalize_monthly,
     extract_single_pdf_to_raw,
     extract_raw_monthly_pdf,
+    infer_month_key_from_pdf_path,
     parse_integer_value,
     parse_percent_value,
     validate_canonical_monthly,
@@ -181,7 +182,7 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertNotEqual(canonical["mail_open_rate"], canonical["mail_interaction_rate"])
         self.assertTrue(validation["is_valid"])
 
-    def test_validate_canonical_monthly_rejects_missing_anchor(self):
+    def test_validate_canonical_fails_missing_required_anchors(self):
         raw = {
             "month": "2026-03",
             "metrics": {
@@ -198,7 +199,10 @@ class DeterministicPipelineTests(unittest.TestCase):
         canonical = canonicalize_monthly(raw)
         validation = validate_canonical_monthly(canonical)
         self.assertFalse(validation["is_valid"])
-        self.assertIn("Faltan KPIs primarios por ancla exacta", validation["errors"])
+        self.assertIn(
+            "Faltan KPIs primarios por ancla exacta: site_total_views",
+            validation["errors"],
+        )
 
     def test_validate_canonical_monthly_rejects_suspicious_metrics(self):
         canonical = {
@@ -216,6 +220,129 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertIn("site_total_views sospechosamente bajo respecto a site_notes_total", validation["errors"])
         self.assertIn("mail_total sospechosamente bajo respecto a plan_total", validation["errors"])
         self.assertIn("mail_open_rate y mail_interaction_rate no deberían colapsar al mismo valor", validation["errors"])
+
+    def test_canonicalize_monthly_normalizes_contract_aliases(self):
+        raw = {
+            "month": "2026-04",
+            "parser": "deterministic_pdf_v6_kpi_push_pull",
+            "metrics": {
+                "plan_daily_average": {"value": 2.4},
+                "plan_total": {"value": 48},
+                "site_notes_total": {"value": 15},
+                "site_total_views": {"value": 5200},
+                "site_average_views": {"value": 347},
+                "mail_total": {"value": 40},
+                "mail_open_rate": {"value": 79.12},
+                "mail_interaction_rate": {"value": 9.42},
+                "mail_interaction_rate_over_opened": {"value": 11.9},
+            },
+            "strategic_axes": [{"axis": "RCP", "count": "20"}],
+            "channel_mix": [{"channel": "Mail", "pct": "70%"}],
+            "format_mix": [{"format": "Noticia propia", "pct": "55,5%"}],
+            "top_push_interaction": [{"title": "Comms 1", "clicks": "123", "ctr": "10,5%", "open_rate": "80%"}],
+            "top_push_open": [{"name": "Comms 2", "clicks": "98", "interaction_rate": "8,2%", "open_rate": "78,4%"}],
+            "top_pull_notes": [{"name": "Nota A", "users": "250", "views": "340"}],
+            "warnings": [],
+        }
+
+        canonical = canonicalize_monthly(raw)
+
+        self.assertEqual(canonical["strategic_axes"], [{"label": "RCP", "value": 20.0}])
+        self.assertEqual(canonical["channel_mix"], [{"label": "Mail", "value": 70.0}])
+        self.assertEqual(canonical["format_mix"], [{"label": "Noticia propia", "value": 55.5}])
+        self.assertEqual(canonical["top_push_by_interaction"][0]["name"], "Comms 1")
+        self.assertEqual(canonical["top_push_by_interaction"][0]["interaction"], 10.5)
+        self.assertEqual(canonical["top_push_by_open_rate"][0]["interaction"], 8.2)
+        self.assertEqual(canonical["top_pull_notes"][0]["title"], "Nota A")
+        self.assertEqual(canonical["top_pull_notes"][0]["unique_reads"], 250)
+        self.assertEqual(canonical["top_pull_notes"][0]["total_reads"], 340)
+
+    def test_canonicalize_normalizes_raw_extracted_shapes_for_analyzer_contract(self):
+        raw = {
+            "month": "2026-03",
+            "parser": "test",
+            "metrics": {
+                "plan_daily_average": {"value": 2.1},
+                "plan_total": {"value": 66},
+                "site_notes_total": {"value": 17},
+                "site_total_views": {"value": 5580},
+                "site_average_views": {"value": 328},
+                "mail_total": {"value": 61},
+                "mail_open_rate": {"value": 77.53},
+                "mail_interaction_rate": {"value": 9.17},
+                "mail_interaction_rate_over_opened": {"value": 11.83},
+            },
+            "strategic_axes": [{"axis": "RCP", "count": 20}],
+            "channel_mix": [{"channel": "Mail", "pct": 60}],
+            "format_mix": [{"format": "Video", "pct": 40}],
+            "top_push_interaction": [{"title": "Mail A", "clicks": 100, "ctr": 12.5, "open_rate": 80}],
+            "top_push_open": [{"title": "Mail B", "clicks": 80, "ctr": 8.5, "open_rate": 90}],
+            "top_pull_notes": [{"title": "Nota A", "users": 300, "views": 500}],
+            "warnings": [],
+        }
+
+        canonical = canonicalize_monthly(raw)
+
+        self.assertEqual(canonical["strategic_axes"], [{"label": "RCP", "value": 20}])
+        self.assertEqual(canonical["channel_mix"], [{"label": "Mail", "value": 60}])
+        self.assertEqual(canonical["format_mix"], [{"label": "Video", "value": 40}])
+
+        self.assertEqual(canonical["top_push_by_interaction"][0]["name"], "Mail A")
+        self.assertEqual(canonical["top_push_by_interaction"][0]["interaction"], 12.5)
+        self.assertEqual(canonical["top_push_by_interaction"][0]["open_rate"], 80)
+
+        self.assertEqual(canonical["top_pull_notes"][0]["unique_reads"], 300)
+        self.assertEqual(canonical["top_pull_notes"][0]["total_reads"], 500)
+
+    def test_validate_canonical_allows_missing_optional_anchors(self):
+        canonical = {
+            "month": "2026-03",
+            "plan_total": 66,
+            "site_notes_total": 17,
+            "site_total_views": 5580,
+            "mail_total": 61,
+            "mail_open_rate": 77.53,
+            "mail_interaction_rate": 9.17,
+            "mail_interaction_rate_over_opened": 0,
+            "extraction_warnings": [
+                "missing_anchor:site_average_views:Promedio Vistas",
+                "missing_anchor:mail_interaction_rate_over_opened:Tasa de interacción sobre mails abiertos",
+            ],
+        }
+
+        validation = validate_canonical_monthly(canonical)
+
+        self.assertTrue(validation["is_valid"])
+        self.assertEqual(validation["errors"], [])
+        self.assertTrue(any("KPIs secundarios" in warning for warning in validation["warnings"]))
+        self.assertFalse(
+            any(
+                "mail_interaction_rate_over_opened es menor a 1%" in warning
+                for warning in validation["warnings"]
+            )
+        )
+
+    def test_extract_raw_monthly_pdf_accepts_percent_with_space_before_symbol(self):
+        pages = [
+            "Página 1\nMedia comunicaciones diarias\n2.1\nNº total de comunicaciones\n66",
+            "Página 2\nTotal Páginas Vistas\n5,580\nNoticias Publicadas\n17\nPromedio Vistas\n328",
+            (
+                "Página 3\nMails enviados\n61\nTasa de apertura promedio\n77,53 %\n"
+                "Tasa de interacción sobre mails enviados\n9,17 %\n"
+                "Tasa de interacción sobre mails abiertos\n11,83 %"
+            ),
+        ]
+
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-03", Path("/tmp/fake.pdf"))
+
+        self.assertEqual(raw["metrics"]["mail_open_rate"]["value"], 77.53)
+        self.assertEqual(raw["metrics"]["mail_interaction_rate"]["value"], 9.17)
+        self.assertEqual(raw["metrics"]["mail_interaction_rate_over_opened"]["value"], 11.83)
+
+    def test_infer_month_key_requires_explicit_month_when_filename_has_no_yyyy_mm(self):
+        with self.assertRaisesRegex(ValueError, "No pude inferir month_key.*Pasa month_key explícitamente"):
+            infer_month_key_from_pdf_path(Path("/tmp/Dashboard_Marzo.pdf"))
 
 
 if __name__ == "__main__":

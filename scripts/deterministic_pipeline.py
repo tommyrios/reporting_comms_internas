@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import unicodedata
+from itertools import islice
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -19,10 +20,31 @@ MIN_SITE_VIEWS_PER_NOTE = 10
 MIN_MAIL_TO_PLAN_RELATION = 0.2
 MIN_MAIL_ABSOLUTE = 10
 MIN_RATE_DIFFERENCE = 0.01
+# Permite encabezado + valor(es) sin abrir demasiado la puerta a filas tabulares.
+# Con 2 números toleramos casos "label + valor + referencia", y evitamos filas de tablas más densas.
+MAX_NUMBERS_IN_LABEL_LINE = 2
+LOOKAHEAD_LINES_AFTER_LABEL = 3
+ANCHOR_PREFIX_LENGTH = 8
+MAX_LOGGED_CANDIDATE_LINES = 20
+CANON_TITLE_MAX_LENGTH = 180
+REQUIRED_METRIC_KEYS = {
+    "plan_total",
+    "site_notes_total",
+    "site_total_views",
+    "mail_total",
+    "mail_open_rate",
+    "mail_interaction_rate",
+}
+OPTIONAL_METRIC_KEYS = {
+    "plan_daily_average",
+    "site_average_views",
+    "mail_interaction_rate_over_opened",
+}
 
 
 # -------------------------
 # Utils reemplazo metric_utils.py
+# TODO: consolidar estos helpers en metric_utils.py y reutilizarlos desde analyzer.py.
 # -------------------------
 
 def to_float_locale(raw: str | None, default: float = 0.0) -> float:
@@ -90,6 +112,41 @@ def _normalize_text(value: str) -> str:
     return " ".join(simplified.lower().split())
 
 
+def _compact_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value or "")
+    without_accents = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    simplified = without_accents.replace("º", "o").replace("°", "o")
+    return re.sub(r"[^a-z0-9]", "", simplified.lower())
+
+
+def _normalize_number_spacing(line: str) -> str:
+    line = re.sub(r"(?<=\d)\s+(?=%)", "", line)
+    line = re.sub(r"(?<=\d)\s+(?=[.,]\d)", "", line)
+    return line
+
+
+def _line_matches_label(line: str, label: str) -> bool:
+    line_norm = _normalize_text(line)
+    label_norm = _normalize_text(label)
+
+    line_compact = _compact_text(line)
+    label_compact = _compact_text(label)
+
+    if line_norm == label_norm:
+        return True
+
+    if line_compact == label_compact:
+        return True
+
+    # Flexible pero controlado: permite "Panel ... label" o label con texto pegado,
+    # pero evita líneas de tablas con muchos números.
+    if label_compact in line_compact:
+        numbers = NUMBER_PATTERN.findall(line)
+        return len(numbers) <= MAX_NUMBERS_IN_LABEL_LINE
+
+    return False
+
+
 def _extract_pages_text(pdf_path: Path) -> list[str]:
     reader = PdfReader(str(pdf_path))
     return [page.extract_text() or "" for page in reader.pages]
@@ -98,30 +155,42 @@ def _extract_pages_text(pdf_path: Path) -> list[str]:
 def _value_immediately_after_label(page_text: str, labels: str | list[str], kind: str) -> str | None:
     lines = [line.strip() for line in page_text.splitlines() if line.strip()]
     label_variants = labels if isinstance(labels, list) else [labels]
-    normalized_variants = {_normalize_text(label) for label in label_variants}
-    normalized_lines = [_normalize_text(line) for line in lines]
 
     matched_indexes = [
-        i for i, line_norm in enumerate(normalized_lines)
-        if line_norm in normalized_variants
+        i
+        for i, line in enumerate(lines)
+        if any(_line_matches_label(line, label) for label in label_variants)
     ]
 
-    if not matched_indexes:
-        return None
+    for i in reversed(matched_indexes):
+        line = lines[i]
 
-    anchor_index = matched_indexes[-1]
-    next_index = anchor_index + 1
-    if next_index >= len(lines):
-        return None
+        # Caso 1: valor en la misma línea.
+        for label in label_variants:
+            if _compact_text(label) in _compact_text(line):
+                line_for_numbers = _normalize_number_spacing(line)
+                nums = NUMBER_PATTERN.findall(line_for_numbers)
 
-    nums = NUMBER_PATTERN.findall(lines[next_index])
-    if kind == "percent":
-        nums = [n for n in nums if "%" in n]
-    else:
-        nums = [n for n in nums if "%" not in n]
+                if kind == "percent":
+                    nums = [n for n in nums if "%" in n]
+                else:
+                    nums = [n for n in nums if "%" not in n]
 
-    if nums:
-        return nums[0]
+                if nums:
+                    return nums[0]
+
+        # Caso 2: valor en líneas siguientes.
+        for j in range(i + 1, min(i + 1 + LOOKAHEAD_LINES_AFTER_LABEL, len(lines))):
+            line_for_numbers = _normalize_number_spacing(lines[j])
+            nums = NUMBER_PATTERN.findall(line_for_numbers)
+
+            if kind == "percent":
+                nums = [n for n in nums if "%" in n]
+            else:
+                nums = [n for n in nums if "%" not in n]
+
+            if nums:
+                return nums[0]
 
     return None
 
@@ -413,8 +482,9 @@ def _extract_strategic_axes(page_text: str) -> list[dict[str, Any]]:
         # Normalizar casos rotos: "2 0" -> "20", "1 1" -> "11"
         normalized_items = []
         for item in window:
-            item = re.sub(r"^\s*2\s+0\s*$", "20", item)
-            item = re.sub(r"^\s*1\s+1\s*$", "11", item)
+            stripped_item = item.strip()
+            if re.fullmatch(r"\d(?:\s+\d)+", stripped_item):
+                item = re.sub(r"\s+", "", stripped_item)
             normalized_items.append(item)
 
         values = []
@@ -493,6 +563,18 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
         if warning:
             fallback_warnings.append(warning)
 
+    for key, anchor, _, expected_page, _ in metric_specs:
+        if metrics.get(key, {}).get("missing"):
+            logger.error(
+                "event=metric_missing anchor=%s page=%s candidate_lines=%s",
+                anchor,
+                expected_page,
+                list(islice((
+                    line for page in pages for line in page.splitlines()
+                    if _compact_text(anchor)[:ANCHOR_PREFIX_LENGTH] in _compact_text(line)
+                ), MAX_LOGGED_CANDIDATE_LINES)),
+            )
+
     page_for_mail_idx = _resolve_metric_page_index(metrics, "mail_total", 3, len(pages))
     page_for_site_idx = _resolve_metric_page_index(metrics, "site_total_views", 2, len(pages))
     page_for_plan_idx = _resolve_metric_page_index(metrics, "plan_total", 1, len(pages))
@@ -536,6 +618,89 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
 # Canonical
 # -------------------------
 
+def _first_present(item: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        value = item.get(key)
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def _canon_distribution(
+    items: list[dict[str, Any]],
+    label_keys: tuple[str, ...],
+    value_keys: tuple[str, ...],
+) -> list[dict[str, Any]]:
+    rows = []
+
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+
+        label = _first_present(item, *label_keys)
+        value = _first_present(item, *value_keys)
+
+        if label in (None, "") or value in (None, ""):
+            continue
+
+        rows.append({
+            "label": str(label).strip(),
+            "value": round(to_float_locale(str(value), 0.0), 2),
+        })
+
+    return rows
+
+
+def _canon_push_rows(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+
+        name = _first_present(item, "name", "title")
+        if not name:
+            continue
+
+        clicks_raw = _first_present(item, "clicks")
+        open_rate_raw = _first_present(item, "open_rate")
+        interaction_raw = _first_present(item, "interaction", "interaction_rate", "ctr")
+
+        rows.append({
+            "name": str(name).strip()[:CANON_TITLE_MAX_LENGTH],
+            "clicks": parse_integer_value(str(clicks_raw or 0)) or 0,
+            "open_rate": parse_percent_value(str(open_rate_raw or 0)) or 0.0,
+            "interaction": parse_percent_value(str(interaction_raw or 0)) or 0.0,
+            "date": item.get("date"),
+        })
+
+    return rows
+
+
+def _canon_pull_rows(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+
+        title = _first_present(item, "title", "name")
+        if not title:
+            continue
+
+        unique_reads_raw = _first_present(item, "unique_reads", "users", "reads")
+        total_reads_raw = _first_present(item, "total_reads", "views")
+
+        rows.append({
+            "title": str(title).strip()[:CANON_TITLE_MAX_LENGTH],
+            "unique_reads": parse_integer_value(str(unique_reads_raw or 0)) or 0,
+            "total_reads": parse_integer_value(str(total_reads_raw or 0)) or 0,
+            "date": item.get("date"),
+        })
+
+    return rows
+
+
 def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
     metrics = raw_extracted.get("metrics", {})
 
@@ -560,13 +725,25 @@ def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
             2,
         ),
 
-        "strategic_axes": raw_extracted.get("strategic_axes", []),
+        "strategic_axes": _canon_distribution(
+            raw_extracted.get("strategic_axes", []),
+            label_keys=("label", "theme", "axis", "name"),
+            value_keys=("value", "weight", "count"),
+        ),
         "internal_clients": [],
-        "channel_mix": raw_extracted.get("channel_mix", []),
-        "format_mix": raw_extracted.get("format_mix", []),
-        "top_push_by_interaction": raw_extracted.get("top_push_interaction", []),
-        "top_push_by_open_rate": raw_extracted.get("top_push_open", []),
-        "top_pull_notes": raw_extracted.get("top_pull_notes", []),
+        "channel_mix": _canon_distribution(
+            raw_extracted.get("channel_mix", []),
+            label_keys=("label", "channel", "name"),
+            value_keys=("value", "pct", "weight"),
+        ),
+        "format_mix": _canon_distribution(
+            raw_extracted.get("format_mix", []),
+            label_keys=("label", "format", "name"),
+            value_keys=("value", "pct", "weight"),
+        ),
+        "top_push_by_interaction": _canon_push_rows(raw_extracted.get("top_push_interaction", [])),
+        "top_push_by_open_rate": _canon_push_rows(raw_extracted.get("top_push_open", [])),
+        "top_pull_notes": _canon_pull_rows(raw_extracted.get("top_pull_notes", [])),
         "hitos": [],
         "events": [],
 
@@ -588,21 +765,54 @@ def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
 # Validación
 # -------------------------
 
+def _missing_anchor_key(warning: str) -> str | None:
+    if not warning.startswith("missing_anchor:"):
+        return None
+
+    parts = warning.split(":")
+    if len(parts) < 2:
+        return None
+
+    return parts[1]
+
+
 def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
     warnings: list[str] = []
     errors: list[str] = []
 
     extraction_warnings = list(canonical.get("extraction_warnings", []))
 
-    if any(str(w).startswith("missing_anchor:") for w in extraction_warnings):
-        errors.append("Faltan KPIs primarios por ancla exacta")
+    missing_required: list[str] = []
+    missing_optional: list[str] = []
+
+    for warning in extraction_warnings:
+        key = _missing_anchor_key(str(warning))
+
+        if key in REQUIRED_METRIC_KEYS:
+            missing_required.append(key)
+        elif key in OPTIONAL_METRIC_KEYS:
+            missing_optional.append(key)
+
+    if missing_required:
+        errors.append(
+            "Faltan KPIs primarios por ancla exacta: "
+            + ", ".join(sorted(set(missing_required)))
+        )
+
+    if missing_optional:
+        warnings.append(
+            "Faltan KPIs secundarios por ancla exacta: "
+            + ", ".join(sorted(set(missing_optional)))
+        )
+
+    missing_optional_set = set(missing_optional)
 
     for metric in ("mail_open_rate", "mail_interaction_rate", "mail_interaction_rate_over_opened"):
         value = float(canonical.get(metric, 0))
 
         if value < 0 or value > 100:
             errors.append(f"{metric} fuera de rango 0-100")
-        elif value < 1:
+        elif value < 1 and metric not in missing_optional_set:
             warnings.append(f"{metric} es menor a 1%; revisar escala")
 
     plan_total = int(canonical.get("plan_total", 0) or 0)
@@ -629,6 +839,9 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
 
         if mail_total < min_mail:
             errors.append("mail_total sospechosamente bajo respecto a plan_total")
+
+        if mail_total > plan_total * MAX_MAIL_TO_PLAN_RATIO:
+            warnings.append("mail_total muy alto respecto a plan_total; revisar escala o extracción")
 
     if site_notes_total > 0 and site_total_views < site_notes_total * MIN_SITE_VIEWS_PER_NOTE:
         errors.append("site_total_views sospechosamente bajo respecto a site_notes_total")
@@ -673,7 +886,10 @@ def infer_month_key_from_pdf_path(pdf_path: Path) -> str:
     if match:
         return match.group(1)
 
-    return datetime.now(UTC).strftime("%Y-%m")
+    raise ValueError(
+        f"No pude inferir month_key desde el nombre del PDF: {pdf_path.name}. "
+        "Pasa month_key explícitamente."
+    )
 
 
 def extract_single_pdf_to_raw(
