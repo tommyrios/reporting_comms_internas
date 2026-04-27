@@ -44,6 +44,7 @@ OPTIONAL_METRIC_KEYS = {
 
 # -------------------------
 # Utils reemplazo metric_utils.py
+# TODO: consolidar estos helpers en metric_utils.py y reutilizarlos desde analyzer.py.
 # -------------------------
 
 def to_float_locale(raw: str | None, default: float = 0.0) -> float:
@@ -804,12 +805,14 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
             + ", ".join(sorted(set(missing_optional)))
         )
 
+    missing_optional_set = set(missing_optional)
+
     for metric in ("mail_open_rate", "mail_interaction_rate", "mail_interaction_rate_over_opened"):
         value = float(canonical.get(metric, 0))
 
         if value < 0 or value > 100:
             errors.append(f"{metric} fuera de rango 0-100")
-        elif value < 1:
+        elif value < 1 and metric not in missing_optional_set:
             warnings.append(f"{metric} es menor a 1%; revisar escala")
 
     plan_total = int(canonical.get("plan_total", 0) or 0)

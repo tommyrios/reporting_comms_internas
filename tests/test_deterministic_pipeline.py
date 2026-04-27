@@ -182,7 +182,7 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertNotEqual(canonical["mail_open_rate"], canonical["mail_interaction_rate"])
         self.assertTrue(validation["is_valid"])
 
-    def test_validate_canonical_monthly_rejects_missing_anchor(self):
+    def test_validate_canonical_fails_missing_required_anchors(self):
         raw = {
             "month": "2026-03",
             "metrics": {
@@ -315,6 +315,12 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertTrue(validation["is_valid"])
         self.assertEqual(validation["errors"], [])
         self.assertTrue(any("KPIs secundarios" in warning for warning in validation["warnings"]))
+        self.assertFalse(
+            any(
+                "mail_interaction_rate_over_opened es menor a 1%" in warning
+                for warning in validation["warnings"]
+            )
+        )
 
     def test_extract_raw_monthly_pdf_accepts_percent_with_space_before_symbol(self):
         pages = [
@@ -334,7 +340,7 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertEqual(raw["metrics"]["mail_interaction_rate"]["value"], 9.17)
         self.assertEqual(raw["metrics"]["mail_interaction_rate_over_opened"]["value"], 11.83)
 
-    def test_infer_month_key_from_pdf_path_requires_explicit_month_when_missing(self):
+    def test_infer_month_key_requires_explicit_month_when_filename_has_no_yyyy_mm(self):
         with self.assertRaisesRegex(ValueError, "No pude inferir month_key.*Pasa month_key explícitamente"):
             infer_month_key_from_pdf_path(Path("/tmp/Dashboard_Marzo.pdf"))
 
