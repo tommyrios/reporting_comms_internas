@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import unicodedata
+from itertools import islice
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -20,11 +21,25 @@ MIN_MAIL_TO_PLAN_RELATION = 0.2
 MIN_MAIL_ABSOLUTE = 10
 MIN_RATE_DIFFERENCE = 0.01
 # Permite encabezado + valor(es) sin abrir demasiado la puerta a filas tabulares.
+# Con 2 números toleramos casos "label + valor + referencia", y evitamos filas de tablas más densas.
 MAX_NUMBERS_IN_LABEL_LINE = 2
 LOOKAHEAD_LINES_AFTER_LABEL = 3
 ANCHOR_PREFIX_LENGTH = 8
 MAX_LOGGED_CANDIDATE_LINES = 20
 CANON_TITLE_MAX_LENGTH = 180
+REQUIRED_METRIC_KEYS = {
+    "plan_total",
+    "site_notes_total",
+    "site_total_views",
+    "mail_total",
+    "mail_open_rate",
+    "mail_interaction_rate",
+}
+OPTIONAL_METRIC_KEYS = {
+    "plan_daily_average",
+    "site_average_views",
+    "mail_interaction_rate_over_opened",
+}
 
 
 # -------------------------
@@ -103,6 +118,12 @@ def _compact_text(value: str) -> str:
     return re.sub(r"[^a-z0-9]", "", simplified.lower())
 
 
+def _normalize_number_spacing(line: str) -> str:
+    line = re.sub(r"(?<=\d)\s+(?=%)", "", line)
+    line = re.sub(r"(?<=\d)\s+(?=[.,]\d)", "", line)
+    return line
+
+
 def _line_matches_label(line: str, label: str) -> bool:
     line_norm = _normalize_text(line)
     label_norm = _normalize_text(label)
@@ -146,7 +167,8 @@ def _value_immediately_after_label(page_text: str, labels: str | list[str], kind
         # Caso 1: valor en la misma línea.
         for label in label_variants:
             if _compact_text(label) in _compact_text(line):
-                nums = NUMBER_PATTERN.findall(line)
+                line_for_numbers = _normalize_number_spacing(line)
+                nums = NUMBER_PATTERN.findall(line_for_numbers)
 
                 if kind == "percent":
                     nums = [n for n in nums if "%" in n]
@@ -158,7 +180,8 @@ def _value_immediately_after_label(page_text: str, labels: str | list[str], kind
 
         # Caso 2: valor en líneas siguientes.
         for j in range(i + 1, min(i + 1 + LOOKAHEAD_LINES_AFTER_LABEL, len(lines))):
-            nums = NUMBER_PATTERN.findall(lines[j])
+            line_for_numbers = _normalize_number_spacing(lines[j])
+            nums = NUMBER_PATTERN.findall(line_for_numbers)
 
             if kind == "percent":
                 nums = [n for n in nums if "%" in n]
@@ -458,8 +481,9 @@ def _extract_strategic_axes(page_text: str) -> list[dict[str, Any]]:
         # Normalizar casos rotos: "2 0" -> "20", "1 1" -> "11"
         normalized_items = []
         for item in window:
-            item = re.sub(r"^\s*2\s+0\s*$", "20", item)
-            item = re.sub(r"^\s*1\s+1\s*$", "11", item)
+            stripped_item = item.strip()
+            if re.fullmatch(r"\d(?:\s+\d)+", stripped_item):
+                item = re.sub(r"\s+", "", stripped_item)
             normalized_items.append(item)
 
         values = []
@@ -544,10 +568,10 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
                 "event=metric_missing anchor=%s page=%s candidate_lines=%s",
                 anchor,
                 expected_page,
-                [
+                list(islice((
                     line for page in pages for line in page.splitlines()
                     if _compact_text(anchor)[:ANCHOR_PREFIX_LENGTH] in _compact_text(line)
-                ][:MAX_LOGGED_CANDIDATE_LINES],
+                ), MAX_LOGGED_CANDIDATE_LINES)),
             )
 
     page_for_mail_idx = _resolve_metric_page_index(metrics, "mail_total", 3, len(pages))
@@ -740,14 +764,45 @@ def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
 # Validación
 # -------------------------
 
+def _missing_anchor_key(warning: str) -> str | None:
+    if not warning.startswith("missing_anchor:"):
+        return None
+
+    parts = warning.split(":")
+    if len(parts) < 2:
+        return None
+
+    return parts[1]
+
+
 def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
     warnings: list[str] = []
     errors: list[str] = []
 
     extraction_warnings = list(canonical.get("extraction_warnings", []))
 
-    if any(str(w).startswith("missing_anchor:") for w in extraction_warnings):
-        errors.append("Faltan KPIs primarios por ancla exacta")
+    missing_required: list[str] = []
+    missing_optional: list[str] = []
+
+    for warning in extraction_warnings:
+        key = _missing_anchor_key(str(warning))
+
+        if key in REQUIRED_METRIC_KEYS:
+            missing_required.append(key)
+        elif key in OPTIONAL_METRIC_KEYS:
+            missing_optional.append(key)
+
+    if missing_required:
+        errors.append(
+            "Faltan KPIs primarios por ancla exacta: "
+            + ", ".join(sorted(set(missing_required)))
+        )
+
+    if missing_optional:
+        warnings.append(
+            "Faltan KPIs secundarios por ancla exacta: "
+            + ", ".join(sorted(set(missing_optional)))
+        )
 
     for metric in ("mail_open_rate", "mail_interaction_rate", "mail_interaction_rate_over_opened"):
         value = float(canonical.get(metric, 0))
@@ -781,6 +836,9 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
 
         if mail_total < min_mail:
             errors.append("mail_total sospechosamente bajo respecto a plan_total")
+
+        if mail_total > plan_total * MAX_MAIL_TO_PLAN_RATIO:
+            warnings.append("mail_total muy alto respecto a plan_total; revisar escala o extracción")
 
     if site_notes_total > 0 and site_total_views < site_notes_total * MIN_SITE_VIEWS_PER_NOTE:
         errors.append("site_total_views sospechosamente bajo respecto a site_notes_total")
@@ -825,7 +883,10 @@ def infer_month_key_from_pdf_path(pdf_path: Path) -> str:
     if match:
         return match.group(1)
 
-    return datetime.now(UTC).strftime("%Y-%m")
+    raise ValueError(
+        f"No pude inferir month_key desde el nombre del PDF: {pdf_path.name}. "
+        "Pasa month_key explícitamente."
+    )
 
 
 def extract_single_pdf_to_raw(
