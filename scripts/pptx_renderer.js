@@ -32,15 +32,15 @@ pptx.margin = 0;
 
 const COLORS = {
   electricBlue: '001391',
-  midnight: '060E46',
-  deep: '85C8FF',
+  midnight: '07124A',
+  deep: '030B31',
   cyan: '00D7E8',
-  aqua: '8BE1E9',
+  aqua: '2DCCCD',
   sky: '85C8FF',
   lime: '88E783',
-  yellow: 'FFE761',
-  orange: 'FFB56B',
-  purple: '9694FF',
+  yellow: 'F8D44C',
+  orange: 'F7893B',
+  purple: '6754B8',
   red: 'DA3851',
   white: 'FFFFFF',
   ink: '17233F',
@@ -65,6 +65,15 @@ const CHART_COLORS = [
   COLORS.purple,
   COLORS.orange,
   COLORS.red,
+];
+
+const SECONDARY_CHART_COLORS = [
+  COLORS.sky,
+  COLORS.purple,
+  COLORS.lime,
+  COLORS.yellow,
+  COLORS.orange,
+  COLORS.cyan,
 ];
 
 const BRAND_ASSETS_DIR = path.resolve(__dirname, '..', 'assets', 'brand');
@@ -167,6 +176,31 @@ function valueLabel(row, rows, options = {}) {
   if (options.valueMode === 'number') return fmtNum(row.value, options.digits || 0);
   if (options.valueMode === 'percent') return fmtPct(row.value);
   return valueAsPct(row, rows);
+}
+
+function chartColor(idx, options = {}) {
+  if (options.colors) return options.colors[idx % options.colors.length];
+  if (idx === 0) return COLORS.electricBlue;
+  return SECONDARY_CHART_COLORS[(idx - 1) % SECONDARY_CHART_COLORS.length];
+}
+
+function shortSentence(value, max = 120) {
+  const text = ensureSentence(cleanText(value, '')).replace(/…/g, '').trim();
+  if (!text) return '';
+  if (text.length <= max) return text;
+  const firstSentence = text.split(/(?<=[.!?])\s+/)[0];
+  if (firstSentence && firstSentence.length <= max) return ensureSentence(firstSentence);
+  const clause = text.split(/[,;:]/)[0];
+  if (clause && clause.length >= 28 && clause.length <= max) return ensureSentence(clause);
+  const cut = text.slice(0, max).split(' ').slice(0, -1).join(' ').trim();
+  return ensureSentence(cut || text.slice(0, max).trim());
+}
+
+function clicksLabel(row) {
+  const clicks = parseNumber(row?.clicks);
+  const interaction = parseNumber(row?.interaction || row?.ctr);
+  if (clicks <= 0 && interaction >= 20) return 'clics a validar';
+  return `${fmtNum(clicks)} clics`;
 }
 
 function ensureSentence(text) {
@@ -363,6 +397,19 @@ function metricTile(slide, x, y, w, h, label, value, accent = COLORS.sky, option
   });
 }
 
+function heroMetric(slide, x, y, w, h, label, value, detail, accent = COLORS.electricBlue, options = {}) {
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x, y, w, h, rectRadius: 0.08,
+    fill: { color: options.fill || COLORS.white },
+    line: { color: options.line || COLORS.grey1, width: 0.75 },
+    shadow: options.shadow === false ? undefined : safeOuterShadow('000000', 0.10, 45, 0.8, 0.24),
+  });
+  slide.addShape(pptx.ShapeType.rect, { x, y, w: 0.10, h, fill: { color: accent }, line: { color: accent } });
+  slide.addText(cleanText(label), { x: x + 0.28, y: y + 0.20, w: w - 0.58, h: 0.18, fontFace: 'Arial', fontSize: 8.8, bold: true, color: COLORS.muted, margin: 0, fit: 'shrink' });
+  slide.addText(String(value ?? '-'), { x: x + 0.28, y: y + 0.52, w: w - 0.58, h: 0.56, fontFace: 'Georgia', bold: true, fontSize: options.valueSize || 37, color: accent, margin: 0, fit: 'shrink', breakLine: false });
+  if (detail) slide.addText(shortSentence(detail, options.detailMax || 96), { x: x + 0.30, y: y + h - 0.44, w: w - 0.60, h: 0.22, fontFace: 'Arial', fontSize: 8.4, color: COLORS.ink, margin: 0, fit: 'shrink' });
+}
+
 function paragraph(slide, x, y, w, h, body, options = {}) {
   slide.addText(clip(body, options.max || 330), {
     x, y, w, h,
@@ -378,7 +425,7 @@ function bulletList(slide, x, y, w, items, options = {}) {
   rows.forEach((item, idx) => {
     const cy = y + idx * (options.step || 0.53);
     slide.addShape(pptx.ShapeType.ellipse, { x, y: cy + 0.035, w: 0.11, h: 0.11, fill: { color: options.bulletColor || COLORS.cyan }, line: { color: options.bulletColor || COLORS.cyan } });
-    slide.addText(clip(ensureSentence(item), options.max || 170), {
+    slide.addText(shortSentence(item, options.max || 170), {
       x: x + 0.22, y: cy, w: w - 0.22, h: options.itemH || 0.38,
       fontFace: 'Arial', fontSize: options.fontSize || 9.4,
       color: COLORS.ink, margin: 0, fit: 'shrink', breakLine: false,
@@ -404,14 +451,20 @@ function renderHorizontalBarChart(slide, x, y, w, h, rows, options = {}) {
   const rowH = h / data.length;
   data.forEach((row, idx) => {
     const barY = y + idx * rowH;
-    const color = options.colors ? options.colors[idx % options.colors.length] : CHART_COLORS[idx % CHART_COLORS.length];
-    const label = clip(row.label, options.labelMax || 24);
+    const color = chartColor(idx, options);
+    const label = wrapText(row.label, options.labelMax || 24, options.labelLines || 1);
     const val = valueLabel(row, data, options);
-    slide.addText(label, { x, y: barY, w: w * 0.38, h: 0.18, fontFace: 'Arial', fontSize: options.catSize || 7.3, color: COLORS.ink, margin: 0, fit: 'shrink' });
-    slide.addShape(pptx.ShapeType.roundRect, { x: x + w * 0.40, y: barY + 0.025, w: w * 0.47, h: 0.13, rectRadius: 0.025, fill: { color: COLORS.grey1 }, line: { color: COLORS.grey1 } });
-    const barW = (w * 0.47) * (parseNumber(row.value) / max);
-    slide.addShape(pptx.ShapeType.roundRect, { x: x + w * 0.40, y: barY + 0.025, w: Math.max(0.03, barW), h: 0.13, rectRadius: 0.025, fill: { color }, line: { color } });
-    slide.addText(val, { x: x + w * 0.89, y: barY - 0.01, w: w * 0.11, h: 0.17, align: 'right', fontFace: 'Arial', bold: true, fontSize: options.dataSize || 7.3, color: COLORS.electricBlue, margin: 0, fit: 'shrink' });
+    const labelW = w * (options.labelWidth || 0.38);
+    const gap = w * 0.03;
+    const valueW = w * (options.valueWidth || 0.12);
+    const barX = x + labelW + gap;
+    const barWMax = w - labelW - gap - valueW - 0.04;
+    const barH = options.barH || 0.15;
+    slide.addText(label, { x, y: barY - 0.02, w: labelW - 0.05, h: Math.max(0.2, rowH - 0.05), fontFace: 'Arial', fontSize: options.catSize || 7.3, color: COLORS.ink, margin: 0, fit: 'shrink' });
+    slide.addShape(pptx.ShapeType.roundRect, { x: barX, y: barY + 0.035, w: barWMax, h: barH, rectRadius: 0.025, fill: { color: COLORS.grey1 }, line: { color: COLORS.grey1 } });
+    const barW = barWMax * (parseNumber(row.value) / max);
+    slide.addShape(pptx.ShapeType.roundRect, { x: barX, y: barY + 0.035, w: Math.max(0.03, barW), h: barH, rectRadius: 0.025, fill: { color }, line: { color } });
+    slide.addText(val, { x: barX + barWMax + 0.05, y: barY - 0.005, w: valueW, h: 0.18, align: 'right', fontFace: 'Arial', bold: true, fontSize: options.dataSize || 7.3, color: idx === 0 ? COLORS.electricBlue : COLORS.ink, margin: 0, fit: 'shrink' });
   });
 }
 
@@ -471,7 +524,7 @@ function renderDonutChart(slide, x, y, w, h, rows, title = 'Mix') {
     paragraph(slide, x, y + h / 2 - 0.1, w, 0.24, 'Sin datos para graficar.', { fontSize: 9, color: COLORS.muted });
     return;
   }
-  const colors = data.map((_, idx) => (idx === 0 ? COLORS.electricBlue : ['D7DDE6', 'B7C1CE', 'E8ECF2', 'CAD1D8', 'AAB6C5'][idx - 1] || COLORS.grey2));
+  const colors = data.map((_, idx) => chartColor(idx));
   try {
     slide.addChart(pptx.ChartType.doughnut, [{ name: title, labels: data.map((r) => r.label), values: data.map((r) => parseNumber(r.value)) }], {
       x, y, w, h,
@@ -517,71 +570,78 @@ function renderExecutiveSummary(module) {
   const p = module.payload || {};
   const slide = baseSlide(module.title || 'Resumen ejecutivo', 'Resumen');
   const best = bestPushCampaign() || { name: p.top_campaign_title, interaction: p.top_campaign_interaction, open_rate: p.top_campaign_open_rate };
-  const headline = cleanText(p.executive_headline || p.headline || `${periodLabel()}: desempeño mensual de Comunicaciones Internas`);
   const topInteraction = parseNumber(p.top_campaign_interaction || best?.interaction || best?.ctr || 0);
+  const headline = cleanText(p.executive_headline || p.headline || `Enero: alto engagement impulsado por campañas de beneficios`);
 
   slide.addText(clip(headline, 118), {
-    x: 0.72, y: 1.28, w: 11.0, h: 0.48,
+    x: 0.72, y: 1.26, w: 11.2, h: 0.48,
     fontFace: 'Georgia', bold: true, fontSize: 22, color: COLORS.midnight, margin: 0, fit: 'shrink', breakLine: false,
   });
 
-  metricTile(slide, 0.72, 2.02, 3.25, 1.02, 'Apertura promedio', fmtPct(p.mail_open_rate), COLORS.lime, { valueSize: 27, labelSize: 8.8 });
-  metricTile(slide, 4.20, 2.02, 3.25, 1.02, 'Interacción promedio', fmtPct(p.mail_interaction_rate), COLORS.cyan, { valueSize: 27, labelSize: 8.8 });
-  metricTile(slide, 7.68, 2.02, 3.25, 1.02, 'Top campaña', fmtPct(topInteraction), COLORS.yellow, { valueSize: 27, labelSize: 8.8 });
+  heroMetric(
+    slide,
+    0.72, 1.98, 4.70, 1.65,
+    'Top campaña',
+    fmtPct(topInteraction),
+    `${cleanText(best?.name || p.top_campaign_title || 'Campaña líder')} · ${clicksLabel(best)} · ${fmtPct(best?.open_rate || p.top_campaign_open_rate)} apertura`,
+    COLORS.electricBlue,
+    { valueSize: 42, detailMax: 118, fill: COLORS.paleBlue }
+  );
 
-  slide.addText(clip(best?.name || p.top_campaign_title || 'Campaña con mejor desempeño', 64), {
-    x: 7.88, y: 3.14, w: 2.85, h: 0.28,
-    fontFace: 'Arial', fontSize: 8.2, bold: true, color: COLORS.ink, margin: 0, fit: 'shrink', align: 'center',
-  });
+  metricTile(slide, 5.70, 1.98, 2.25, 0.82, 'Apertura promedio', fmtPct(p.mail_open_rate), COLORS.lime, { valueSize: 21, labelSize: 8.0 });
+  metricTile(slide, 5.70, 2.99, 2.25, 0.82, 'Interacción promedio', fmtPct(p.mail_interaction_rate), COLORS.yellow, { valueSize: 21, labelSize: 8.0 });
 
-  panel(slide, 0.72, 3.74, 7.15, 2.25, 'Insights del período', { fill: COLORS.white, shadow: false });
-  bulletList(slide, 1.02, 4.24, 6.55, buildExecutiveInsights(p), { max: 180, step: 0.58, fontSize: 9.6, itemH: 0.42, bulletColor: COLORS.electricBlue });
+  panel(slide, 0.72, 4.00, 7.23, 1.72, 'Volumen gestionado', { fill: COLORS.white, shadow: false });
+  const volumeRows = [
+    { label: 'Planificación', value: parseNumber(p.plan_total) },
+    { label: 'Mails', value: parseNumber(p.mail_total) },
+    { label: 'Notas SITE', value: parseNumber(p.site_notes_total) },
+  ];
+  renderHorizontalBarChart(slide, 1.05, 4.50, 6.40, 0.80, volumeRows, { valueMode: 'number', labelMax: 18, catSize: 7.8, dataSize: 7.8, labelWidth: 0.30, barH: 0.14, colors: [COLORS.electricBlue, COLORS.sky, COLORS.purple] });
+  slide.addText(`${fmtNum(p.site_total_views)} vistas SITE`, { x: 5.78, y: 5.34, w: 1.60, h: 0.18, fontFace: 'Arial', bold: true, fontSize: 8.2, color: COLORS.orange, margin: 0, fit: 'shrink', align: 'right' });
 
-  panel(slide, 8.22, 3.74, 4.12, 2.25, 'Volumen gestionado', { fill: COLORS.paleBlue, shadow: false });
-  metricTile(slide, 8.52, 4.20, 1.55, 0.70, 'Planificación', fmtNum(p.plan_total), COLORS.sky, { valueSize: 17, labelSize: 7.3, fill: COLORS.white });
-  metricTile(slide, 10.24, 4.20, 1.55, 0.70, 'Mails', fmtNum(p.mail_total), COLORS.cyan, { valueSize: 17, labelSize: 7.3, fill: COLORS.white });
-  metricTile(slide, 8.52, 5.08, 1.55, 0.70, 'Notas SITE', fmtNum(p.site_notes_total), COLORS.purple, { valueSize: 17, labelSize: 7.3, fill: COLORS.white });
-  metricTile(slide, 10.24, 5.08, 1.55, 0.70, 'Vistas SITE', fmtNum(p.site_total_views), COLORS.orange, { valueSize: 17, labelSize: 7.3, fill: COLORS.white });
+  panel(slide, 8.30, 1.98, 4.03, 3.74, 'Lectura ejecutiva', { fill: COLORS.white, shadow: false });
+  const insights = buildExecutiveInsights(p).map((item) => shortSentence(item, 118));
+  bulletList(slide, 8.62, 2.52, 3.35, insights, { max: 118, step: 0.70, fontSize: 9.0, itemH: 0.48, bulletColor: COLORS.electricBlue });
+  slide.addShape(pptx.ShapeType.roundRect, { x: 8.62, y: 5.10, w: 3.35, h: 0.34, rectRadius: 0.06, fill: { color: COLORS.paleYellow }, line: { color: COLORS.paleYellow } });
+  slide.addText('So what: repetir campañas con beneficio claro y CTA visible.', { x: 8.82, y: 5.22, w: 2.98, h: 0.12, fontFace: 'Arial', bold: true, fontSize: 7.6, color: COLORS.midnight, margin: 0, fit: 'shrink' });
 
   slide.addText(`Período: ${periodLabel()} · fuente: dashboard mensual consolidado`, { x: 0.72, y: 6.72, w: 7.8, h: 0.18, fontFace: 'Arial', fontSize: 7.8, color: COLORS.muted, margin: 0 });
   finalizeSlide(slide);
 }
-
 
 function renderChannelManagement(module) {
   const p = module.payload || {};
   const slide = baseSlide(module.title || 'Gestión de canales', 'Canales');
   const mixRows = weightedRows(p.channel_mix, 5);
   const lead = mixRows[0];
-  const headline = lead ? `${lead.label} lidera el mix con ${valueAsPct(lead, mixRows)} y sostiene el alcance directo.` : 'El mix de canales consolida el alcance del período.';
+  const headline = lead ? `${lead.label} lidera el mix con ${valueAsPct(lead, mixRows)} de participación.` : 'El mix de canales consolida el alcance del período.';
 
   slide.addText(clip(headline, 112), { x: 0.72, y: 1.28, w: 10.8, h: 0.36, fontFace: 'Georgia', bold: true, fontSize: 19, color: COLORS.midnight, margin: 0, fit: 'shrink' });
 
-  panel(slide, 0.72, 1.90, 6.95, 4.15, 'Mix de canales');
-  renderDonutChart(slide, 1.04, 2.34, 6.15, 3.15, mixRows, 'Mix de canales');
-  if (lead) slide.addText(`Canal principal: ${lead.label} (${valueAsPct(lead, mixRows)})`, { x: 1.12, y: 5.60, w: 5.7, h: 0.18, align: 'center', fontFace: 'Arial', bold: true, fontSize: 8.2, color: COLORS.electricBlue, margin: 0 });
+  panel(slide, 0.72, 1.90, 7.15, 4.30, 'Mix de canales');
+  renderDonutChart(slide, 1.02, 2.30, 6.55, 3.35, mixRows, 'Mix de canales');
+  if (lead) slide.addText(`${lead.label}: canal principal del período`, { x: 1.25, y: 5.74, w: 5.85, h: 0.18, align: 'center', fontFace: 'Arial', bold: true, fontSize: 8.4, color: COLORS.electricBlue, margin: 0, fit: 'shrink' });
 
-  metricTile(slide, 8.05, 1.90, 1.90, 0.82, 'Mails enviados', fmtNum(p.mail_total), COLORS.cyan, { valueSize: 19 });
-  metricTile(slide, 10.20, 1.90, 1.90, 0.82, 'Apertura', fmtPct(p.mail_open_rate), COLORS.lime, { valueSize: 18 });
-  metricTile(slide, 8.05, 2.94, 1.90, 0.82, 'Interacción', fmtPct(p.mail_interaction_rate), COLORS.yellow, { valueSize: 18 });
-  metricTile(slide, 10.20, 2.94, 1.90, 0.82, 'Vistas SITE', fmtNum(p.site_total_views), COLORS.sky, { valueSize: 18 });
+  heroMetric(slide, 8.20, 1.90, 3.95, 1.16, 'Apertura promedio', fmtPct(p.mail_open_rate), `${fmtNum(p.mail_total)} mails enviados`, COLORS.electricBlue, { valueSize: 29, detailMax: 80, fill: COLORS.paleBlue, shadow: false });
+  metricTile(slide, 8.20, 3.28, 1.85, 0.78, 'Interacción', fmtPct(p.mail_interaction_rate), COLORS.yellow, { valueSize: 18 });
+  metricTile(slide, 10.30, 3.28, 1.85, 0.78, 'Vistas SITE', fmtNum(p.site_total_views), COLORS.orange, { valueSize: 18 });
 
-  panel(slide, 8.05, 4.12, 4.05, 1.93, 'Lectura ejecutiva', { fill: COLORS.paleCyan, shadow: false });
+  panel(slide, 8.20, 4.34, 3.95, 1.86, 'Lectura ejecutiva', { fill: COLORS.paleCyan, shadow: false });
   const bullets = [
-    lead ? `${lead.label} concentra la mayor participación del mix de canales.` : 'El mix de canales requiere lectura mensual para ajustar presión comunicacional.',
-    `Mail combina alcance con ${fmtPct(p.mail_open_rate)} de apertura promedio.`,
-    `SITE/Intranet aporta profundidad con ${fmtNum(p.site_total_views)} vistas acumuladas.`,
+    lead ? `${lead.label} concentra el alcance directo y marca la presión principal.` : 'El mix requiere seguimiento mensual para ajustar presión comunicacional.',
+    `Mail sostiene eficiencia con ${fmtPct(p.mail_open_rate)} de apertura promedio.`,
+    `SITE e Intranet aportan profundidad con ${fmtNum(p.site_total_views)} vistas acumuladas.`,
   ];
-  bulletList(slide, 8.34, 4.62, 3.45, bullets, { max: 108, step: 0.44, fontSize: 8.3, itemH: 0.34, bulletColor: COLORS.cyan });
+  bulletList(slide, 8.48, 4.82, 3.35, bullets, { max: 104, step: 0.42, fontSize: 8.1, itemH: 0.32, bulletColor: COLORS.cyan });
   finalizeSlide(slide);
 }
-
 
 function renderMix(module) {
   const p = module.payload || {};
   const slide = baseSlide(module.title || 'Mix temático y áreas solicitantes', 'Contenido');
   const axes = weightedRows(p.strategic_axes, 6);
-  const clients = weightedRows(p.internal_clients, 7);
+  const clients = weightedRows(p.internal_clients, 8);
   const formats = weightedRows(p.format_mix, 4);
   const leadAxis = axes[0];
   const leadClient = clients[0];
@@ -589,23 +649,23 @@ function renderMix(module) {
 
   slide.addText(clip(headline, 112), { x: 0.72, y: 1.28, w: 10.8, h: 0.36, fontFace: 'Georgia', bold: true, fontSize: 19, color: COLORS.midnight, margin: 0, fit: 'shrink' });
 
-  panel(slide, 0.72, 1.90, 6.15, 3.82, 'Ejes estratégicos');
-  renderHorizontalBarChart(slide, 1.05, 2.42, 5.52, 2.45, axes, { labelMax: 23, catSize: 8.0, dataSize: 8.0, valueMode: 'percent', colors: [COLORS.electricBlue, COLORS.sky, COLORS.grey2, COLORS.grey2, COLORS.grey2, COLORS.grey2] });
+  panel(slide, 0.72, 1.90, 5.90, 3.95, 'Ejes estratégicos');
+  renderHorizontalBarChart(slide, 1.05, 2.42, 5.24, 2.68, axes, { labelMax: 22, labelLines: 1, catSize: 7.8, dataSize: 7.8, valueMode: 'percent', labelWidth: 0.43, colors: [COLORS.electricBlue, COLORS.sky, COLORS.purple, COLORS.lime, COLORS.yellow, COLORS.orange] });
 
-  panel(slide, 7.18, 1.90, 5.15, 3.82, 'Áreas solicitantes');
+  panel(slide, 6.92, 1.90, 5.42, 3.95, 'Áreas solicitantes');
   if (clients.length) {
-    renderHorizontalBarChart(slide, 7.50, 2.42, 4.52, 2.45, clients, { labelMax: 21, catSize: 7.6, dataSize: 7.6, valueMode: 'percent', colors: [COLORS.electricBlue, COLORS.sky, COLORS.grey2, COLORS.grey2, COLORS.grey2, COLORS.grey2, COLORS.grey2] });
+    renderHorizontalBarChart(slide, 7.24, 2.42, 4.76, 2.68, clients, { labelMax: 24, labelLines: 1, catSize: 7.1, dataSize: 7.2, valueMode: 'percent', labelWidth: 0.48, colors: [COLORS.electricBlue, COLORS.sky, COLORS.purple, COLORS.lime, COLORS.yellow, COLORS.orange, COLORS.cyan, COLORS.grey2] });
   } else {
-    emptyState(slide, 7.48, 2.30, 4.54, 2.60, 'Dato pendiente', 'No se detectó el bloque de áreas solicitantes en la página de planificación.');
+    emptyState(slide, 7.24, 2.34, 4.70, 2.62, 'Dato pendiente', 'No se detectó el bloque de áreas solicitantes en la página de planificación.');
   }
 
-  panel(slide, 0.72, 6.00, 11.61, 0.74, 'Síntesis', { fill: COLORS.midnight, line: COLORS.midnight, shadow: false });
-  const formatText = formats[0] ? `Formato dominante: ${formats[0].label} (${valueAsPct(formats[0], formats)}).` : 'Formato dominante pendiente.';
-  const summary = `${leadAxis ? `Eje líder: ${leadAxis.label} (${valueAsPct(leadAxis, axes)}).` : ''} ${leadClient ? `Mayor solicitante: ${leadClient.label} (${fmtPct(leadClient.value)}).` : ''} ${formatText}`;
-  slide.addText(summary.trim(), { x: 1.00, y: 6.25, w: 11.05, h: 0.18, fontFace: 'Arial', bold: true, fontSize: 8.6, color: COLORS.white, margin: 0, fit: 'shrink' });
+  panel(slide, 0.72, 6.05, 11.62, 0.76, 'Síntesis ejecutiva', { fill: COLORS.midnight, line: COLORS.midnight, shadow: false });
+  const formatText = formats[0] ? `Formato líder: ${formats[0].label} (${valueAsPct(formats[0], formats)}).` : 'Formato líder pendiente.';
+  const clientText = leadClient ? `Demanda principal: ${leadClient.label} (${fmtPct(leadClient.value)}).` : 'Demanda principal pendiente.';
+  const summary = `${leadAxis ? `Agenda principal: ${leadAxis.label} (${valueAsPct(leadAxis, axes)}).` : ''} ${clientText} ${formatText}`;
+  slide.addText(summary.trim(), { x: 1.00, y: 6.30, w: 11.05, h: 0.18, fontFace: 'Arial', bold: true, fontSize: 8.2, color: COLORS.white, margin: 0, fit: 'shrink' });
   finalizeSlide(slide);
 }
-
 
 function renderPushRanking(module) {
   const p = module.payload || {};
@@ -619,29 +679,37 @@ function renderPushRanking(module) {
   const best = byInteraction[0] || {};
   slide.addText(clip(`La campaña líder alcanzó ${fmtPct(best.interaction || best.ctr)} de interacción.`, 112), { x: 0.72, y: 1.28, w: 10.8, h: 0.36, fontFace: 'Georgia', bold: true, fontSize: 19, color: COLORS.midnight, margin: 0, fit: 'shrink' });
 
-  byInteraction.slice(0, 3).forEach((row, idx) => {
-    const x = 0.72 + idx * 4.02;
-    const accent = idx === 0 ? COLORS.electricBlue : (idx === 1 ? COLORS.sky : COLORS.grey2);
-    panel(slide, x, 1.92, 3.68, 1.64, `Top ${idx + 1}`, { fill: idx === 0 ? COLORS.paleBlue : COLORS.white, shadow: false });
-    slide.addText(clip(row.name || row.title || '-', 64), { x: x + 0.25, y: 2.28, w: 3.18, h: 0.36, fontFace: 'Arial', bold: true, fontSize: 8.5, color: COLORS.ink, margin: 0, fit: 'shrink' });
-    slide.addText(fmtPct(row.interaction || row.ctr), { x: x + 0.25, y: 2.78, w: 1.45, h: 0.34, fontFace: 'Georgia', bold: true, fontSize: 21, color: COLORS.electricBlue, margin: 0, fit: 'shrink' });
-    slide.addText(`${fmtNum(row.clicks)} clics`, { x: x + 1.95, y: 2.88, w: 1.35, h: 0.18, fontFace: 'Arial', bold: true, fontSize: 8.5, color: COLORS.muted, margin: 0, fit: 'shrink', align: 'right' });
-    slide.addShape(pptx.ShapeType.rect, { x, y: 1.92, w: 3.68, h: 0.07, fill: { color: accent }, line: { color: accent } });
+  heroMetric(
+    slide,
+    0.72, 1.92, 4.40, 1.72,
+    'Top 1 por interacción',
+    fmtPct(best.interaction || best.ctr),
+    `${cleanText(best.name || best.title || 'Pieza líder')} · ${clicksLabel(best)} · ${fmtPct(best.open_rate)} apertura`,
+    COLORS.electricBlue,
+    { valueSize: 39, detailMax: 118, fill: COLORS.paleBlue, shadow: false }
+  );
+
+  byInteraction.slice(1, 3).forEach((row, idx) => {
+    const y = 1.92 + idx * 0.92;
+    const accent = idx === 0 ? COLORS.sky : COLORS.purple;
+    panel(slide, 5.40, y, 3.28, 0.72, `Top ${idx + 2}`, { fill: COLORS.white, shadow: false });
+    slide.addShape(pptx.ShapeType.rect, { x: 5.40, y, w: 0.07, h: 0.72, fill: { color: accent }, line: { color: accent } });
+    slide.addText(clip(row.name || row.title || '-', 54), { x: 5.60, y: y + 0.18, w: 2.05, h: 0.18, fontFace: 'Arial', bold: true, fontSize: 7.4, color: COLORS.ink, margin: 0, fit: 'shrink' });
+    slide.addText(fmtPct(row.interaction || row.ctr), { x: 7.70, y: y + 0.14, w: 0.74, h: 0.24, fontFace: 'Georgia', bold: true, fontSize: 15, color: COLORS.electricBlue, margin: 0, fit: 'shrink', align: 'right' });
+    slide.addText(clicksLabel(row), { x: 7.34, y: y + 0.43, w: 1.10, h: 0.12, fontFace: 'Arial', fontSize: 6.6, color: COLORS.muted, margin: 0, fit: 'shrink', align: 'right' });
   });
 
-  panel(slide, 0.72, 3.92, 7.05, 2.25, 'Interacción por pieza');
-  renderHorizontalBarChart(slide, 1.02, 4.43, 6.40, 1.32, byInteraction.map((row) => ({ label: row.name || row.title, value: parseNumber(row.interaction || row.ctr) })), { valueMode: 'percent', limit: 5, labelMax: 28, catSize: 7.2, dataSize: 7.2, colors: [COLORS.electricBlue, COLORS.sky, COLORS.grey2, COLORS.grey2, COLORS.grey2] });
-
-  panel(slide, 8.05, 3.92, 4.28, 2.25, 'So what', { fill: COLORS.paleCyan, shadow: false });
+  panel(slide, 8.96, 1.92, 3.38, 1.72, 'So what', { fill: COLORS.paleCyan, shadow: false });
   const bullets = [
-    `${clip(best.name || best.title || 'La pieza líder', 55)} combinó beneficio claro y alta respuesta.`,
-    `Usar ${fmtPct(p.by_open_rate?.[0]?.open_rate || best.open_rate)} de apertura como referencia aspiracional.`,
-    'Replicar llamados a la acción concretos en beneficios y servicios.',
+    `${cleanText(best.name || best.title || 'La pieza líder')} funcionó por beneficio concreto y urgencia clara.`,
+    `${fmtPct(best.open_rate || p.by_open_rate?.[0]?.open_rate)} de apertura marca referencia para próximos asuntos.`,
   ];
-  bulletList(slide, 8.34, 4.42, 3.58, bullets, { max: 110, step: 0.48, fontSize: 8.4, itemH: 0.36, bulletColor: COLORS.electricBlue });
+  bulletList(slide, 9.22, 2.38, 2.82, bullets, { max: 92, step: 0.46, fontSize: 7.8, itemH: 0.34, bulletColor: COLORS.cyan });
+
+  panel(slide, 0.72, 4.05, 11.62, 2.18, 'Ranking de interacción');
+  renderHorizontalBarChart(slide, 1.05, 4.58, 10.75, 1.30, byInteraction.map((row) => ({ label: row.name || row.title, value: parseNumber(row.interaction || row.ctr) })), { valueMode: 'percent', limit: 5, labelMax: 34, labelLines: 1, catSize: 7.5, dataSize: 7.5, labelWidth: 0.30, colors: [COLORS.electricBlue, COLORS.sky, COLORS.purple, COLORS.lime, COLORS.yellow] });
   finalizeSlide(slide);
 }
-
 
 function renderPullRanking(module) {
   const p = module.payload || {};
@@ -649,32 +717,30 @@ function renderPullRanking(module) {
   const rows = Array.isArray(p.top_pull_notes) ? p.top_pull_notes.slice(0, 5) : [];
   const best = rows[0] || {};
 
-  slide.addText(clip(best.title ? `Bienestar y servicios impulsan las lecturas del ecosistema pull.` : 'Ranking pull del período.', 112), { x: 0.72, y: 1.28, w: 10.8, h: 0.36, fontFace: 'Georgia', bold: true, fontSize: 19, color: COLORS.midnight, margin: 0, fit: 'shrink' });
-
-  metricTile(slide, 0.72, 1.92, 2.45, 0.88, 'Promedio lecturas/nota', fmtNum(p.average_reads_per_note), COLORS.cyan, { valueSize: 21 });
-  metricTile(slide, 3.42, 1.92, 2.45, 0.88, 'Vistas totales SITE', fmtNum(p.site_total_views), COLORS.sky, { valueSize: 21 });
+  slide.addText(clip(best.title ? 'Bienestar y servicios impulsan las lecturas del ecosistema pull.' : 'Ranking pull del período.', 112), { x: 0.72, y: 1.28, w: 10.8, h: 0.36, fontFace: 'Georgia', bold: true, fontSize: 19, color: COLORS.midnight, margin: 0, fit: 'shrink' });
 
   if (p.available === false && !rows.length) {
-    emptyState(slide, 0.72, 3.08, 11.62, 3.0, 'Ranking no disponible', cleanText(p.message || 'No se detectó ranking de notas en la fuente.'));
+    emptyState(slide, 0.72, 1.95, 11.62, 4.1, 'Ranking no disponible', cleanText(p.message || 'No se detectó ranking de notas en la fuente.'));
     finalizeSlide(slide);
     return;
   }
 
-  panel(slide, 0.72, 3.14, 7.25, 3.05, 'Top 5 notas por vistas');
-  renderHorizontalBarChart(slide, 1.04, 3.66, 6.58, 1.94, rows.map((row) => ({ label: row.title || row.name, value: parseNumber(row.total_reads || row.views) })), { valueMode: 'number', labelMax: 34, catSize: 7.1, dataSize: 7.1, colors: [COLORS.electricBlue, COLORS.sky, COLORS.grey2, COLORS.grey2, COLORS.grey2] });
+  panel(slide, 0.72, 1.90, 7.45, 4.35, 'Top 5 notas por vistas');
+  renderHorizontalBarChart(slide, 1.08, 2.48, 6.72, 2.90, rows.map((row) => ({ label: row.title || row.name, value: parseNumber(row.total_reads || row.views) })), { valueMode: 'number', labelMax: 33, labelLines: 2, catSize: 7.0, dataSize: 7.2, labelWidth: 0.48, colors: [COLORS.electricBlue, COLORS.sky, COLORS.purple, COLORS.lime, COLORS.yellow] });
 
-  panel(slide, 8.28, 1.92, 4.05, 4.27, 'Lectura ejecutiva', { fill: COLORS.paleBlue, shadow: false });
-  slide.addText(clip(best.title || 'Nota líder', 72), { x: 8.58, y: 2.42, w: 3.45, h: 0.56, fontFace: 'Georgia', bold: true, fontSize: 14, color: COLORS.electricBlue, margin: 0, fit: 'shrink' });
-  slide.addText(`${fmtNum(best.unique_reads || best.users)} usuarios únicos · ${fmtNum(best.total_reads || best.views)} vistas`, { x: 8.58, y: 3.14, w: 3.45, h: 0.20, fontFace: 'Arial', bold: true, fontSize: 8.5, color: COLORS.ink, margin: 0, fit: 'shrink' });
+  heroMetric(slide, 8.46, 1.90, 3.70, 1.16, 'Promedio lecturas/nota', fmtNum(p.average_reads_per_note), `${fmtNum(p.site_total_views)} vistas totales SITE`, COLORS.electricBlue, { valueSize: 29, detailMax: 88, fill: COLORS.paleBlue, shadow: false });
+
+  panel(slide, 8.46, 3.30, 3.70, 2.95, 'Lectura ejecutiva', { fill: COLORS.paleCyan, shadow: false });
+  slide.addText(clip(best.title || 'Nota líder', 88), { x: 8.76, y: 3.78, w: 3.10, h: 0.46, fontFace: 'Georgia', bold: true, fontSize: 12.5, color: COLORS.electricBlue, margin: 0, fit: 'shrink' });
+  slide.addText(`${fmtNum(best.unique_reads || best.users)} usuarios únicos · ${fmtNum(best.total_reads || best.views)} vistas`, { x: 8.76, y: 4.34, w: 3.10, h: 0.18, fontFace: 'Arial', bold: true, fontSize: 8.0, color: COLORS.ink, margin: 0, fit: 'shrink' });
   const bullets = [
-    'Los temas de bienestar funcionan como puerta de entrada al SITE.',
-    'El top pull debe alimentar próximos envíos segmentados.',
-    `La media de ${fmtNum(p.average_reads_per_note)} vistas permite detectar contenidos sobreperformers.`,
+    'Bienestar funciona como driver de tráfico al SITE.',
+    'El ranking pull puede alimentar próximos envíos segmentados.',
+    `${fmtNum(p.average_reads_per_note)} vistas por nota es la base para detectar sobreperformance.`,
   ];
-  bulletList(slide, 8.58, 3.74, 3.35, bullets, { max: 104, step: 0.50, fontSize: 8.4, itemH: 0.36, bulletColor: COLORS.sky });
+  bulletList(slide, 8.76, 4.82, 3.05, bullets, { max: 90, step: 0.38, fontSize: 7.8, itemH: 0.30, bulletColor: COLORS.sky });
   finalizeSlide(slide);
 }
-
 
 function renderMilestones(module) {
   const p = module.payload || {};
@@ -703,27 +769,48 @@ function renderMilestones(module) {
   finalizeSlide(slide);
 }
 
+function actionItems(source, defaults, limit) {
+  const items = Array.isArray(source) ? source.map((item) => shortSentence(item, 92)).filter(Boolean) : [];
+  const usable = items.filter((item) => item.length <= 96 && !/(\bde\.?$|\bpara\.?$|\bcon\.?$|\by\.?$)/i.test(item));
+  return (usable.length ? usable : defaults).slice(0, limit);
+}
+
 function renderRecommendations(module) {
   const p = module.payload || {};
-  const recs = bulletize(p.recommendations || p.items, 'Sostener formatos de alto rendimiento y testear mejoras de segmentación.').slice(0, 4);
-  const experiments = bulletize(p.experiments, 'Probar asunto A/B en mails de beneficios y medir lift de apertura.').slice(0, 3);
-  const plan = bulletize(p.action_plan || p.plan, 'Definir foco editorial, ajustar segmentación y revisar resultados en el próximo cierre.').slice(0, 4);
+  const recs = actionItems(p.recommendations || p.items, [
+    'Replicar campañas de beneficios con CTA directo.',
+    'Usar SITE para ampliar temas de bienestar y servicio.',
+    'Balancear Innovación con ejes subrepresentados.',
+  ], 3);
+  const experiments = actionItems(p.experiments, [
+    'Probar dos asuntos en una campaña de beneficios.',
+    'Testear horario de envío en comunicaciones no urgentes.',
+    'Vincular mail y nota SITE para medir tráfico incremental.',
+  ], 3);
+  const plan = actionItems(p.action_plan || p.plan, [
+    'Cerrar calendario editorial de febrero con foco por eje.',
+    'Revisar segmentación junto a Talento y Cultura.',
+    'Auditar mails de baja interacción y ajustar CTA.',
+  ], 3);
   const slide = baseSlide(module.title || 'Conclusiones y próximos pasos', 'Plan de mejora');
 
-  slide.addText('Qué haría el equipo el mes que viene', { x: 0.72, y: 1.34, w: 8.5, h: 0.34, fontFace: 'Georgia', bold: true, fontSize: 21, color: COLORS.midnight, margin: 0, fit: 'shrink' });
-  paragraph(slide, 0.74, 1.82, 7.45, 0.52, cleanText(p.summary || p.message || 'Plan accionable construido a partir de performance de canales, rankings y distribución temática.'), { max: 220, fontSize: 9.8 });
+  slide.addText('Plan 30 días: foco, prueba y seguimiento', { x: 0.72, y: 1.30, w: 9.0, h: 0.36, fontFace: 'Georgia', bold: true, fontSize: 21, color: COLORS.midnight, margin: 0, fit: 'shrink' });
+  slide.addText(shortSentence(p.summary || p.message || 'Priorizar beneficios, bienestar y segmentación para sostener engagement.', 130), { x: 0.74, y: 1.80, w: 8.2, h: 0.24, fontFace: 'Arial', fontSize: 9.2, color: COLORS.muted, margin: 0, fit: 'shrink' });
 
-  panel(slide, 0.72, 2.58, 3.8, 3.38, 'Recomendaciones');
-  bulletList(slide, 1.0, 3.06, 3.18, recs, { limit: 4, step: 0.55, max: 82, fontSize: 8.6, bulletColor: COLORS.cyan });
+  const blocks = [
+    { title: 'Quick wins', items: recs, color: COLORS.electricBlue, fill: COLORS.paleBlue },
+    { title: 'Experimentos', items: experiments, color: COLORS.lime, fill: COLORS.paleLime },
+    { title: 'Plan 30 días', items: plan, color: COLORS.orange, fill: COLORS.paleYellow },
+  ];
+  blocks.forEach((block, idx) => {
+    const x = 0.72 + idx * 4.02;
+    panel(slide, x, 2.36, 3.58, 3.55, block.title, { fill: block.fill, shadow: false, headerColor: block.color });
+    slide.addShape(pptx.ShapeType.rect, { x, y: 2.36, w: 3.58, h: 0.08, fill: { color: block.color }, line: { color: block.color } });
+    bulletList(slide, x + 0.28, 2.98, 3.02, block.items, { limit: 3, step: 0.68, max: 86, fontSize: 8.7, itemH: 0.48, bulletColor: block.color });
+  });
 
-  panel(slide, 4.82, 2.58, 3.8, 3.38, 'Experimentos');
-  bulletList(slide, 5.1, 3.06, 3.18, experiments, { limit: 3, step: 0.64, max: 82, fontSize: 8.6, bulletColor: COLORS.lime });
-
-  panel(slide, 8.92, 2.58, 3.42, 3.38, 'Plan 30 días', { fill: COLORS.paleBlue });
-  bulletList(slide, 9.2, 3.06, 2.84, plan, { limit: 4, step: 0.55, max: 70, fontSize: 8.4, bulletColor: COLORS.electricBlue });
-
-  slide.addShape(pptx.ShapeType.roundRect, { x: 0.72, y: 6.32, w: 11.62, h: 0.38, rectRadius: 0.06, fill: { color: COLORS.midnight }, line: { color: COLORS.midnight } });
-  slide.addText(cleanText(p.owner_note || 'Seguimiento sugerido: comparar apertura, interacción y vistas por nota contra el período anterior, evitando cambios de criterio de fuente.'), { x: 0.98, y: 6.44, w: 11.06, h: 0.12, fontFace: 'Arial', fontSize: 7.8, bold: true, color: COLORS.white, margin: 0, fit: 'shrink' });
+  slide.addShape(pptx.ShapeType.roundRect, { x: 0.72, y: 6.27, w: 11.62, h: 0.46, rectRadius: 0.06, fill: { color: COLORS.midnight }, line: { color: COLORS.midnight } });
+  slide.addText(shortSentence(p.owner_note || 'Seguimiento: apertura, interacción, vistas por nota, ranking de campañas y balance temático.', 150), { x: 0.98, y: 6.43, w: 11.02, h: 0.14, fontFace: 'Arial', fontSize: 7.8, bold: true, color: COLORS.white, margin: 0, fit: 'shrink' });
   finalizeSlide(slide);
 }
 

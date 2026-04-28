@@ -30,9 +30,18 @@ Pipeline end-to-end para generar un **reporte mensual ejecutivo** a partir de da
 - No se anexa la plantilla completa.
 - No se muestran títulos técnicos internos (`slide_*`).
 - No se renderizan slides vacías.
+- Cada slide prioriza: 1 insight central, 1 visual dominante y bullets cerrados sin puntos suspensivos.
+- Los rankings se muestran como cards + gráfico; las distribuciones se muestran como donut o barras horizontales.
 - Módulo de **eventos** es condicional:
   - si no hay data suficiente, se omite.
 - Si no hay comparabilidad histórica, se informa: **“No comparable por alcance de fuente”**.
+
+## Guardrails de calidad de datos
+
+- Si un mail rankea con interacción alta pero trae `0 clics`, el pipeline agrega warning de inconsistencia.
+- Las áreas solicitantes se extraen como categorías separadas: por ejemplo, `Client Solutions` y `Engineering & Data` no se fusionan.
+- Los títulos de mails se normalizan reemplazando guiones bajos, reconstruyendo nombres truncados y evitando títulos con puntos suspensivos.
+- Las slides vacías se omiten automáticamente salvo que exista contexto manual.
 
 ## Contrato mensual esperado
 

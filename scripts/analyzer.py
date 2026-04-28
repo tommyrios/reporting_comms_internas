@@ -435,6 +435,15 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
         validation_warnings.append(f"mail_open_rate fuera de rango: {mail_open_rate}")
     if mail_interaction_rate < 0 or mail_interaction_rate > 100:
         validation_warnings.append(f"mail_interaction_rate fuera de rango: {mail_interaction_rate}")
+    for row in top_push_by_interaction + top_push_by_open_rate:
+        if _to_int(row.get("clicks", 0)) == 0 and _normalize_pct(row.get("interaction", 0)) >= 20:
+            validation_warnings.append(
+                f"Ranking push con interacción alta y 0 clics: {row.get('name', 'sin título')}"
+            )
+        if _normalize_pct(row.get("open_rate", 0)) > 0 and _normalize_pct(row.get("interaction", 0)) > _normalize_pct(row.get("open_rate", 0)) + 10:
+            validation_warnings.append(
+                f"Ranking push con interacción mayor a apertura: {row.get('name', 'sin título')}"
+            )
     if strategic_axes_is_distribution or internal_clients_is_distribution or channel_mix_is_distribution or format_mix_is_distribution:
         validation_warnings.append("Mixes consolidados como promedio de distribución mensual (no suma directa)")
  

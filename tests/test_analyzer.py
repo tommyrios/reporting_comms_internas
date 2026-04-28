@@ -137,6 +137,41 @@ class AnalyzerTests(unittest.TestCase):
         self.assertEqual(kpis["calculated_totals"]["mail_open_rate"], 73.07)
         self.assertEqual(kpis["calculated_totals"]["mail_interaction_rate"], 8.25)
 
+    def test_compute_kpis_flags_push_ranking_with_high_interaction_and_zero_clicks(self):
+        summaries = [
+            {
+                "month": "2026-01",
+                "plan_total": 10,
+                "site_notes_total": 2,
+                "site_total_views": 100,
+                "mail_total": 10,
+                "mail_open_rate": 80,
+                "mail_interaction_rate": 12,
+                "strategic_axes": [],
+                "internal_clients": [],
+                "channel_mix": [],
+                "format_mix": [],
+                "top_push_by_interaction": [{"name": "Mail líder", "clicks": 0, "interaction": 73.07, "open_rate": 93.27}],
+                "top_push_by_open_rate": [],
+                "top_pull_notes": [],
+                "hitos": [],
+                "events": [],
+                "quality_flags": {
+                    "scope_country": "AR",
+                    "scope_mixed": False,
+                    "site_has_no_data_sections": False,
+                    "events_summary_available": False,
+                    "push_ranking_available": True,
+                    "pull_ranking_available": False,
+                    "historical_comparison_allowed": True,
+                },
+            }
+        ]
+
+        kpis = compute_kpis(summaries)
+        warnings = " | ".join(kpis["validation"]["warnings"])
+        self.assertIn("interacción alta y 0 clics", warnings)
+
     def test_compute_kpis_uses_distribution_average_for_mix(self):
         summaries = [
             {
