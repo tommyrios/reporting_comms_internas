@@ -1,12 +1,12 @@
 from __future__ import annotations
-
+ 
 from collections import defaultdict
 from copy import deepcopy
 from typing import Any
-
+ 
 from metric_utils import normalize_percentage, to_float_locale
-
-
+ 
+ 
 REQUIRED_MONTHLY_FIELDS = {
     "plan_total",
     "site_notes_total",
@@ -25,7 +25,7 @@ REQUIRED_MONTHLY_FIELDS = {
     "events",
     "quality_flags",
 }
-
+ 
 REQUIRED_QUALITY_FLAGS = {
     "scope_country",
     "scope_mixed",
@@ -35,7 +35,7 @@ REQUIRED_QUALITY_FLAGS = {
     "pull_ranking_available",
     "historical_comparison_allowed",
 }
-
+ 
 BASE_STRUCTURE: dict[str, Any] = {
     "period": {"slug": "-", "label": "-"},
     "kpis": {},
@@ -43,11 +43,11 @@ BASE_STRUCTURE: dict[str, Any] = {
     "quality_flags": {},
     "render_plan": {"modules": []},
 }
-
+ 
 PLAN_MAIL_ABS_DELTA_THRESHOLD = 5
 PLAN_MAIL_REL_DELTA_THRESHOLD = 0.5
-
-
+ 
+ 
 def _to_int(value: Any, default: int = 0) -> int:
     if value in (None, "", "-"):
         return default
@@ -68,14 +68,14 @@ def _to_int(value: Any, default: int = 0) -> int:
     except Exception:
         digits = "".join(ch for ch in str(value) if ch.isdigit())
         return int(digits) if digits else default
-
-
+ 
+ 
 def _to_float(value: Any, default: float = 0.0) -> float:
     if value in (None, "", "-"):
         return default
     return to_float_locale(value, default)
-
-
+ 
+ 
 def _clean_title(value: Any, max_len: int = 90) -> str:
     text = str(value or "").replace("_", " ").replace("|", " ").strip()
     text = " ".join(text.split())
@@ -84,12 +84,12 @@ def _clean_title(value: Any, max_len: int = 90) -> str:
     if len(text) <= max_len:
         return text
     return text[: max_len - 1].rstrip() + "…"
-
-
+ 
+ 
 def _normalize_pct(value: Any) -> float:
     return normalize_percentage(value)
-
-
+ 
+ 
 def _normalize_weighted_list(items: Any, label_keys: list[str], value_keys: list[str]) -> list[dict[str, Any]]:
     if not isinstance(items, list):
         return []
@@ -111,15 +111,15 @@ def _normalize_weighted_list(items: Any, label_keys: list[str], value_keys: list
                 break
         rows.append({"label": _clean_title(label, 48), "value": round(value, 2)})
     return rows
-
-
+ 
+ 
 def _infer_quality_flags(summary: dict[str, Any]) -> dict[str, Any]:
     source = summary.get("quality_flags") if isinstance(summary.get("quality_flags"), dict) else {}
     events = summary.get("events") if isinstance(summary.get("events"), list) else []
     top_push_i = summary.get("top_push_by_interaction") if isinstance(summary.get("top_push_by_interaction"), list) else []
     top_push_o = summary.get("top_push_by_open_rate") if isinstance(summary.get("top_push_by_open_rate"), list) else []
     top_pull = summary.get("top_pull_notes") if isinstance(summary.get("top_pull_notes"), list) else []
-
+ 
     flags = {
         "scope_country": str(source.get("scope_country") or "AR").strip() or "AR",
         "scope_mixed": bool(source.get("scope_mixed", False)),
@@ -130,18 +130,18 @@ def _infer_quality_flags(summary: dict[str, Any]) -> dict[str, Any]:
         "historical_comparison_allowed": bool(source.get("historical_comparison_allowed", True)),
     }
     return flags
-
-
+ 
+ 
 def normalize_monthly_summary(summary: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(summary, dict):
         raise ValueError("monthly summary debe ser objeto JSON")
-
+ 
     data = summary.get("data") if isinstance(summary.get("data"), dict) else {}
     insights = summary.get("insights") if isinstance(summary.get("insights"), dict) else {}
-
+ 
     top_push_legacy = insights.get("top_push_comm") if isinstance(insights.get("top_push_comm"), dict) else {}
     top_pull_legacy = insights.get("top_pull_note") if isinstance(insights.get("top_pull_note"), dict) else {}
-
+ 
     normalized = {
         "month": str(summary.get("month") or "-").strip(),
         "plan_total": _to_int(summary.get("plan_total", data.get("push_volume", summary.get("mail_total", 0)))),
@@ -163,8 +163,8 @@ def normalize_monthly_summary(summary: dict[str, Any]) -> dict[str, Any]:
     }
     normalized["quality_flags"] = _infer_quality_flags({**summary, **normalized})
     return normalized
-
-
+ 
+ 
 def validate_monthly_summary_contract(summary: dict[str, Any]) -> dict[str, Any]:
     source_keys = set(summary.keys()) if isinstance(summary, dict) else set()
     has_full_contract = REQUIRED_MONTHLY_FIELDS.issubset(source_keys)
@@ -172,20 +172,20 @@ def validate_monthly_summary_contract(summary: dict[str, Any]) -> dict[str, Any]
     if not has_full_contract and not has_legacy_contract:
         missing = sorted(REQUIRED_MONTHLY_FIELDS - source_keys)
         raise ValueError(f"Contrato mensual incompleto, faltan campos: {', '.join(missing)}")
-
+ 
     normalized = normalize_monthly_summary(summary)
-
+ 
     if not normalized.get("month") or normalized["month"] == "-":
         raise ValueError("Contrato mensual inválido: falta campo month")
-
+ 
     quality_flags = normalized.get("quality_flags", {})
     missing_flags = [key for key in REQUIRED_QUALITY_FLAGS if key not in quality_flags]
     if missing_flags:
         raise ValueError(f"quality_flags incompleto, faltan: {', '.join(sorted(missing_flags))}")
-
+ 
     return normalized
-
-
+ 
+ 
 def _aggregate_weighted(items_by_month: list[list[dict[str, Any]]], label_key: str = "label") -> list[dict[str, Any]]:
     totals: dict[str, float] = defaultdict(float)
     for items in items_by_month:
@@ -202,8 +202,8 @@ def _aggregate_weighted(items_by_month: list[list[dict[str, Any]]], label_key: s
     rows = [{"label": key, "value": round(val, 2)} for key, val in totals.items()]
     rows.sort(key=lambda row: row["value"], reverse=True)
     return rows
-
-
+ 
+ 
 def _looks_like_distribution(items: Any) -> bool:
     if not isinstance(items, list) or not items:
         return False
@@ -217,13 +217,13 @@ def _looks_like_distribution(items: Any) -> bool:
         return False
     total = sum(values)
     return 95 <= total <= 105
-
-
+ 
+ 
 def _aggregate_distribution(items_by_month: list[list[dict[str, Any]]], label_key: str = "label") -> tuple[list[dict[str, Any]], bool]:
     monthly_distributions = [items for items in items_by_month if _looks_like_distribution(items)]
     if not monthly_distributions:
         return _aggregate_weighted(items_by_month, label_key=label_key), False
-
+ 
     values_by_label: dict[str, list[float]] = defaultdict(list)
     for month_items in monthly_distributions:
         total = sum(_to_float(item.get("value", item.get("weight", 0)), 0.0) for item in month_items if isinstance(item, dict)) or 1.0
@@ -235,20 +235,20 @@ def _aggregate_distribution(items_by_month: list[list[dict[str, Any]]], label_ke
                 continue
             value = _to_float(item.get("value", item.get("weight", 0)), 0.0)
             values_by_label[_clean_title(label, 52)].append((value / total) * 100)
-
+ 
     rows = [{"label": label, "value": round(sum(values) / len(values), 2)} for label, values in values_by_label.items() if values]
     rows.sort(key=lambda row: row["value"], reverse=True)
     return rows, True
-
-
+ 
+ 
 def _has_significant_plan_mail_delta(plan_total: int, mail_total: int) -> bool:
     relative_base = max(plan_total, mail_total)
     return abs(plan_total - mail_total) > max(
         PLAN_MAIL_ABS_DELTA_THRESHOLD,
         int(relative_base * PLAN_MAIL_REL_DELTA_THRESHOLD),
     )
-
-
+ 
+ 
 def _top_push(summary_rows: list[dict[str, Any]], source_key: str, value_key: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for row in summary_rows:
@@ -270,8 +270,8 @@ def _top_push(summary_rows: list[dict[str, Any]], source_key: str, value_key: st
     for item in rows:
         item.pop("_sort", None)
     return rows[:5]
-
-
+ 
+ 
 def _top_pull(summary_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for row in summary_rows:
@@ -286,24 +286,24 @@ def _top_pull(summary_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             })
     rows.sort(key=lambda item: (item.get("unique_reads", 0), item.get("total_reads", 0)), reverse=True)
     return rows[:5]
-
-
+ 
+ 
 def _safe_change(current: float, previous: float, comparable: bool) -> str:
     if not comparable:
         return "No comparable por alcance de fuente"
     if not previous:
         return "Sin datos previos"
     return f"{round(((current - previous) / previous) * 100, 1)}%"
-
-
+ 
+ 
 def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
     normalized_rows = [validate_monthly_summary_contract(summary) for summary in monthly_summaries]
-
+ 
     plan_total = sum(_to_int(row.get("plan_total")) for row in normalized_rows)
     site_notes_total = sum(_to_int(row.get("site_notes_total")) for row in normalized_rows)
     site_total_views = sum(_to_int(row.get("site_total_views")) for row in normalized_rows)
     mail_total = sum(_to_int(row.get("mail_total")) for row in normalized_rows)
-
+ 
     weighted_open_num = 0.0
     weighted_inter_num = 0.0
     weighted_den = 0
@@ -314,10 +314,10 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
         weighted_open_num += _normalize_pct(row.get("mail_open_rate")) * row_mail_total
         weighted_inter_num += _normalize_pct(row.get("mail_interaction_rate")) * row_mail_total
         weighted_den += row_mail_total
-
+ 
     mail_open_rate = round(weighted_open_num / weighted_den, 2) if weighted_den else 0.0
     mail_interaction_rate = round(weighted_inter_num / weighted_den, 2) if weighted_den else 0.0
-
+ 
     strategic_axes, strategic_axes_is_distribution = _aggregate_distribution([row.get("strategic_axes", []) for row in normalized_rows])
     internal_clients, internal_clients_is_distribution = _aggregate_distribution([row.get("internal_clients", []) for row in normalized_rows])
     channel_mix, channel_mix_is_distribution = _aggregate_distribution([row.get("channel_mix", []) for row in normalized_rows])
@@ -326,11 +326,11 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
     internal_clients = internal_clients[:6]
     channel_mix = channel_mix[:6]
     format_mix = format_mix[:6]
-
+ 
     top_push_by_interaction = _top_push(normalized_rows, "top_push_by_interaction", "interaction")
     top_push_by_open_rate = _top_push(normalized_rows, "top_push_by_open_rate", "open_rate")
     top_pull_notes = _top_pull(normalized_rows)
-
+ 
     hitos: list[dict[str, Any]] = []
     events: list[dict[str, Any]] = []
     quality_flags = deepcopy(normalized_rows[-1].get("quality_flags", {})) if normalized_rows else {}
@@ -341,7 +341,7 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
     pull_ranking_available = False
     events_available = False
     historical_allowed = True
-
+ 
     for row in normalized_rows:
         for hito in row.get("hitos", []) or []:
             if not isinstance(hito, dict):
@@ -372,7 +372,7 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
                 "date": str(event.get("date") or row.get("month") or ""),
                 "description": _clean_title(event.get("description"), 140),
             })
-
+ 
         row_flags = row.get("quality_flags", {})
         scope_country_values.add(str(row_flags.get("scope_country") or "AR"))
         scope_mixed = scope_mixed or bool(row_flags.get("scope_mixed", False))
@@ -381,12 +381,12 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
         pull_ranking_available = pull_ranking_available or bool(row_flags.get("pull_ranking_available", False))
         events_available = events_available or bool(row_flags.get("events_summary_available", False))
         historical_allowed = historical_allowed and bool(row_flags.get("historical_comparison_allowed", True))
-
+ 
     if len(scope_country_values) > 1:
         scope_country = ",".join(sorted(scope_country_values))
     else:
         scope_country = next(iter(scope_country_values), "AR")
-
+ 
     quality_flags.update({
         "scope_country": scope_country,
         "scope_mixed": scope_mixed or len(scope_country_values) > 1,
@@ -396,11 +396,11 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
         "pull_ranking_available": pull_ranking_available and bool(top_pull_notes),
         "historical_comparison_allowed": historical_allowed and not (scope_mixed or len(scope_country_values) > 1),
     })
-
+ 
     events.sort(key=lambda item: item.get("participants", 0), reverse=True)
     total_events = len(events)
     total_event_participants = sum(item.get("participants", 0) for item in events)
-
+ 
     push_timeline = [{"label": row.get("month"), "value": row.get("mail_total", 0)} for row in normalized_rows]
     pull_timeline = [{"label": row.get("month"), "value": row.get("site_notes_total", 0)} for row in normalized_rows]
     latest_push = _to_int(push_timeline[-1]["value"]) if push_timeline else 0
@@ -416,7 +416,7 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
         validation_warnings.append(f"mail_interaction_rate fuera de rango: {mail_interaction_rate}")
     if strategic_axes_is_distribution or internal_clients_is_distribution or channel_mix_is_distribution or format_mix_is_distribution:
         validation_warnings.append("Mixes consolidados como promedio de distribución mensual (no suma directa)")
-
+ 
     return {
         "monthly_contract": normalized_rows,
         "quality_flags": quality_flags,
@@ -480,8 +480,8 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
             },
         },
     }
-
-
+ 
+ 
 def build_render_plan(period: dict[str, Any], kpis: dict[str, Any], narrative: dict[str, Any]) -> dict[str, Any]:
     totals = kpis.get("calculated_totals", {})
     mixes = kpis.get("mixes", {})
@@ -489,12 +489,13 @@ def build_render_plan(period: dict[str, Any], kpis: dict[str, Any], narrative: d
     flags = kpis.get("quality_flags", {})
     hitos = kpis.get("hitos", [])
     events = kpis.get("events", [])
-
+ 
     overview_module = {
         "key": "executive_summary",
         "title": "Resumen ejecutivo del período",
         "payload": {
-            "headline": "Resumen ejecutivo del período",
+            "headline": narrative.get("executive_headline") or narrative.get("executive_summary") or "Resumen ejecutivo del período",
+            "executive_headline": narrative.get("executive_headline", ""),
             "plan_total": totals.get("plan_total", 0),
             "site_notes_total": totals.get("site_notes_total", 0),
             "site_total_views": totals.get("site_total_views", 0),
@@ -506,7 +507,7 @@ def build_render_plan(period: dict[str, Any], kpis: dict[str, Any], narrative: d
             "takeaways": (narrative.get("executive_takeaways") if isinstance(narrative.get("executive_takeaways"), list) else [])[:3],
         },
     }
-
+ 
     modules = [
         overview_module,
         {
@@ -565,7 +566,7 @@ def build_render_plan(period: dict[str, Any], kpis: dict[str, Any], narrative: d
             },
         },
     ]
-
+ 
     if flags.get("events_summary_available") and events:
         modules.append(
             {
@@ -579,9 +580,9 @@ def build_render_plan(period: dict[str, Any], kpis: dict[str, Any], narrative: d
                 },
             }
         )
-
+ 
     modules = [module for module in modules if isinstance(module, dict) and module.get("payload") is not None]
-
+ 
     return {
         "template_mode": "frame",
         "period": {
@@ -591,8 +592,8 @@ def build_render_plan(period: dict[str, Any], kpis: dict[str, Any], narrative: d
         "quality_flags": flags,
         "modules": modules,
     }
-
-
+ 
+ 
 def validate_report_json(report: Any) -> dict[str, Any]:
     if not isinstance(report, dict):
         return deepcopy(BASE_STRUCTURE)
@@ -605,3 +606,4 @@ def validate_report_json(report: Any) -> dict[str, Any]:
     if not isinstance(merged["render_plan"].get("modules"), list):
         merged["render_plan"]["modules"] = []
     return merged
+ 

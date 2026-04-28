@@ -290,11 +290,29 @@ function markSafeZone(slide, subtitle) {
 function baseSlide(title, subtitle = '') {
   const slide = pptx.addSlide();
   slide.background = { color: COLORS.sand };
-  addLogo(slide);
-  markSafeZone(slide, subtitle);
+
+  // Logo — top right, blue version, matches official template interior slides
+  const blueLogo = resolveAsset(BBVA_LOGO_BLUE);
+  if (blueLogo) {
+    slide.addImage({ path: blueLogo, ...imageSizingContain(blueLogo, 11.92, 0.22, 1.2, 0.32) });
+  } else {
+    slide.addText('BBVA', { x: 12.1, y: 0.22, w: 0.9, h: 0.24, align: 'right', bold: true, color: COLORS.electricBlue, fontFace: 'Lato', fontSize: 14, margin: 0 });
+  }
+
+  // Breadcrumb — "Comunicaciones Internas / SECTION" — Lato 8.5, grey4
+  if (subtitle) {
+    slide.addText(`Comunicaciones Internas  /  ${cleanText(subtitle)}`, {
+      x: 0.62, y: 0.22, w: 10.8, h: 0.18,
+      fontFace: 'Lato', fontSize: 8.5, color: COLORS.grey4, margin: 0,
+    });
+  }
+
+  // Title — Source Serif 4 Bold, Electric Blue
   slide.addText(cleanText(title, 'Reporte ejecutivo'), {
-    x: 0.62, y: 0.52, w: 8.7, h: 0.46, fontFace: 'Source Serif 4', bold: true, fontSize: 24, color: COLORS.electricBlue, margin: 0, breakLine: false,
+    x: 0.62, y: 0.52, w: 10.8, h: 0.52,
+    fontFace: 'Source Serif 4', bold: true, fontSize: 26, color: COLORS.electricBlue, margin: 0, breakLine: false,
   });
+
   return slide;
 }
 
@@ -316,8 +334,8 @@ function panel(slide, x, y, w, h, header = '', options = {}) {
 function card(slide, x, y, w, h, label, value, accent = COLORS.sereneBlue, options = {}) {
   panel(slide, x, y, w, h, '', { fill: options.fill || COLORS.white });
   slide.addShape(pptx.ShapeType.rect, { x, y, w, h: 0.06, fill: { color: accent }, line: { color: accent } });
-  slide.addText(cleanText(label), { x: x + 0.12, y: y + 0.14, w: w - 0.24, h: 0.14, fontFace: 'Lato', fontSize: options.labelSize || 8.5, color: COLORS.grey4, margin: 0, fit: 'shrink' });
-  slide.addText(String(value ?? '-'), { x: x + 0.12, y: y + 0.33, w: w - 0.24, h: 0.25, fontFace: 'Source Serif 4', bold: true, fontSize: options.valueSize || 18, color: COLORS.electricBlue, margin: 0, fit: 'shrink' });
+  slide.addText(cleanText(label), { x: x + 0.12, y: y + 0.14, w: w - 0.24, h: 0.16, fontFace: 'Lato', fontSize: options.labelSize || 9, color: COLORS.grey4, margin: 0, fit: 'shrink' });
+  slide.addText(String(value ?? '-'), { x: x + 0.12, y: y + 0.34, w: w - 0.24, h: 0.52, fontFace: 'Source Serif 4', bold: true, fontSize: options.valueSize || 28, color: COLORS.electricBlue, margin: 0, fit: 'shrink' });
 }
 
 function emptyState(slide, x, y, w, h, message, options = {}) {
@@ -512,7 +530,15 @@ function renderLegend(slide, x, y, w, rows, options = {}) {
   });
 }
 
+let _slideCounter = 0;
+
 function finalizeSlide(slide) {
+  _slideCounter++;
+  // Page number — bottom right, Lato 8.5, grey4 — matches official template
+  slide.addText(`p. ${_slideCounter}`, {
+    x: 12.4, y: 7.22, w: 0.7, h: 0.18,
+    fontFace: 'Lato', fontSize: 8.5, color: COLORS.grey4, align: 'right', margin: 0,
+  });
   if (!SHOULD_WARN_LAYOUT) return;
   warnIfSlideHasOverlaps(slide);
   warnIfSlideElementsOutOfBounds(slide, pptx);
@@ -530,11 +556,12 @@ function renderExecutiveSummary(module) {
     ['Interacción', fmtPct(p.mail_interaction_rate), COLORS.ice],
   ];
   kpis.forEach((item, idx) => {
-    card(slide, 0.62 + idx * 2.03, 1.35, idx >= 4 ? 1.75 : 1.86, 0.98, item[0], item[1], item[2], { valueSize: idx >= 4 ? 17 : 18 });
+    card(slide, 0.62 + idx * 2.03, 1.30, idx >= 4 ? 1.75 : 1.86, 1.08, item[0], item[1], item[2], { valueSize: idx >= 4 ? 24 : 28 });
   });
 
   panel(slide, 0.62, 2.62, 7.35, 3.72, 'Mensaje clave');
-  paragraphBlock(slide, 0.9, 3.05, 6.78, 1.18, buildExecutiveMessage(p), { fontFace: 'Source Serif 4', fontSize: 18.5, bold: true, max: 260, color: COLORS.midnight });
+  const headline = cleanText(p.headline || p.executive_headline || buildExecutiveMessage(p));
+  paragraphBlock(slide, 0.9, 3.0, 6.78, 1.4, headline, { fontFace: 'Source Serif 4', fontSize: 17, bold: true, max: 280, color: COLORS.midnight });
 
   notePill(slide, 0.9, 4.55, 6.76, `Período: ${periodLabel()} · Fuente: dashboard mensual consolidado`);
   paragraphBlock(slide, 0.9, 5.18, 6.76, 0.62, 'Lectura basada en KPIs extraídos y validados de forma determinística para reducir dependencia de narrativa generativa.', { fontSize: 10.2, color: COLORS.grey4, max: 150 });
@@ -904,12 +931,40 @@ function renderFullCover() {
   const s = report?.period || report?.slide_1_cover || {};
   const slide = pptx.addSlide();
   slide.background = { color: COLORS.electricBlue };
+
+  // Logo white — top left, same position as official template
   const whiteLogo = resolveAsset(BBVA_LOGO_WHITE);
-  if (whiteLogo) slide.addImage({ path: whiteLogo, ...imageSizingContain(whiteLogo, 10.9, 0.45, 1.25, 0.42) });
-  slide.addShape(pptx.ShapeType.rect, { x: 0.0, y: 0, w: 0.16, h: 7.5, fill: { color: COLORS.sereneBlue }, line: { color: COLORS.sereneBlue } });
-  slide.addText(cleanText(s.label || s.period || periodLabel()), { x: 0.8, y: 2.58, w: 6.4, h: 0.6, fontFace: 'Source Serif 4', bold: true, fontSize: 35, color: COLORS.white, margin: 0 });
-  slide.addText('Comunicaciones Internas', { x: 0.8, y: 3.43, w: 8, h: 0.4, fontFace: 'Lato', fontSize: 16, color: COLORS.white, margin: 0 });
-  slide.addText('Informe ejecutivo mensual', { x: 0.8, y: 3.9, w: 8, h: 0.32, fontFace: 'Lato', fontSize: 11, color: COLORS.sereneBlue, margin: 0 });
+  if (whiteLogo) {
+    slide.addImage({ path: whiteLogo, ...imageSizingContain(whiteLogo, 0.62, 0.38, 1.48, 0.52) });
+  } else {
+    slide.addText('BB\u0056\u0041', { x: 0.62, y: 0.38, w: 1.6, h: 0.52, fontFace: 'Lato', bold: true, fontSize: 22, color: COLORS.white, margin: 0 });
+  }
+
+  // Date / supertitle — Lato, small, white
+  slide.addText(cleanText(s.label || s.period || periodLabel()), {
+    x: 0.62, y: 3.48, w: 5.6, h: 0.44,
+    fontFace: 'Lato', fontSize: 14, bold: false, color: COLORS.white, margin: 0,
+  });
+
+  // Horizontal divider line — like official template
+  slide.addShape(pptx.ShapeType.line, {
+    x: 0.62, y: 4.06, w: 12.1, h: 0,
+    line: { color: COLORS.white, width: 0.5, transparency: 60 },
+  });
+
+  // Main title — Source Serif 4, large, white, bottom half
+  slide.addText('Comunicaciones\nInternas', {
+    x: 0.62, y: 4.28, w: 9.8, h: 2.58,
+    fontFace: 'Source Serif 4', bold: true, fontSize: 60,
+    color: COLORS.white, margin: 0, breakLine: true,
+  });
+
+  // Subtitle
+  slide.addText('Informe de gestión mensual', {
+    x: 0.62, y: 7.12, w: 7, h: 0.24,
+    fontFace: 'Lato', fontSize: 10, color: COLORS.sereneBlue, margin: 0,
+  });
+
   finalizeSlide(slide);
 }
 
@@ -917,10 +972,15 @@ function renderFullClosing() {
   const slide = pptx.addSlide();
   slide.background = { color: COLORS.electricBlue };
   const whiteLogo = resolveAsset(BBVA_LOGO_WHITE);
-  if (whiteLogo) slide.addImage({ path: whiteLogo, ...imageSizingContain(whiteLogo, 10.9, 0.45, 1.25, 0.42) });
-  slide.addShape(pptx.ShapeType.rect, { x: 0.0, y: 0, w: 0.16, h: 7.5, fill: { color: COLORS.sereneBlue }, line: { color: COLORS.sereneBlue } });
-  slide.addText('Fin del informe', { x: 0.8, y: 3.1, w: 6, h: 0.5, fontFace: 'Source Serif 4', bold: true, fontSize: 30, color: COLORS.white, margin: 0 });
-  slide.addText(periodLabel(), { x: 0.8, y: 3.7, w: 4, h: 0.25, fontFace: 'Lato', fontSize: 11, color: COLORS.sereneBlue, margin: 0 });
+  if (whiteLogo) {
+    slide.addImage({ path: whiteLogo, ...imageSizingContain(whiteLogo, 5.67, 3.08, 1.99, 0.68) });
+  } else {
+    slide.addText('BBVA', { x: 5.67, y: 3.08, w: 1.99, h: 0.68, fontFace: 'Lato', bold: true, fontSize: 28, color: COLORS.white, align: 'center', margin: 0 });
+  }
+  slide.addText('Comunicaciones Internas · ' + periodLabel(), {
+    x: 2.5, y: 3.95, w: 8.3, h: 0.35,
+    fontFace: 'Source Serif 4', bold: true, fontSize: 18, color: COLORS.white, align: 'center', margin: 0,
+  });
   finalizeSlide(slide);
 }
 
