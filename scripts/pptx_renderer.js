@@ -1121,6 +1121,8 @@ for (const module of renderPlan.modules || []) {
 }
 if (renderMode === 'full') renderFullClosing();
 
+fs.mkdirSync(path.dirname(outputPptxPath), { recursive: true });
+
 pptx.writeFile({ fileName: outputPptxPath }).catch((err) => {
   console.error(err);
   process.exit(1);

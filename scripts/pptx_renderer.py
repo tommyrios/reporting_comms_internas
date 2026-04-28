@@ -12,7 +12,7 @@ from config import ASSETS_DIR
 from deck_assembler import assemble_deck
 
 DEFAULT_TEMPLATE_PATH = ASSETS_DIR / "plantilla-bbva.pptx"
-DEFAULT_TEMPLATE_MODE = "full"
+DEFAULT_TEMPLATE_MODE = "frame"
 
 
 def _period_label(report: dict[str, Any]) -> str:

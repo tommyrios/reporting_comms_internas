@@ -1,6 +1,6 @@
 {
   "name": "reporting-comms-internas-bbva",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Pipeline de reporting de Comunicaciones Internas con renderer BBVA en PowerPoint",
   "scripts": {

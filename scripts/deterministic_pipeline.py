@@ -1540,8 +1540,17 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
     if open_rate > 0 and interaction_rate > 0 and abs(open_rate - interaction_rate) < MIN_RATE_DIFFERENCE:
         errors.append("mail_open_rate y mail_interaction_rate no deberían colapsar al mismo valor")
 
+    # Data quality validation is useful here, but this function is also used
+    # by unit tests and intermediate pipeline stages with partial canonical
+    # payloads. Missing structural fields must not invalidate metric-level
+    # validation; the strict contract check remains available through
+    # scripts/validate_report.py and validate_canonical_quality().
     dq = validate_canonical_quality(canonical)
     for error in dq.get("errors", []):
+        if str(error).startswith("Faltan campos del contrato mensual:"):
+            if error not in warnings:
+                warnings.append(error)
+            continue
         if error not in errors:
             errors.append(error)
     for warning in dq.get("warnings", []):

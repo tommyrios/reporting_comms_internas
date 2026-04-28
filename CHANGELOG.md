@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.1.1 - hotfix tests y smoke render
+
+- Corrige validate_canonical_monthly para no invalidar payloads parciales por campos estructurales faltantes.
+- Restaura el modo frame por defecto en el wrapper Python del renderer para conservar portada y cierre de plantilla.
+- Hace que pptx_renderer.js cree el directorio de salida antes de escribir el PPTX.
+
 ## v1.1.0 - ejecutivo v7
 
 - Activa el paso de tests en GitHub Actions.
