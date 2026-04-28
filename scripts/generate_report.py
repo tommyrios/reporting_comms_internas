@@ -77,6 +77,22 @@ def _build_fallback_narrative(kpis: dict[str, Any]) -> dict[str, Any]:
         "ranking_push": "El ranking push se construyó solo con datos observables en la fuente.",
         "ranking_pull": "El ranking pull prioriza lecturas reales y evita proyecciones no sustentadas.",
         "milestones": "Los hitos incluidos reflejan actividades detectadas en el mes.",
+        "recommendations_summary": "Próximos pasos construidos a partir de KPIs y rankings disponibles.",
+        "recommendations": [
+            "Sostener los contenidos con beneficio concreto y llamado a la acción visible.",
+            "Usar el ranking SITE/Intranet para alimentar envíos segmentados de profundización.",
+            "Revisar ejes y áreas subrepresentadas antes de cerrar la planificación del próximo mes.",
+        ],
+        "experiments": [
+            "Test A/B de asunto en mails con alto potencial de interacción.",
+            "Publicar refuerzo en SITE para los temas con mejor lectura orgánica.",
+            "Medir variación por horario y segmento en las piezas principales.",
+        ],
+        "action_plan": [
+            "Definir foco editorial del próximo período.",
+            "Priorizar tres piezas con KPI objetivo antes de producir.",
+            "Cerrar lectura de resultados con recomendaciones para el mes siguiente.",
+        ],
         "events": "La sección de eventos se muestra únicamente cuando existe detalle suficiente.",
     }
 

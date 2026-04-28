@@ -442,6 +442,65 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertEqual(canonical["internal_clients"][0], {"label": "Talento y Cultura", "value": 38.0})
         self.assertEqual(canonical["internal_clients"][1], {"label": "Retail", "value": 27.0})
 
+
+    def test_extracts_internal_clients_from_looker_chart_order(self):
+        pages = [
+            (
+                "Página 1\nMedia comunicaciones diarias\n0.06\nNº total de comunicaciones\n54\n"
+                "¿Qué áreas las han solicitado?\n100%\n75%\n44%\n50%\n25%\n"
+                "17% 13% 8% 7% 3% 3% 3% 1% 1%\n0%\n"
+                "Talento y Cultura Relaciones Institucionales\n"
+                "Client Solutions Engineering &\nData\nCountry Manager\nOffice (Gabinete\nPresidencia)\n"
+                "Red Comercial Banca Minorista Internal Control &\nCompliance\nFinanzas Banca Empresas\n"
+                "¿Qué canales y formatos se han utilizado?"
+            ),
+            "Página 2\nTotal Páginas Vistas\n4,071\nNoticias Publicadas\n10\nPromedio Vistas\n407",
+            (
+                "Página 3\nMails enviados\n23\nTasa de apertura promedio\n80.05%\n"
+                "Tasa de interacción sobre mails enviados\n12.54%\nTasa de interacción sobre mails abiertos\n15.67%"
+            ),
+        ]
+
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
+
+        canonical = canonicalize_monthly(raw)
+        self.assertEqual(canonical["internal_clients"][0], {"label": "Talento y Cultura", "value": 44.0})
+        self.assertEqual(canonical["internal_clients"][1], {"label": "Relaciones Institucionales", "value": 17.0})
+        self.assertEqual(canonical["internal_clients"][2], {"label": "Client Solutions", "value": 13.0})
+        self.assertEqual(canonical["internal_clients"][3], {"label": "Engineering & Data", "value": 8.0})
+        self.assertEqual(canonical["internal_clients"][4], {"label": "Country Manager Office (Gabinete Presidencia)", "value": 7.0})
+
+    def test_uses_top_five_mail_sections_and_cleans_titles(self):
+        pages = [
+            "Página 1\nMedia comunicaciones diarias\n0.06\nNº total de comunicaciones\n54",
+            "Página 2\nTotal Páginas Vistas\n4,071\nNoticias Publicadas\n10\nPromedio Vistas\n407",
+            (
+                "Página 3\nMails enviados\nFecha Título del mail Equipo Enviados Aperturas (uu) Clics (uu) Tasa de Apertura CTR CTOR\n"
+                "Jan 20, 2026 Vuelta_al_cole:__… Argentina 2,246 2,095 1,642 93.28% 73.11% 78.38%\n"
+                "Jan 30, 2026 Los_beneficios_… Argentina 5,318 4,803 2,941 90.32% 55.3% 61.23%\n"
+                "Tasa de apertura promedio\n80.05%\nTasa de interacción sobre mails enviados\n12.54%\n"
+                "Tasa de interacción sobre mails abiertos\n15.67%\nMails enviados\n23\n"
+                "Top five - Mayor Tasa de Apertura\nTitulo Tasa de Apertura\n"
+                "Vuelta_al_cole:__Tu_kit_escolar_te_espera__🎒 93.27%\n"
+                "Los_beneficios_de_febrero_van_a_llenarte_el_co… 90.32%\n▼\n"
+                "Top five - Mayor Tasa de Interacción\nTitulo Tasa de Interacción\n"
+                "Vuelta_al_cole:__Tu_kit_escolar_te_espera__🎒 73.07%\n"
+                "Los_beneficios_de_febrero_van_a_llenarte_el_co… 55.3%\n▼"
+            ),
+        ]
+
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
+
+        canonical = canonicalize_monthly(raw)
+        self.assertEqual(canonical["top_push_by_open_rate"][0]["name"], "Vuelta al cole: Tu kit escolar te espera 🎒")
+        self.assertEqual(canonical["top_push_by_open_rate"][0]["open_rate"], 93.27)
+        self.assertEqual(canonical["top_push_by_interaction"][0]["interaction"], 73.07)
+        self.assertEqual(canonical["top_push_by_interaction"][0]["clicks"], 1642)
+        self.assertEqual(canonical["top_push_by_interaction"][1]["name"], "Los beneficios de febrero van a llenarte el corazón")
+        self.assertNotIn("…", canonical["top_push_by_interaction"][1]["name"])
+
     def test_infer_month_key_requires_explicit_month_when_filename_has_no_yyyy_mm(self):
         with self.assertRaisesRegex(ValueError, "No pude inferir month_key.*Pasa month_key explícitamente"):
             infer_month_key_from_pdf_path(Path("/tmp/Dashboard_Marzo.pdf"))

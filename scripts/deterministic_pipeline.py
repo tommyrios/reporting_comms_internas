@@ -28,6 +28,40 @@ ANCHOR_PREFIX_LENGTH = 8
 MAX_LOGGED_CANDIDATE_LINES = 20
 CANON_TITLE_MAX_LENGTH = 180
 
+AREA_AXIS_TICK_VALUES = {0.0, 25.0, 50.0, 75.0, 100.0}
+DEFAULT_AREA_ORDER = [
+    "Talento y Cultura",
+    "Relaciones Institucionales",
+    # Looker suele partir estos dos labels en dos líneas, pero son áreas distintas.
+    "Client Solutions",
+    "Engineering & Data",
+    "Country Manager Office (Gabinete Presidencia)",
+    "Red Comercial",
+    "Banca Minorista",
+    "Internal Control & Compliance",
+    "Finanzas",
+    "Banca Empresas",
+]
+
+MAIL_TITLE_FIXUPS = [
+    (r"\bltimos d as\b", "Últimos días"),
+    (r"\bd as\b", "días"),
+    (r"\bEmpez el 2026\b", "Empezá el 2026"),
+    (r"\bacompa ando\b", "acompañando"),
+    (r"\bacad mi\b", "académi"),
+    (r"\bacadémico\b", "académico"),
+    (r"\bProteg tu info\b", "Protegé tu info"),
+    (r"\bMir el mensaje\b", "Mirá el mensaje"),
+    (r"\bComunicaci n\b", "Comunicación"),
+    (r"\bSomos el Mejo\b", "Somos el Mejor"),
+    (r"\bFelicitaciones\b", "Felicitaciones"),
+    (r"Los beneficios de febrero van a llenarte el co(?:…|\.{3})?$", "Los beneficios de febrero van a llenarte el corazón"),
+    (r"Queremos escucharte: ayudanos a mejorar la(?:…|\.{3})?$", "Queremos escucharte: ayudanos a mejorar la comunicación interna"),
+    (r"Seguimos acompañando tu desarrollo académi(?:…|\.{3})?$", "Seguimos acompañando tu desarrollo académico"),
+    (r"Empezá el 2026 con estos beneficios - AACC(?:…|\.{3})?$", "Empezá el 2026 con estos beneficios - AACC"),
+    (r"Empezá el 2026 con estos beneficios - RESTO(?:…|\.{3})?$", "Empezá el 2026 con estos beneficios - RESTO"),
+]
+
 KNOWN_KPI_LABELS = [
     "Media comunicaciones diarias",
     "Nº total de comunicaciones",
@@ -148,6 +182,64 @@ def _normalize_number_spacing(line: str) -> str:
     line = re.sub(r"(?<=\d)\s+(?=%)", "", line)
     line = re.sub(r"(?<=\d)\s+(?=[.,]\d)", "", line)
     return line
+
+
+def _clean_mail_title(value: str | None, max_len: int = CANON_TITLE_MAX_LENGTH) -> str:
+    """Normaliza títulos exportados por Looker/Adobe con underscores y glifos perdidos.
+
+    Los dashboards suelen entregar asuntos como
+    ``Vuelta_al_cole:__Tu_kit_escolar_te_espera__🎒`` o
+    ``_Empez__el_2026_con_estos_beneficios__AACC…``. No intenta
+    inventar lo que quedó truncado con puntos suspensivos; solo reconstruye
+    espacios, separadores y algunos caracteres frecuentes que se pierden en PDF.
+    """
+    text = str(value or "").replace("\u00a0", " ").strip()
+    if not text:
+        return "Sin título"
+
+    # Reconstruye separadores y evita dejar fragmentos con puntos suspensivos en el reporte ejecutivo.
+    text = text.replace("...", "…")
+    text = re.sub(r"[_]{2,}", " ", text)
+    text = text.replace("_", " ")
+    text = text.replace(" - ", " - ")
+    text = re.sub(r"\s+", " ", text).strip(" -–—_\t")
+    text = re.sub(r"\s+([:;,.!?])", r"\1", text)
+    text = re.sub(r"([¿¡])\s+", r"\1", text)
+
+    # Separadores de audiencias habituales en asuntos internos.
+    text = re.sub(r"\s+(AACC|RESTO)$", r" - \1", text)
+    text = re.sub(r"\s+(AACC|RESTO)…$", r" - \1…", text)
+
+    for pattern, replacement in MAIL_TITLE_FIXUPS:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+
+    # Correcciones puntuales donde la extracción elimina una vocal acentuada.
+    text = text.replace("Empezá el 2026 con estos beneficios AACC", "Empezá el 2026 con estos beneficios - AACC")
+    text = text.replace("Empezá el 2026 con estos beneficios RESTO", "Empezá el 2026 con estos beneficios - RESTO")
+    text = re.sub(r"(?:-\s*){2,}", "- ", text)
+    text = re.sub(r"\s+-\s+", " - ", text).strip(" -")
+
+    # Si la fuente trae una cadena truncada que no conocemos, quitamos el marcador
+    # para no mostrar bullets o títulos como ideas inconclusas.
+    text = re.sub(r"\s*(?:…|\.{3})\s*$", "", text).strip(" -")
+
+    if len(text) > max_len:
+        cut = text[:max_len].rsplit(" ", 1)[0].strip()
+        return cut or text[:max_len].strip()
+    return text
+
+
+def _title_signature(value: str | None) -> str:
+    return _compact_text(_clean_mail_title(value or ""))
+
+
+def _common_prefix_len(left: str, right: str) -> int:
+    count = 0
+    for a, b in zip(left, right):
+        if a != b:
+            break
+        count += 1
+    return count
 
 
 def _filtered_numbers(text: str, kind: str) -> list[str]:
@@ -506,7 +598,7 @@ def _extract_mail_table(page_text: str) -> list[dict[str, Any]]:
             clicks = parse_integer_value(metric_match.group(3))
             title = body[:metric_match.start()].strip()
 
-        title = re.sub(r"\s+", " ", title).strip()
+        title = _clean_mail_title(re.sub(r"\s+", " ", title).strip())
 
         rows.append({
             "date": date,
@@ -535,6 +627,131 @@ def _build_push_rankings(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any
     top_interaction = sorted(clean_rows, key=lambda x: x["ctr"], reverse=True)[:5]
 
     return top_open, top_interaction
+
+
+def _extract_top_mail_ranking_section(page_text: str, anchor: str, metric_key: str) -> list[dict[str, Any]]:
+    """Lee las tablas Top five del dashboard de mailing.
+
+    Son más confiables que reordenar la tabla principal porque allí Looker suele
+    conservar el título completo de la pieza ganadora aunque la tabla superior lo
+    haya truncado con ``…``.
+    """
+    lines = [line.strip() for line in page_text.splitlines() if line.strip()]
+    rows: list[dict[str, Any]] = []
+    capture = False
+
+    for line in lines:
+        norm = _normalize_text(line)
+        if _normalize_text(anchor) in norm:
+            capture = True
+            continue
+
+        if not capture:
+            continue
+
+        if rows and (norm == "▼" or norm.startswith("top five - ")):
+            break
+        if norm in {"titulo tasa de apertura", "titulo tasa de interaccion", "titulo", "tasa de apertura", "tasa de interaccion"}:
+            continue
+
+        pct_matches = re.findall(r"\d+(?:[.,]\d+)?\s*%", _normalize_number_spacing(line))
+        if not pct_matches:
+            continue
+
+        pct_raw = pct_matches[-1].replace(" ", "")
+        value = parse_percent_value(pct_raw)
+        title_raw = line[: line.rfind(pct_matches[-1])].strip()
+        title = _clean_mail_title(title_raw)
+        if value is None or not title or title == "Sin título":
+            continue
+
+        row = {
+            "title": title,
+            "name": title,
+            metric_key: value,
+            "raw": line,
+            "ranking_source": "top_five_section",
+        }
+        rows.append(row)
+        if len(rows) >= 5:
+            break
+
+    return rows
+
+
+def _match_mail_table_row(ranking_row: dict[str, Any], mail_rows: list[dict[str, Any]], metric_key: str) -> dict[str, Any] | None:
+    target_sig = _title_signature(str(ranking_row.get("raw") or ranking_row.get("title") or ""))
+    target_value = ranking_row.get(metric_key)
+    best: tuple[float, dict[str, Any]] | None = None
+
+    for candidate in mail_rows:
+        if (candidate.get("sent") or 0) < 1:
+            continue
+        candidate_sig = _title_signature(candidate.get("raw") or candidate.get("title") or "")
+        prefix = _common_prefix_len(target_sig, candidate_sig)
+        rate_key = "open_rate" if metric_key == "open_rate" else "ctr"
+        candidate_rate = candidate.get(rate_key)
+        score = float(prefix)
+        if target_value is not None and candidate_rate is not None:
+            delta = abs(float(target_value) - float(candidate_rate))
+            if delta <= 0.35:
+                score += 100 - delta
+            elif delta <= 2.0:
+                score += 20 - delta
+        if target_sig and candidate_sig and (target_sig.startswith(candidate_sig[:14]) or candidate_sig.startswith(target_sig[:14])):
+            score += 20
+        if best is None or score > best[0]:
+            best = (score, candidate)
+
+    if best and best[0] >= 20:
+        return best[1]
+    return None
+
+
+def _enrich_push_ranking(rows: list[dict[str, Any]], mail_rows: list[dict[str, Any]], metric_key: str) -> list[dict[str, Any]]:
+    enriched: list[dict[str, Any]] = []
+    for row in rows:
+        match = _match_mail_table_row(row, mail_rows, metric_key)
+        merged = dict(match or {})
+        merged.update(row)
+        if match:
+            merged["clicks"] = match.get("clicks")
+            merged["sent"] = match.get("sent")
+            merged["opens"] = match.get("opens")
+            merged["date"] = match.get("date")
+            if metric_key == "open_rate":
+                merged["interaction"] = match.get("ctr")
+                merged["ctr"] = match.get("ctr")
+                merged["open_rate"] = row.get("open_rate")
+            else:
+                merged["open_rate"] = match.get("open_rate")
+                merged["interaction"] = row.get("interaction")
+                merged["ctr"] = row.get("interaction")
+        else:
+            merged.setdefault("clicks", 0)
+            if metric_key == "open_rate":
+                merged.setdefault("interaction", 0.0)
+                merged.setdefault("ctr", 0.0)
+            else:
+                merged.setdefault("open_rate", 0.0)
+                merged["ctr"] = row.get("interaction")
+
+        merged["title"] = _clean_mail_title(merged.get("title") or merged.get("name"))
+        merged["name"] = merged["title"]
+        enriched.append(merged)
+    return enriched
+
+
+def _extract_top_mail_rankings(page_text: str, mail_rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    top_open = _extract_top_mail_ranking_section(page_text, "Top five - Mayor Tasa de Apertura", "open_rate")
+    top_interaction_raw = _extract_top_mail_ranking_section(page_text, "Top five - Mayor Tasa de Interacción", "interaction")
+
+    if top_open:
+        top_open = _enrich_push_ranking(top_open, mail_rows, "open_rate")
+    if top_interaction_raw:
+        top_interaction_raw = _enrich_push_ranking(top_interaction_raw, mail_rows, "interaction")
+
+    return top_open, top_interaction_raw
 
 
 def _extract_top_pull_notes(page_text: str) -> list[dict[str, Any]]:
@@ -616,13 +833,7 @@ def _extract_channel_mix(page_text: str) -> list[dict[str, Any]]:
 
         window = lines[i + 1:i + 14]
 
-        pct_values = []
-        for item in window:
-            nums = re.findall(r"\d+(?:[.,]\d+)?\s*%", item)
-            for n in nums:
-                parsed = parse_percent_value(n.replace(" ", ""))
-                if parsed is not None:
-                    pct_values.append(parsed)
+        pct_values = _extract_percent_values_from_items(window)
 
         labels = [
             "Mail",
@@ -747,7 +958,7 @@ def _is_probable_distribution_label(label: str) -> bool:
         return False
     blocked = {
         "area", "areas", "area solicitante", "areas solicitantes", "solicitante", "peso", "impactos",
-        "canal", "canales", "formato", "formatos", "distribucion", "total", "argentina",
+        "canal", "canales", "formato", "formatos", "distribucion", "total", "argentina", "sin dato",
     }
     if norm in blocked:
         return False
@@ -759,13 +970,54 @@ def _is_probable_distribution_label(label: str) -> bool:
     return bool(re.search(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]", label))
 
 
+def _extract_area_distribution_values(window: list[str]) -> list[float]:
+    values: list[float] = []
+    for item in window:
+        cleaned = re.sub(r"(?<=\d)\s+(?=[.,]\d)", "", item)
+        cleaned = re.sub(r"(?<=[.,]\d)\s+(?=%)", "", cleaned)
+        for pct_raw in re.findall(r"\d+(?:[.,]\d+)?\s*%", cleaned):
+            pct = parse_percent_value(pct_raw.replace(" ", ""))
+            if pct is None:
+                continue
+            # Excluir marcas del eje Y del gráfico (0/25/50/75/100).
+            if round(float(pct), 2) in AREA_AXIS_TICK_VALUES:
+                continue
+            values.append(float(pct))
+
+    # El gráfico suele repetir o mezclar líneas. Conservamos la primera secuencia
+    # plausible que suma aproximadamente 100%.
+    if len(values) > 10:
+        for size in range(6, min(10, len(values)) + 1):
+            candidate = values[:size]
+            if 95 <= sum(candidate) <= 101:
+                return candidate
+    return values[:10]
+
+
+def _extract_internal_clients_by_chart_order(window: list[str]) -> list[dict[str, Any]]:
+    values = _extract_area_distribution_values(window)
+    if not values:
+        return []
+
+    # En Looker el orden visual de este gráfico mensual es estable; pypdf a veces
+    # devuelve los labels por columnas y no contiguos (ej. Engineering / Data).
+    labels = DEFAULT_AREA_ORDER[:len(values)]
+    return [
+        {"area": label, "pct": round(value, 2), "raw": "chart_order"}
+        for label, value in zip(labels, values)
+        if value > 0
+    ]
+
+
 def _extract_internal_clients(page_text: str) -> list[dict[str, Any]]:
     """Extrae áreas solicitantes desde la página de planificación.
 
-    En los PDFs reales el bloque suele estar en página 1, pero pypdf puede devolver
-    filas como "Talento y Cultura 18%" o secuencias separadas de labels y valores.
-    Esta función prioriza porcentajes explícitos en el bloque de "área solicitante"
-    y cae a conteos si no hay porcentajes.
+    El dashboard de enero expone el dato en la página 1 con barras y porcentajes
+    (Talento y Cultura 44%, Relaciones Institucionales 17%, etc.). La extracción
+    textual puede devolver primero los labels del gráfico y mucho después el título
+    de sección; por eso se combinan dos estrategias:
+    1) filas explícitas tipo ``Área 38%``;
+    2) reconstrucción por orden del gráfico, descartando marcas del eje.
     """
     lines = [line.strip() for line in page_text.splitlines() if line.strip()]
     if not lines:
@@ -775,6 +1027,7 @@ def _extract_internal_clients(page_text: str) -> list[dict[str, Any]]:
     start_markers = [
         "area solicitante", "areas solicitantes", "areas solicitante", "area requirente",
         "gerencia solicitante", "cliente interno", "clientes internos", "solicitantes",
+        "que areas las han solicitado",
     ]
     for i, line in enumerate(lines):
         norm = _normalize_text(line)
@@ -782,16 +1035,21 @@ def _extract_internal_clients(page_text: str) -> list[dict[str, Any]]:
             start_idx = i
             break
 
+    # Si el título quedó después del gráfico por orden de lectura, igual tomamos
+    # una ventana amplia alrededor del bloque visual.
     if start_idx is None:
-        return []
+        chart_hint_idx = next((i for i, line in enumerate(lines) if "talento y cultura" in _normalize_text(line)), None)
+        if chart_hint_idx is None:
+            return []
+        start_idx = max(0, chart_hint_idx - 10)
 
     stop_markers = [
         "que canales y formatos", "distribucion por eje estrategico", "distribucion por eje",
         "canales y formatos", "formatos se han utilizado", "eje estrategico", "mails enviados",
-        "total paginas vistas", "noticias publicadas",
+        "total paginas vistas", "noticias publicadas", "listado completo de comunicaciones",
     ]
     window: list[str] = []
-    for line in lines[start_idx + 1:start_idx + 80]:
+    for line in lines[start_idx + 1:start_idx + 90]:
         norm = _normalize_text(line)
         if any(marker in norm for marker in stop_markers):
             break
@@ -814,7 +1072,7 @@ def _extract_internal_clients(page_text: str) -> list[dict[str, Any]]:
             value = parse_percent_value(pct_match.group(0))
             before = _clean_distribution_label(item[:pct_match.start()])
             label = before or pending_label or "Sin dato"
-            if value is not None and _is_probable_distribution_label(label):
+            if value is not None and value not in AREA_AXIS_TICK_VALUES and _is_probable_distribution_label(label):
                 rows.append({"area": label, "pct": value, "raw": item})
             pending_label = None
             continue
@@ -832,6 +1090,16 @@ def _extract_internal_clients(page_text: str) -> list[dict[str, Any]]:
         if _is_probable_distribution_label(label):
             pending_label = label
 
+    if not rows:
+        rows = _extract_internal_clients_by_chart_order(window)
+
+    if not rows and start_idx is not None:
+        # Fallback para PDFs con orden de lectura invertido: buscar una ventana
+        # alrededor del primer label conocido del gráfico.
+        chart_hint_idx = next((i for i, line in enumerate(lines) if "talento y cultura" in _normalize_text(line)), None)
+        if chart_hint_idx is not None:
+            rows = _extract_internal_clients_by_chart_order(lines[max(0, chart_hint_idx - 10):chart_hint_idx + 30])
+
     # Deduplicar conservando mayor valor por label normalizado.
     merged: dict[str, dict[str, Any]] = {}
     for row in rows:
@@ -844,7 +1112,7 @@ def _extract_internal_clients(page_text: str) -> list[dict[str, Any]]:
         if current is None or value > float(current.get("pct") or current.get("count") or 0):
             merged[key] = {"area": label, **({"pct": value} if "pct" in row else {"count": value})}
 
-    return sorted(merged.values(), key=lambda r: float(r.get("pct") or r.get("count") or 0), reverse=True)[:8]
+    return sorted(merged.values(), key=lambda r: float(r.get("pct") or r.get("count") or 0), reverse=True)[:10]
 
 
 # -------------------------
@@ -969,7 +1237,11 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
     page_for_plan = pages[page_for_plan_idx]
 
     mail_rows = _extract_mail_table(page_for_mail)
-    top_push_open, top_push_interaction = _build_push_rankings(mail_rows)
+    top_push_open, top_push_interaction = _extract_top_mail_rankings(page_for_mail, mail_rows)
+    if not top_push_open or not top_push_interaction:
+        fallback_open, fallback_interaction = _build_push_rankings(mail_rows)
+        top_push_open = top_push_open or fallback_open
+        top_push_interaction = top_push_interaction or fallback_interaction
     top_pull_notes = _extract_top_pull_notes(page_for_site)
     channel_mix = _extract_channel_mix(page_for_plan)
     format_mix = _extract_format_mix(page_for_plan)
@@ -1054,7 +1326,7 @@ def _canon_push_rows(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         interaction_raw = _first_present(item, "interaction", "interaction_rate", "ctr")
 
         rows.append({
-            "name": str(name).strip()[:CANON_TITLE_MAX_LENGTH],
+            "name": _clean_mail_title(str(name).strip())[:CANON_TITLE_MAX_LENGTH],
             "clicks": parse_integer_value(str(clicks_raw or 0)) or 0,
             "open_rate": parse_percent_value(str(open_rate_raw or 0)) or 0.0,
             "interaction": parse_percent_value(str(interaction_raw or 0)) or 0.0,

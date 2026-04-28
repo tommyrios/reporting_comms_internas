@@ -1,0 +1,1027 @@
+{
+  "period": {
+    "slug": "month_2026_01",
+    "label": "Ene 2026"
+  },
+  "kpis": {
+    "monthly_contract": [
+      {
+        "month": "2026-01",
+        "plan_total": 54,
+        "site_notes_total": 10,
+        "site_total_views": 4071,
+        "mail_total": 23,
+        "mail_open_rate": 80.05,
+        "mail_interaction_rate": 12.54,
+        "strategic_axes": [
+          {
+            "label": "RCP",
+            "value": 6.0
+          },
+          {
+            "label": "Sostenibilidad",
+            "value": 2.0
+          },
+          {
+            "label": "Empresas",
+            "value": 5.0
+          },
+          {
+            "label": "Creación de valor",
+            "value": 0.0
+          },
+          {
+            "label": "Innovación",
+            "value": 20.0
+          },
+          {
+            "label": "Equipo",
+            "value": 11.0
+          },
+          {
+            "label": "Otros",
+            "value": 9.0
+          }
+        ],
+        "internal_clients": [
+          {
+            "label": "Talento y Cultura",
+            "value": 44.0
+          },
+          {
+            "label": "Relaciones Institucionales",
+            "value": 17.0
+          },
+          {
+            "label": "Client Solutions Engineering & Data",
+            "value": 13.0
+          },
+          {
+            "label": "Country Manager Office (Gabinete Presidencia)",
+            "value": 8.0
+          },
+          {
+            "label": "Red Comercial",
+            "value": 7.0
+          },
+          {
+            "label": "Banca Minorista",
+            "value": 3.0
+          },
+          {
+            "label": "Internal Control & Compliance",
+            "value": 3.0
+          },
+          {
+            "label": "Finanzas",
+            "value": 3.0
+          },
+          {
+            "label": "Banca Empresas",
+            "value": 1.0
+          },
+          {
+            "label": "Otras áreas",
+            "value": 1.0
+          }
+        ],
+        "channel_mix": [
+          {
+            "label": "Mail",
+            "value": 40.7
+          },
+          {
+            "label": "Intranet",
+            "value": 27.8
+          },
+          {
+            "label": "SITE",
+            "value": 27.8
+          },
+          {
+            "label": "Cartelería / Pantallas",
+            "value": 1.9
+          },
+          {
+            "label": "Widget #notelopierdas",
+            "value": 1.9
+          }
+        ],
+        "format_mix": [
+          {
+            "label": "Postal/Carta",
+            "value": 38.9
+          },
+          {
+            "label": "Noticia propia",
+            "value": 37.0
+          },
+          {
+            "label": "Noticia bbva.com",
+            "value": 22.2
+          },
+          {
+            "label": "Video",
+            "value": 1.9
+          }
+        ],
+        "top_push_by_interaction": [
+          {
+            "name": "Vuelta al cole: Tu kit escolar te espera 🎒",
+            "clicks": 1642,
+            "open_rate": 93.28,
+            "interaction": 73.07,
+            "date": "Jan 20, 2026"
+          },
+          {
+            "name": "Los beneficios de febrero van a llenarte el co…",
+            "clicks": 2941,
+            "open_rate": 90.32,
+            "interaction": 55.3,
+            "date": "Jan 30, 2026"
+          },
+          {
+            "name": "Empezá el 2026 con estos beneficios - AACC…",
+            "clicks": 1302,
+            "open_rate": 88.81,
+            "interaction": 24.5,
+            "date": "Jan 16, 2026"
+          },
+          {
+            "name": "Queremos escucharte: ayudanos a mejorar la…",
+            "clicks": 273,
+            "open_rate": 82.12,
+            "interaction": 17.56,
+            "date": "Jan 22, 2026"
+          },
+          {
+            "name": "Seguimos acompañando tu desarrollo académi…",
+            "clicks": 1104,
+            "open_rate": 86.39,
+            "interaction": 16.22,
+            "date": "Jan 12, 2026"
+          }
+        ],
+        "top_push_by_open_rate": [
+          {
+            "name": "Vuelta al cole: Tu kit escolar te espera 🎒",
+            "clicks": 1642,
+            "open_rate": 93.27,
+            "interaction": 73.11,
+            "date": "Jan 20, 2026"
+          },
+          {
+            "name": "Los beneficios de febrero van a llenarte el co…",
+            "clicks": 2941,
+            "open_rate": 90.32,
+            "interaction": 55.3,
+            "date": "Jan 30, 2026"
+          },
+          {
+            "name": "Empezá el 2026 con estos beneficios - AACC…",
+            "clicks": 1302,
+            "open_rate": 88.81,
+            "interaction": 24.5,
+            "date": "Jan 16, 2026"
+          },
+          {
+            "name": "Seguimos acompañando tu desarrollo académi…",
+            "clicks": 1104,
+            "open_rate": 86.39,
+            "interaction": 16.22,
+            "date": "Jan 12, 2026"
+          },
+          {
+            "name": "Empezá el 2026 con estos beneficios - RESTO",
+            "clicks": 171,
+            "open_rate": 85.18,
+            "interaction": 12.8,
+            "date": "Jan 16, 2026"
+          }
+        ],
+        "top_pull_notes": [
+          {
+            "title": "Vacunación contra el dengue: todo lo que tenés que saber",
+            "unique_reads": 520,
+            "total_reads": 720,
+            "date": "Jan 28, 2026"
+          },
+          {
+            "title": "Resultados NPS 2025: ¿dónde estamos y hacia dónde vamos?",
+            "unique_reads": 519,
+            "total_reads": 632,
+            "date": "Jan 19, 2026"
+          },
+          {
+            "title": "Eureka evolucionó con el Gen de la IA",
+            "unique_reads": 411,
+            "total_reads": 480,
+            "date": "Jan 20, 2026"
+          },
+          {
+            "title": "Global Finance nos reconoció como el mejor banco de comercio exterior en Argentina",
+            "unique_reads": 300,
+            "total_reads": 357,
+            "date": "Jan 21, 2026"
+          },
+          {
+            "title": "Cajas navideñas BBVA, una tradición que nos une",
+            "unique_reads": 297,
+            "total_reads": 310,
+            "date": "Jan 19, 2026"
+          }
+        ],
+        "hitos": [],
+        "events": [],
+        "quality_flags": {
+          "scope_country": "AR",
+          "scope_mixed": false,
+          "site_has_no_data_sections": false,
+          "events_summary_available": false,
+          "push_ranking_available": true,
+          "pull_ranking_available": true,
+          "historical_comparison_allowed": true
+        }
+      }
+    ],
+    "quality_flags": {
+      "scope_country": "AR",
+      "scope_mixed": false,
+      "site_has_no_data_sections": false,
+      "events_summary_available": false,
+      "push_ranking_available": true,
+      "pull_ranking_available": true,
+      "historical_comparison_allowed": true
+    },
+    "calculated_totals": {
+      "plan_total": 54,
+      "site_notes_total": 10,
+      "site_total_views": 4071,
+      "mail_total": 23,
+      "mail_open_rate": 80.05,
+      "mail_interaction_rate": 12.54,
+      "total_events": 0,
+      "total_event_participants": 0,
+      "latest_push_volume": 23,
+      "previous_push_volume": 0,
+      "latest_push_variation": "Sin datos previos",
+      "average_reads_per_note": 407.1,
+      "push_volume_period": 54,
+      "pull_notes_period": 10,
+      "pull_reads_period": 4071,
+      "average_open_rate": 80.05,
+      "average_interaction_rate": 12.54
+    },
+    "mixes": {
+      "strategic_axes": [
+        {
+          "label": "Innovación",
+          "value": 37.74
+        },
+        {
+          "label": "Equipo",
+          "value": 20.75
+        },
+        {
+          "label": "Otros",
+          "value": 16.98
+        },
+        {
+          "label": "RCP",
+          "value": 11.32
+        },
+        {
+          "label": "Empresas",
+          "value": 9.43
+        },
+        {
+          "label": "Sostenibilidad",
+          "value": 3.77
+        }
+      ],
+      "internal_clients": [
+        {
+          "label": "Talento y Cultura",
+          "value": 44.0
+        },
+        {
+          "label": "Relaciones Institucionales",
+          "value": 17.0
+        },
+        {
+          "label": "Client Solutions Engineering & Data",
+          "value": 13.0
+        },
+        {
+          "label": "Country Manager Office (Gabinete Presidencia)",
+          "value": 8.0
+        },
+        {
+          "label": "Red Comercial",
+          "value": 7.0
+        },
+        {
+          "label": "Banca Minorista",
+          "value": 3.0
+        }
+      ],
+      "channel_mix": [
+        {
+          "label": "Mail",
+          "value": 40.66
+        },
+        {
+          "label": "Intranet",
+          "value": 27.77
+        },
+        {
+          "label": "SITE",
+          "value": 27.77
+        },
+        {
+          "label": "Cartelería / Pantallas",
+          "value": 1.9
+        },
+        {
+          "label": "Widget #notelopierdas",
+          "value": 1.9
+        }
+      ],
+      "format_mix": [
+        {
+          "label": "Postal/Carta",
+          "value": 38.9
+        },
+        {
+          "label": "Noticia propia",
+          "value": 37.0
+        },
+        {
+          "label": "Noticia bbva.com",
+          "value": 22.2
+        },
+        {
+          "label": "Video",
+          "value": 1.9
+        }
+      ]
+    },
+    "consolidated_rankings": {
+      "top_push_by_interaction": [
+        {
+          "name": "Vuelta al cole: Tu kit escolar te espera 🎒",
+          "clicks": 1642,
+          "open_rate": 93.28,
+          "interaction": 73.07,
+          "month": "2026-01"
+        },
+        {
+          "name": "Los beneficios de febrero van a llenarte el co…",
+          "clicks": 2941,
+          "open_rate": 90.32,
+          "interaction": 55.3,
+          "month": "2026-01"
+        },
+        {
+          "name": "Empezá el 2026 con estos beneficios - AACC…",
+          "clicks": 1302,
+          "open_rate": 88.81,
+          "interaction": 24.5,
+          "month": "2026-01"
+        },
+        {
+          "name": "Queremos escucharte: ayudanos a mejorar la…",
+          "clicks": 273,
+          "open_rate": 82.12,
+          "interaction": 17.56,
+          "month": "2026-01"
+        },
+        {
+          "name": "Seguimos acompañando tu desarrollo académi…",
+          "clicks": 1104,
+          "open_rate": 86.39,
+          "interaction": 16.22,
+          "month": "2026-01"
+        }
+      ],
+      "top_push_by_open_rate": [
+        {
+          "name": "Vuelta al cole: Tu kit escolar te espera 🎒",
+          "clicks": 1642,
+          "open_rate": 93.27,
+          "interaction": 73.11,
+          "month": "2026-01"
+        },
+        {
+          "name": "Los beneficios de febrero van a llenarte el co…",
+          "clicks": 2941,
+          "open_rate": 90.32,
+          "interaction": 55.3,
+          "month": "2026-01"
+        },
+        {
+          "name": "Empezá el 2026 con estos beneficios - AACC…",
+          "clicks": 1302,
+          "open_rate": 88.81,
+          "interaction": 24.5,
+          "month": "2026-01"
+        },
+        {
+          "name": "Seguimos acompañando tu desarrollo académi…",
+          "clicks": 1104,
+          "open_rate": 86.39,
+          "interaction": 16.22,
+          "month": "2026-01"
+        },
+        {
+          "name": "Empezá el 2026 con estos beneficios - RESTO",
+          "clicks": 171,
+          "open_rate": 85.18,
+          "interaction": 12.8,
+          "month": "2026-01"
+        }
+      ],
+      "top_pull_notes": [
+        {
+          "title": "Vacunación contra el dengue: todo lo que tenés que saber",
+          "unique_reads": 520,
+          "total_reads": 720,
+          "month": "2026-01"
+        },
+        {
+          "title": "Resultados NPS 2025: ¿dónde estamos y hacia dónde vamos?",
+          "unique_reads": 519,
+          "total_reads": 632,
+          "month": "2026-01"
+        },
+        {
+          "title": "Eureka evolucionó con el Gen de la IA",
+          "unique_reads": 411,
+          "total_reads": 480,
+          "month": "2026-01"
+        },
+        {
+          "title": "Global Finance nos reconoció como el mejor banco de comercio exterior en Argentina",
+          "unique_reads": 300,
+          "total_reads": 357,
+          "month": "2026-01"
+        },
+        {
+          "title": "Cajas navideñas BBVA, una tradición que nos une",
+          "unique_reads": 297,
+          "total_reads": 310,
+          "month": "2026-01"
+        }
+      ],
+      "top_push": [
+        {
+          "name": "Vuelta al cole: Tu kit escolar te espera 🎒",
+          "clicks": 1642,
+          "open_rate": 93.28,
+          "interaction": 73.07,
+          "month": "2026-01"
+        },
+        {
+          "name": "Los beneficios de febrero van a llenarte el co…",
+          "clicks": 2941,
+          "open_rate": 90.32,
+          "interaction": 55.3,
+          "month": "2026-01"
+        },
+        {
+          "name": "Empezá el 2026 con estos beneficios - AACC…",
+          "clicks": 1302,
+          "open_rate": 88.81,
+          "interaction": 24.5,
+          "month": "2026-01"
+        },
+        {
+          "name": "Queremos escucharte: ayudanos a mejorar la…",
+          "clicks": 273,
+          "open_rate": 82.12,
+          "interaction": 17.56,
+          "month": "2026-01"
+        },
+        {
+          "name": "Seguimos acompañando tu desarrollo académi…",
+          "clicks": 1104,
+          "open_rate": 86.39,
+          "interaction": 16.22,
+          "month": "2026-01"
+        }
+      ],
+      "top_pull": [
+        {
+          "title": "Vacunación contra el dengue: todo lo que tenés que saber",
+          "unique_reads": 520,
+          "total_reads": 720,
+          "month": "2026-01"
+        },
+        {
+          "title": "Resultados NPS 2025: ¿dónde estamos y hacia dónde vamos?",
+          "unique_reads": 519,
+          "total_reads": 632,
+          "month": "2026-01"
+        },
+        {
+          "title": "Eureka evolucionó con el Gen de la IA",
+          "unique_reads": 411,
+          "total_reads": 480,
+          "month": "2026-01"
+        },
+        {
+          "title": "Global Finance nos reconoció como el mejor banco de comercio exterior en Argentina",
+          "unique_reads": 300,
+          "total_reads": 357,
+          "month": "2026-01"
+        },
+        {
+          "title": "Cajas navideñas BBVA, una tradición que nos une",
+          "unique_reads": 297,
+          "total_reads": 310,
+          "month": "2026-01"
+        }
+      ]
+    },
+    "timelines": {
+      "mail_total": [
+        {
+          "label": "Ene",
+          "value": 23
+        }
+      ],
+      "site_notes_total": [
+        {
+          "label": "Ene",
+          "value": 10
+        }
+      ],
+      "push_volume": [
+        {
+          "label": "2026-01",
+          "value": 23
+        }
+      ],
+      "pull_notes": [
+        {
+          "label": "2026-01",
+          "value": 10
+        }
+      ]
+    },
+    "hitos": [],
+    "events": [],
+    "hitos_crudos": [],
+    "aggregated_distributions": {
+      "audience_segments": [
+        {
+          "label": "Mail",
+          "value": 40.66
+        },
+        {
+          "label": "Intranet",
+          "value": 27.77
+        },
+        {
+          "label": "SITE",
+          "value": 27.77
+        },
+        {
+          "label": "Cartelería / Pantallas",
+          "value": 1.9
+        },
+        {
+          "label": "Widget #notelopierdas",
+          "value": 1.9
+        }
+      ],
+      "strategic_axes": [
+        {
+          "theme": "Innovación",
+          "weight": 37.74
+        },
+        {
+          "theme": "Equipo",
+          "weight": 20.75
+        },
+        {
+          "theme": "Otros",
+          "weight": 16.98
+        },
+        {
+          "theme": "RCP",
+          "weight": 11.32
+        },
+        {
+          "theme": "Empresas",
+          "weight": 9.43
+        },
+        {
+          "theme": "Sostenibilidad",
+          "weight": 3.77
+        }
+      ],
+      "internal_clients": [
+        {
+          "label": "Talento y Cultura",
+          "value": 44.0
+        },
+        {
+          "label": "Relaciones Institucionales",
+          "value": 17.0
+        },
+        {
+          "label": "Client Solutions Engineering & Data",
+          "value": 13.0
+        },
+        {
+          "label": "Country Manager Office (Gabinete Presidencia)",
+          "value": 8.0
+        },
+        {
+          "label": "Red Comercial",
+          "value": 7.0
+        },
+        {
+          "label": "Banca Minorista",
+          "value": 3.0
+        }
+      ]
+    },
+    "validation": {
+      "is_valid": true,
+      "warnings": [
+        "Inconsistencia potencial entre plan_total (54) y mail_total (23)",
+        "Mixes consolidados como promedio de distribución mensual (no suma directa)"
+      ],
+      "mix_aggregation": {
+        "strategic_axes": "weighted_sum",
+        "internal_clients": "distribution_average",
+        "channel_mix": "distribution_average",
+        "format_mix": "distribution_average"
+      }
+    }
+  },
+  "narrative": {
+    "executive_headline": "73.07% de interacción: vuelta al cole marcó el mayor desempeño del mes.",
+    "executive_summary": "Enero cerró con 54 comunicaciones planificadas, 23 mails enviados y 10 noticias publicadas en SITE/Intranet. El mail sostuvo una apertura promedio de 80.05% y una interacción de 12.54%. La agenda estuvo liderada por Innovación (37.74%) y la demanda principal provino de Talento y Cultura (44%).",
+    "executive_takeaways": [
+      "Replicar la lógica de utilidad concreta: “Vuelta al cole: Tu kit escolar te espera 🎒” alcanzó 73.07% de interacción.",
+      "Priorizar demanda de Talento y Cultura sin perder balance: concentró 44% de las solicitudes.",
+      "Usar SITE/Intranet como profundización: 10 notas generaron 4.071 vistas."
+    ],
+    "channel_management": "Mail fue el canal principal del período y concentró 23 envíos. con 80.05% de apertura. SITE/Intranet aportó 4.071 vistas sobre 10 publicaciones. funcionando como soporte de profundización para temas de bienestar. innovación y negocio.",
+    "mix_thematic_clients": "La agenda temática estuvo liderada por Innovación (37.74%) y Equipo (20.75%). Entre las áreas solicitantes, Talento y Cultura concentró 44%, seguido por Relaciones Institucionales (17%) y Client Solutions Engineering & Data (13%).",
+    "ranking_push": "El mail con mejor desempeño fue “Vuelta al cole: Tu kit escolar te espera 🎒”, con 73.07% de interacción y 93.27% de apertura. El patrón a replicar es claro: beneficio tangible, asunto directo y promesa de valor inmediata para el empleado.",
+    "ranking_pull": "La nota más leída fue “Vacunación contra el dengue: todo lo que tenés que saber”, con 520 lecturas únicas y 720 vistas. Los contenidos de bienestar y servicios siguen funcionando como puerta de entrada para llevar tráfico al ecosistema pull.",
+    "milestones": "No se registraron hitos destacados en la fuente. Puede completarse desde manual_context si el equipo quiere incorporar acciones cualitativas del período.",
+    "recommendations_summary": "Convertir los aprendizajes de enero en pauta editorial, segmentación y pruebas medibles para febrero.",
+    "recommendations": [
+      "Reutilizar la fórmula de “Vuelta al cole: Tu kit escolar te espera 🎒” en campañas de beneficios y servicios, midiendo interacción contra el 12.54% promedio.",
+      "Planificar una agenda más balanceada: Talento y Cultura pesa 44% y conviene abrir espacio para áreas con baja presencia.",
+      "Acompañar cada mail de alto interés con una nota SITE/Intranet para capitalizar lectura orgánica y extender vida útil del contenido.",
+      "Revisar ejes sin presencia antes del cierre del calendario mensual para evitar vacíos temáticos."
+    ],
+    "experiments": [
+      "Test A/B de asunto en beneficios: promesa directa vs. tono invitacional, midiendo apertura y CTOR.",
+      "Refuerzo SITE 24 horas después de mails con CTR superior al promedio para medir tráfico incremental.",
+      "Segmentar contenidos de Talento y Cultura por audiencia para bajar saturación sin perder cobertura."
+    ],
+    "action_plan": [
+      "Cerrar calendario de febrero con cupos por eje y área solicitante.",
+      "Seleccionar tres piezas de beneficios/servicios para testear asunto y CTA.",
+      "Cruzar ranking de mails con top de notas para detectar temas reutilizables.",
+      "Revisar resultados en comité mensual con foco en apertura, interacción, CTOR y vistas por nota."
+    ],
+    "owner_note": "Seguimiento sugerido: comparar apertura, interacción, CTOR, vistas por nota y peso por área solicitante en el próximo cierre.",
+    "events": "Módulo de eventos omitido: sin datos consolidados suficientes para el período."
+  },
+  "quality_flags": {
+    "scope_country": "AR",
+    "scope_mixed": false,
+    "site_has_no_data_sections": false,
+    "events_summary_available": false,
+    "push_ranking_available": true,
+    "pull_ranking_available": true,
+    "historical_comparison_allowed": true
+  },
+  "render_plan": {
+    "template_mode": "frame",
+    "period": {
+      "slug": "month_2026_01",
+      "label": "Ene 2026"
+    },
+    "quality_flags": {
+      "scope_country": "AR",
+      "scope_mixed": false,
+      "site_has_no_data_sections": false,
+      "events_summary_available": false,
+      "push_ranking_available": true,
+      "pull_ranking_available": true,
+      "historical_comparison_allowed": true
+    },
+    "modules": [
+      {
+        "key": "executive_summary",
+        "title": "Resumen ejecutivo del período",
+        "payload": {
+          "headline": "73.07% de interacción: vuelta al cole marcó el mayor desempeño del mes.",
+          "executive_headline": "73.07% de interacción: vuelta al cole marcó el mayor desempeño del mes.",
+          "plan_total": 54,
+          "site_notes_total": 10,
+          "site_total_views": 4071,
+          "mail_total": 23,
+          "mail_open_rate": 80.05,
+          "mail_interaction_rate": 12.54,
+          "historical_note": "Enero cerró con 54 comunicaciones planificadas, 23 mails enviados y 10 noticias publicadas en SITE/Intranet. El mail sostuvo una apertura promedio de 80.05% y una interacción de 12.54%. La agenda estuvo liderada por Innovación (37.74%) y la demanda principal provino de Talento y Cultura (44%).",
+          "takeaways": [
+            "Replicar la lógica de utilidad concreta: “Vuelta al cole: Tu kit escolar te espera 🎒” alcanzó 73.07% de interacción.",
+            "Priorizar demanda de Talento y Cultura sin perder balance: concentró 44% de las solicitudes.",
+            "Usar SITE/Intranet como profundización: 10 notas generaron 4.071 vistas."
+          ]
+        }
+      },
+      {
+        "key": "channel_management",
+        "title": "Gestión de canales",
+        "payload": {
+          "mail_total": 23,
+          "mail_open_rate": 80.05,
+          "mail_interaction_rate": 12.54,
+          "site_notes_total": 10,
+          "site_total_views": 4071,
+          "channel_mix": [
+            {
+              "label": "Mail",
+              "value": 40.66
+            },
+            {
+              "label": "Intranet",
+              "value": 27.77
+            },
+            {
+              "label": "SITE",
+              "value": 27.77
+            },
+            {
+              "label": "Cartelería / Pantallas",
+              "value": 1.9
+            },
+            {
+              "label": "Widget #notelopierdas",
+              "value": 1.9
+            }
+          ],
+          "timeline_mail": [
+            {
+              "label": "Ene",
+              "value": 23
+            }
+          ],
+          "timeline_site": [
+            {
+              "label": "Ene",
+              "value": 10
+            }
+          ],
+          "message": "Mail fue el canal principal del período y concentró 23 envíos. con 80.05% de apertura. SITE/Intranet aportó 4.071 vistas sobre 10 publicaciones. funcionando como soporte de profundización para temas de bienestar. innovación y negocio.",
+          "site_has_no_data_sections": false
+        }
+      },
+      {
+        "key": "mix_thematic_clients",
+        "title": "Mix temático y áreas solicitantes",
+        "payload": {
+          "strategic_axes": [
+            {
+              "label": "Innovación",
+              "value": 37.74
+            },
+            {
+              "label": "Equipo",
+              "value": 20.75
+            },
+            {
+              "label": "Otros",
+              "value": 16.98
+            },
+            {
+              "label": "RCP",
+              "value": 11.32
+            },
+            {
+              "label": "Empresas",
+              "value": 9.43
+            },
+            {
+              "label": "Sostenibilidad",
+              "value": 3.77
+            }
+          ],
+          "internal_clients": [
+            {
+              "label": "Talento y Cultura",
+              "value": 44.0
+            },
+            {
+              "label": "Relaciones Institucionales",
+              "value": 17.0
+            },
+            {
+              "label": "Client Solutions Engineering & Data",
+              "value": 13.0
+            },
+            {
+              "label": "Country Manager Office (Gabinete Presidencia)",
+              "value": 8.0
+            },
+            {
+              "label": "Red Comercial",
+              "value": 7.0
+            },
+            {
+              "label": "Banca Minorista",
+              "value": 3.0
+            }
+          ],
+          "format_mix": [
+            {
+              "label": "Postal/Carta",
+              "value": 38.9
+            },
+            {
+              "label": "Noticia propia",
+              "value": 37.0
+            },
+            {
+              "label": "Noticia bbva.com",
+              "value": 22.2
+            },
+            {
+              "label": "Video",
+              "value": 1.9
+            }
+          ],
+          "message": "La agenda temática estuvo liderada por Innovación (37.74%) y Equipo (20.75%). Entre las áreas solicitantes, Talento y Cultura concentró 44%, seguido por Relaciones Institucionales (17%) y Client Solutions Engineering & Data (13%)."
+        }
+      },
+      {
+        "key": "ranking_push",
+        "title": "Ranking push",
+        "payload": {
+          "by_interaction": [
+            {
+              "name": "Vuelta al cole: Tu kit escolar te espera 🎒",
+              "clicks": 1642,
+              "open_rate": 93.28,
+              "interaction": 73.07,
+              "month": "2026-01"
+            },
+            {
+              "name": "Los beneficios de febrero van a llenarte el co…",
+              "clicks": 2941,
+              "open_rate": 90.32,
+              "interaction": 55.3,
+              "month": "2026-01"
+            },
+            {
+              "name": "Empezá el 2026 con estos beneficios - AACC…",
+              "clicks": 1302,
+              "open_rate": 88.81,
+              "interaction": 24.5,
+              "month": "2026-01"
+            },
+            {
+              "name": "Queremos escucharte: ayudanos a mejorar la…",
+              "clicks": 273,
+              "open_rate": 82.12,
+              "interaction": 17.56,
+              "month": "2026-01"
+            },
+            {
+              "name": "Seguimos acompañando tu desarrollo académi…",
+              "clicks": 1104,
+              "open_rate": 86.39,
+              "interaction": 16.22,
+              "month": "2026-01"
+            }
+          ],
+          "by_open_rate": [
+            {
+              "name": "Vuelta al cole: Tu kit escolar te espera 🎒",
+              "clicks": 1642,
+              "open_rate": 93.27,
+              "interaction": 73.11,
+              "month": "2026-01"
+            },
+            {
+              "name": "Los beneficios de febrero van a llenarte el co…",
+              "clicks": 2941,
+              "open_rate": 90.32,
+              "interaction": 55.3,
+              "month": "2026-01"
+            },
+            {
+              "name": "Empezá el 2026 con estos beneficios - AACC…",
+              "clicks": 1302,
+              "open_rate": 88.81,
+              "interaction": 24.5,
+              "month": "2026-01"
+            },
+            {
+              "name": "Seguimos acompañando tu desarrollo académi…",
+              "clicks": 1104,
+              "open_rate": 86.39,
+              "interaction": 16.22,
+              "month": "2026-01"
+            },
+            {
+              "name": "Empezá el 2026 con estos beneficios - RESTO",
+              "clicks": 171,
+              "open_rate": 85.18,
+              "interaction": 12.8,
+              "month": "2026-01"
+            }
+          ],
+          "available": true,
+          "message": "El mail con mejor desempeño fue “Vuelta al cole: Tu kit escolar te espera 🎒”, con 73.07% de interacción y 93.27% de apertura. El patrón a replicar es claro: beneficio tangible, asunto directo y promesa de valor inmediata para el empleado."
+        }
+      },
+      {
+        "key": "ranking_pull",
+        "title": "Ranking pull",
+        "payload": {
+          "top_pull_notes": [
+            {
+              "title": "Vacunación contra el dengue: todo lo que tenés que saber",
+              "unique_reads": 520,
+              "total_reads": 720,
+              "month": "2026-01"
+            },
+            {
+              "title": "Resultados NPS 2025: ¿dónde estamos y hacia dónde vamos?",
+              "unique_reads": 519,
+              "total_reads": 632,
+              "month": "2026-01"
+            },
+            {
+              "title": "Eureka evolucionó con el Gen de la IA",
+              "unique_reads": 411,
+              "total_reads": 480,
+              "month": "2026-01"
+            },
+            {
+              "title": "Global Finance nos reconoció como el mejor banco de comercio exterior en Argentina",
+              "unique_reads": 300,
+              "total_reads": 357,
+              "month": "2026-01"
+            },
+            {
+              "title": "Cajas navideñas BBVA, una tradición que nos une",
+              "unique_reads": 297,
+              "total_reads": 310,
+              "month": "2026-01"
+            }
+          ],
+          "available": true,
+          "average_reads_per_note": 407.1,
+          "site_total_views": 4071,
+          "message": "La nota más leída fue “Vacunación contra el dengue: todo lo que tenés que saber”, con 520 lecturas únicas y 720 vistas. Los contenidos de bienestar y servicios siguen funcionando como puerta de entrada para llevar tráfico al ecosistema pull."
+        }
+      },
+      {
+        "key": "milestones",
+        "title": "Hitos del mes",
+        "payload": {
+          "items": [],
+          "message": "No se registraron hitos destacados en la fuente. Puede completarse desde manual_context si el equipo quiere incorporar acciones cualitativas del período."
+        }
+      },
+      {
+        "key": "recommendations",
+        "title": "Conclusiones y próximos pasos",
+        "payload": {
+          "summary": "Convertir los aprendizajes de enero en pauta editorial, segmentación y pruebas medibles para febrero.",
+          "recommendations": [
+            "Reutilizar la fórmula de “Vuelta al cole: Tu kit escolar te espera 🎒” en campañas de beneficios y servicios, midiendo interacción contra el 12.54% promedio.",
+            "Planificar una agenda más balanceada: Talento y Cultura pesa 44% y conviene abrir espacio para áreas con baja presencia.",
+            "Acompañar cada mail de alto interés con una nota SITE/Intranet para capitalizar lectura orgánica y extender vida útil del contenido.",
+            "Revisar ejes sin presencia antes del cierre del calendario mensual para evitar vacíos temáticos."
+          ],
+          "experiments": [
+            "Test A/B de asunto en beneficios: promesa directa vs. tono invitacional, midiendo apertura y CTOR.",
+            "Refuerzo SITE 24 horas después de mails con CTR superior al promedio para medir tráfico incremental.",
+            "Segmentar contenidos de Talento y Cultura por audiencia para bajar saturación sin perder cobertura."
+          ],
+          "action_plan": [
+            "Cerrar calendario de febrero con cupos por eje y área solicitante.",
+            "Seleccionar tres piezas de beneficios/servicios para testear asunto y CTA.",
+            "Cruzar ranking de mails con top de notas para detectar temas reutilizables.",
+            "Revisar resultados en comité mensual con foco en apertura, interacción, CTOR y vistas por nota."
+          ],
+          "owner_note": "Seguimiento sugerido: comparar apertura, interacción, CTOR, vistas por nota y peso por área solicitante en el próximo cierre."
+        }
+      }
+    ]
+  }
+}

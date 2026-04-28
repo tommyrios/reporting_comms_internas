@@ -78,12 +78,21 @@ def _to_float(value: Any, default: float = 0.0) -> float:
  
 def _clean_title(value: Any, max_len: int = 90) -> str:
     text = str(value or "").replace("_", " ").replace("|", " ").strip()
+    text = text.replace("...", "…")
     text = " ".join(text.split())
+    replacements = {
+        "Los beneficios de febrero van a llenarte el co…": "Los beneficios de febrero van a llenarte el corazón",
+        "Queremos escucharte: ayudanos a mejorar la…": "Queremos escucharte: ayudanos a mejorar la comunicación interna",
+        "Seguimos acompañando tu desarrollo académi…": "Seguimos acompañando tu desarrollo académico",
+    }
+    text = replacements.get(text, text)
+    text = text.rstrip("…").strip(" -")
     if not text:
         return "Sin título"
     if len(text) <= max_len:
         return text
-    return text[: max_len - 1].rstrip() + "…"
+    cut = text[:max_len].rsplit(" ", 1)[0].strip()
+    return cut or text[:max_len].strip()
  
  
 def _normalize_pct(value: Any) -> float:
@@ -219,10 +228,22 @@ def _looks_like_distribution(items: Any) -> bool:
     return 95 <= total <= 105
  
  
+
+def _as_percent_distribution(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    total = sum(_to_float(row.get("value", 0), 0.0) for row in rows if isinstance(row, dict))
+    if total <= 0 or 95 <= total <= 105:
+        return rows
+    normalized = []
+    for row in rows:
+        value = _to_float(row.get("value", 0), 0.0)
+        normalized.append({**row, "value": round((value / total) * 100, 2)})
+    normalized.sort(key=lambda row: row["value"], reverse=True)
+    return normalized
+
 def _aggregate_distribution(items_by_month: list[list[dict[str, Any]]], label_key: str = "label") -> tuple[list[dict[str, Any]], bool]:
     monthly_distributions = [items for items in items_by_month if _looks_like_distribution(items)]
     if not monthly_distributions:
-        return _aggregate_weighted(items_by_month, label_key=label_key), False
+        return _as_percent_distribution(_aggregate_weighted(items_by_month, label_key=label_key)), False
  
     values_by_label: dict[str, list[float]] = defaultdict(list)
     for month_items in monthly_distributions:
@@ -490,6 +511,8 @@ def build_render_plan(period: dict[str, Any], kpis: dict[str, Any], narrative: d
     hitos = kpis.get("hitos", [])
     events = kpis.get("events", [])
  
+    best_push = (rankings.get("top_push_by_interaction") or [{}])[0] if isinstance(rankings.get("top_push_by_interaction"), list) else {}
+
     overview_module = {
         "key": "executive_summary",
         "title": "Resumen ejecutivo del período",
@@ -502,6 +525,9 @@ def build_render_plan(period: dict[str, Any], kpis: dict[str, Any], narrative: d
             "mail_total": totals.get("mail_total", 0),
             "mail_open_rate": totals.get("mail_open_rate", 0),
             "mail_interaction_rate": totals.get("mail_interaction_rate", 0),
+            "top_campaign_title": best_push.get("name") or best_push.get("title") or "Campaña líder",
+            "top_campaign_interaction": best_push.get("interaction") or best_push.get("ctr") or 0,
+            "top_campaign_open_rate": best_push.get("open_rate") or 0,
             "historical_note": narrative.get("executive_summary")
             or ("No comparable por alcance de fuente" if not flags.get("historical_comparison_allowed", True) else "Comparación histórica disponible para el alcance actual."),
             "takeaways": (narrative.get("executive_takeaways") if isinstance(narrative.get("executive_takeaways"), list) else [])[:3],
@@ -558,11 +584,16 @@ def build_render_plan(period: dict[str, Any], kpis: dict[str, Any], narrative: d
             },
         },
         {
-            "key": "milestones",
-            "title": "Hitos del mes",
+            "key": "recommendations",
+            "title": "Conclusiones y próximos pasos",
             "payload": {
-                "items": hitos,
-                "message": narrative.get("milestones", "Hitos relevantes de gestión del período."),
+                "summary": narrative.get("recommendations_summary")
+                or narrative.get("next_steps_summary")
+                or "Próximos pasos construidos a partir de KPIs y rankings disponibles.",
+                "recommendations": (narrative.get("recommendations") if isinstance(narrative.get("recommendations"), list) else [])[:4],
+                "experiments": (narrative.get("experiments") if isinstance(narrative.get("experiments"), list) else [])[:3],
+                "action_plan": (narrative.get("action_plan") if isinstance(narrative.get("action_plan"), list) else [])[:4],
+                "owner_note": narrative.get("owner_note", "Seguimiento sugerido: apertura, interacción, vistas por nota y balance temático del próximo cierre."),
             },
         },
     ]
@@ -581,6 +612,17 @@ def build_render_plan(period: dict[str, Any], kpis: dict[str, Any], narrative: d
             }
         )
  
+
+    if hitos:
+        modules.insert(-1, {
+            "key": "milestones",
+            "title": "Hitos del mes",
+            "payload": {
+                "items": hitos,
+                "message": narrative.get("milestones", "Hitos relevantes de gestión del período."),
+            },
+        })
+
     modules = [module for module in modules if isinstance(module, dict) and module.get("payload") is not None]
  
     return {

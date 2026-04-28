@@ -1,0 +1,244 @@
+{
+  "month": "2026-01",
+  "generation_mode": "deterministic_pdf",
+  "extraction_method": "deterministic_pdf_v7_kpi_sequence_safe",
+  "plan_daily_average": 0.06,
+  "plan_total": 54,
+  "site_notes_total": 10,
+  "site_total_views": 4071,
+  "site_average_views": 407,
+  "mail_total": 23,
+  "mail_open_rate": 80.05,
+  "mail_interaction_rate": 12.54,
+  "mail_interaction_rate_over_opened": 15.67,
+  "strategic_axes": [
+    {
+      "label": "RCP",
+      "value": 6.0
+    },
+    {
+      "label": "Sostenibilidad",
+      "value": 2.0
+    },
+    {
+      "label": "Empresas",
+      "value": 5.0
+    },
+    {
+      "label": "Creación de valor",
+      "value": 0.0
+    },
+    {
+      "label": "Innovación",
+      "value": 20.0
+    },
+    {
+      "label": "Equipo",
+      "value": 11.0
+    },
+    {
+      "label": "Otros",
+      "value": 9.0
+    }
+  ],
+  "internal_clients": [
+    {
+      "label": "Talento y Cultura",
+      "value": 44.0
+    },
+    {
+      "label": "Relaciones Institucionales",
+      "value": 17.0
+    },
+    {
+      "label": "Client Solutions",
+      "value": 13.0
+    },
+    {
+      "label": "Engineering & Data",
+      "value": 8.0
+    },
+    {
+      "label": "Country Manager Office (Gabinete Presidencia)",
+      "value": 7.0
+    },
+    {
+      "label": "Red Comercial",
+      "value": 3.0
+    },
+    {
+      "label": "Banca Minorista",
+      "value": 3.0
+    },
+    {
+      "label": "Internal Control & Compliance",
+      "value": 3.0
+    },
+    {
+      "label": "Finanzas",
+      "value": 1.0
+    },
+    {
+      "label": "Banca Empresas",
+      "value": 1.0
+    }
+  ],
+  "channel_mix": [
+    {
+      "label": "Mail",
+      "value": 40.7
+    },
+    {
+      "label": "Intranet",
+      "value": 27.8
+    },
+    {
+      "label": "SITE",
+      "value": 27.8
+    },
+    {
+      "label": "Cartelería / Pantallas",
+      "value": 1.9
+    },
+    {
+      "label": "Widget #notelopierdas",
+      "value": 1.9
+    }
+  ],
+  "format_mix": [
+    {
+      "label": "Postal/Carta",
+      "value": 38.9
+    },
+    {
+      "label": "Noticia propia",
+      "value": 37.0
+    },
+    {
+      "label": "Noticia bbva.com",
+      "value": 22.2
+    },
+    {
+      "label": "Video",
+      "value": 1.9
+    }
+  ],
+  "top_push_by_interaction": [
+    {
+      "name": "Vuelta al cole: Tu kit escolar te espera 🎒",
+      "clicks": 1642,
+      "open_rate": 93.28,
+      "interaction": 73.07,
+      "date": "Jan 20, 2026"
+    },
+    {
+      "name": "Los beneficios de febrero van a llenarte el corazón",
+      "clicks": 2941,
+      "open_rate": 90.32,
+      "interaction": 55.3,
+      "date": "Jan 30, 2026"
+    },
+    {
+      "name": "Empezá el 2026 con estos beneficios - AACC",
+      "clicks": 1302,
+      "open_rate": 88.81,
+      "interaction": 24.5,
+      "date": "Jan 16, 2026"
+    },
+    {
+      "name": "Queremos escucharte: ayudanos a mejorar la comunicación interna",
+      "clicks": 273,
+      "open_rate": 82.12,
+      "interaction": 17.56,
+      "date": "Jan 22, 2026"
+    },
+    {
+      "name": "Seguimos acompañando tu desarrollo académico",
+      "clicks": 1104,
+      "open_rate": 86.39,
+      "interaction": 16.22,
+      "date": "Jan 12, 2026"
+    }
+  ],
+  "top_push_by_open_rate": [
+    {
+      "name": "Vuelta al cole: Tu kit escolar te espera 🎒",
+      "clicks": 1642,
+      "open_rate": 93.27,
+      "interaction": 73.11,
+      "date": "Jan 20, 2026"
+    },
+    {
+      "name": "Los beneficios de febrero van a llenarte el corazón",
+      "clicks": 2941,
+      "open_rate": 90.32,
+      "interaction": 55.3,
+      "date": "Jan 30, 2026"
+    },
+    {
+      "name": "Empezá el 2026 con estos beneficios - AACC",
+      "clicks": 1302,
+      "open_rate": 88.81,
+      "interaction": 24.5,
+      "date": "Jan 16, 2026"
+    },
+    {
+      "name": "Seguimos acompañando tu desarrollo académico",
+      "clicks": 1104,
+      "open_rate": 86.39,
+      "interaction": 16.22,
+      "date": "Jan 12, 2026"
+    },
+    {
+      "name": "Empezá el 2026 con estos beneficios - RESTO",
+      "clicks": 171,
+      "open_rate": 85.18,
+      "interaction": 12.8,
+      "date": "Jan 16, 2026"
+    }
+  ],
+  "top_pull_notes": [
+    {
+      "title": "Vacunación contra el dengue: todo lo que tenés que saber",
+      "unique_reads": 520,
+      "total_reads": 720,
+      "date": "Jan 28, 2026"
+    },
+    {
+      "title": "Resultados NPS 2025: ¿dónde estamos y hacia dónde vamos?",
+      "unique_reads": 519,
+      "total_reads": 632,
+      "date": "Jan 19, 2026"
+    },
+    {
+      "title": "Eureka evolucionó con el Gen de la IA",
+      "unique_reads": 411,
+      "total_reads": 480,
+      "date": "Jan 20, 2026"
+    },
+    {
+      "title": "Global Finance nos reconoció como el mejor banco de comercio exterior en Argentina",
+      "unique_reads": 300,
+      "total_reads": 357,
+      "date": "Jan 21, 2026"
+    },
+    {
+      "title": "Cajas navideñas BBVA, una tradición que nos une",
+      "unique_reads": 297,
+      "total_reads": 310,
+      "date": "Jan 19, 2026"
+    }
+  ],
+  "hitos": [],
+  "events": [],
+  "quality_flags": {
+    "scope_country": "AR",
+    "scope_mixed": false,
+    "site_has_no_data_sections": false,
+    "events_summary_available": false,
+    "push_ranking_available": true,
+    "pull_ranking_available": true,
+    "historical_comparison_allowed": true
+  },
+  "extraction_warnings": []
+}

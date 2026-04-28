@@ -7,6 +7,9 @@ Reglas críticas:
 - No mezclar alcance de fuentes si el dashboard no lo permite.
 - `events` debe ser lista estructurada o lista vacía, nunca texto ambiguo.
 - `top_push_by_interaction`, `top_push_by_open_rate` y `top_pull_notes` deben ser arrays.
+- En mailing, priorizá las tablas “Top five - Mayor Tasa de Apertura” y “Top five - Mayor Tasa de Interacción” por sobre la tabla principal si los títulos de la tabla principal aparecen truncados.
+- Normalizá títulos de mails reemplazando guiones bajos por espacios y limpiando caracteres técnicos; no alteres porcentajes ni orden de ranking.
+- No omitas áreas solicitantes si aparecen en planificación/página 1; normalizalas como internal_clients.
 
 Contrato JSON obligatorio:
 {
@@ -49,6 +52,7 @@ Contrato JSON obligatorio:
 
 Mapeos sugeridos:
 - plan_total: total comunicaciones en planificación.
+- internal_clients: bloque "Áreas solicitantes", "Pedidos por dirección/área", "Dirección/Área" o similar, normalmente visible en página 1 o planificación. Si el bloque existe, extraerlo aunque esté pegado al gráfico o tabla.
 - site_notes_total: noticias/notas publicadas en site.
 - site_total_views: páginas vistas/lecturas totales del site.
 - mail_total: envíos de mail del período.
