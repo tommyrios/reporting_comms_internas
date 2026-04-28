@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from pypdf import PdfReader
+from data_quality import validate_canonical_quality
 
 logger = logging.getLogger(__name__)
 
@@ -1538,6 +1539,14 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
 
     if open_rate > 0 and interaction_rate > 0 and abs(open_rate - interaction_rate) < MIN_RATE_DIFFERENCE:
         errors.append("mail_open_rate y mail_interaction_rate no deberían colapsar al mismo valor")
+
+    dq = validate_canonical_quality(canonical)
+    for error in dq.get("errors", []):
+        if error not in errors:
+            errors.append(error)
+    for warning in dq.get("warnings", []):
+        if warning not in warnings:
+            warnings.append(warning)
 
     return {
         "month": canonical.get("month"),

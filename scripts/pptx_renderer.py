@@ -12,7 +12,7 @@ from config import ASSETS_DIR
 from deck_assembler import assemble_deck
 
 DEFAULT_TEMPLATE_PATH = ASSETS_DIR / "plantilla-bbva.pptx"
-DEFAULT_TEMPLATE_MODE = "frame"
+DEFAULT_TEMPLATE_MODE = "full"
 
 
 def _period_label(report: dict[str, Any]) -> str:
@@ -25,7 +25,7 @@ def _period_label(report: dict[str, Any]) -> str:
     return "-"
 
 
-def _render_body_with_js(report: dict[str, Any], output_path: Path) -> None:
+def _render_body_with_js(report: dict[str, Any], output_path: Path, mode: str = "body") -> None:
     renderer_path = Path(__file__).with_suffix(".js")
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as tmp:
         tmp.write(json.dumps(report, ensure_ascii=False, indent=2))
@@ -33,7 +33,7 @@ def _render_body_with_js(report: dict[str, Any], output_path: Path) -> None:
 
     try:
         subprocess.run(
-            ["node", str(renderer_path), str(input_json_path), str(output_path), "--mode=body"],
+            ["node", str(renderer_path), str(input_json_path), str(output_path), f"--mode={mode}"],
             check=True,
             cwd=str(Path(__file__).resolve().parent.parent),
         )
@@ -56,7 +56,7 @@ def create_pptx(
 
     with tempfile.TemporaryDirectory() as tmp:
         body_path = Path(tmp) / "body.pptx"
-        _render_body_with_js(safe_report, body_path)
+        _render_body_with_js(safe_report, body_path, mode="body" if mode == "frame" else "full")
 
         if mode == "frame" and template.exists():
             assemble_deck(template, body_path, output_path, _period_label(safe_report))

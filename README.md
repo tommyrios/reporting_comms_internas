@@ -13,13 +13,17 @@ Pipeline end-to-end para generar un **reporte mensual ejecutivo** a partir de da
    - consolida métricas, mixes y rankings
    - aplica `quality_flags`
    - controla comparabilidad histórica real
-4. **Narrativa ejecutiva (LLM opcional)** (`prompts/period_report.txt`):
+4. **Data Quality explícito** (`scripts/data_quality.py` + `scripts/validate_report.py`):
+   - valida contrato mensual y contrato de reporte
+   - marca rankings push incompletos antes de renderizar
+   - corta inconsistencias fuertes y deja warnings auditables
+5. **Narrativa ejecutiva (LLM opcional)** (`prompts/period_report.txt`):
    - el LLM redacta copy
    - no decide números
-5. **Render de body en JS** (`scripts/pptx_renderer.js`):
+6. **Render de body en JS** (`scripts/pptx_renderer.js`):
    - renderer principal
    - módulos dinámicos + empty states corporativos
-6. **Ensamblado final de deck** (`scripts/deck_assembler.py`):
+7. **Ensamblado final de deck** (`scripts/deck_assembler.py`):
    - portada = primera slide de `assets/plantilla-bbva.pptx`
    - reemplazo de `FECHA` por período real
    - body generado en JS en el medio
@@ -32,13 +36,17 @@ Pipeline end-to-end para generar un **reporte mensual ejecutivo** a partir de da
 - No se renderizan slides vacías.
 - Cada slide prioriza: 1 insight central, 1 visual dominante y bullets cerrados sin puntos suspensivos.
 - Los rankings se muestran como cards + gráfico; las distribuciones se muestran como donut o barras horizontales.
+- La portada identifica automáticamente si el informe es mensual, trimestral o anual.
+- La card de top campaña puede mostrar uplift vs. interacción promedio cuando hay base suficiente.
 - Módulo de **eventos** es condicional:
   - si no hay data suficiente, se omite.
 - Si no hay comparabilidad histórica, se informa: **“No comparable por alcance de fuente”**.
 
 ## Guardrails de calidad de datos
 
-- Si un mail rankea con interacción alta pero trae `0 clics`, el pipeline agrega warning de inconsistencia.
+- Si un mail rankea con interacción alta pero trae `0 clics`, el pipeline agrega warning de inconsistencia y lo marca como `data_complete=false`.
+- Si un mail trae interacción alta sin apertura, se considera dato incompleto para evitar publicar KPIs inválidos.
+- Si una nota pull tiene usuarios únicos mayores que vistas totales, se genera warning de calidad.
 - Las áreas solicitantes se extraen como categorías separadas: por ejemplo, `Client Solutions` y `Engineering & Data` no se fusionan.
 - Los títulos de mails se normalizan reemplazando guiones bajos, reconstruyendo nombres truncados y evitando títulos con puntos suspensivos.
 - Las slides vacías se omiten automáticamente salvo que exista contexto manual.
@@ -101,6 +109,21 @@ npm install
 python -m unittest discover -s tests -p 'test*.py'
 ```
 
+### QA local de muestra
+
+Valida contratos y genera un PPTX smoke-test en `output/smoke/`:
+
+```bash
+npm run qa:sample
+```
+
+### Validar artefactos manualmente
+
+```bash
+python scripts/validate_report.py data/canonical_jan_2026_ejecutivo_v3.json --kind canonical
+python scripts/validate_report.py data/report_jan_2026_ejecutivo_v3.json --kind report
+```
+
 ### Generar reporte puntual (solo procesamiento local)
 
 ```bash
@@ -137,8 +160,10 @@ Workflow: `.github/workflows/comms-report.yml`
 
 Orden de ejecución:
 1. instala dependencias Python + Node
-2. corre tests
-3. ejecuta pipeline
-4. sube artefactos
+2. corre tests unitarios
+3. valida contratos de muestra
+4. genera un deck smoke-test con el renderer JS
+5. ejecuta pipeline real
+6. sube artefactos
 
 Si los tests fallan, no avanza a generación/envío.

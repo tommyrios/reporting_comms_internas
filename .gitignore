@@ -1,14 +1,21 @@
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
 node_modules/
+.DS_Store
+
+# Runtime / generated outputs
 output/
-data/monthly_pdfs/
 local_data/
+data/monthly_pdfs/
 data/runtime/
 data/fetch_result.json
 data/monthly_pdf_manifest.json
 data/reporting_periods.json
 data/selected_periods.json
-.DS_Store
 sample_bbva_report_definitive.pptx
+
+# Keep the template tracked, ignore ad-hoc generated decks
+*.pptx
+!assets/plantilla-bbva.pptx
