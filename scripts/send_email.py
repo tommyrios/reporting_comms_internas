@@ -1,3 +1,4 @@
+import html
 import json
 import mimetypes
 import os
@@ -87,33 +88,30 @@ def _resolve_report_paths(period_slug: str) -> tuple[Path, Path, Path | None]:
 
 
 def _build_email_bodies(metadata: dict, attachment_label: str) -> tuple[str, str]:
-    title = metadata.get("title") or "Informe de Comunicaciones Internas"
-    subtitle = metadata.get("period") or metadata.get("subtitle") or ""
-    warning = metadata.get("warning")
+    period_label = metadata.get("period") or metadata.get("period_label") or metadata.get("subtitle") or "el período"
+    period_label = str(period_label).strip() or "el período"
+    period_label_html = html.escape(period_label)
 
-    plain_lines = [
-        title,
-        subtitle,
-        "",
-        f"Adjuntamos el informe en {attachment_label}.",
-        "Este envío fue generado automáticamente.",
-    ]
-    if warning:
-        plain_lines.extend(["", f"Nota: {warning}"])
-    plain_text = "\n".join(line for line in plain_lines if line is not None)
+    plain_text = f"""Hola equipo!
 
-    warning_block = ""
-    if warning:
-        warning_block = f'<p style="margin-top:12px;color:#9a3412;"><strong>Nota:</strong> {warning}</p>'
+Les comparto el informe de gestión de {period_label} 🚀:
+Una mirada rápida sobre qué funcionó mejor, qué contenidos destacaron y qué oportunidades aparecen para seguir mejorando.
+
+Ojalá les sirva para leer resultados y pensar próximos pasos.
+
+Saludos!!""".strip()
 
     html_body = f"""
     <html>
-      <body style="font-family:Arial,Helvetica,sans-serif;color:#111827;">
-        <p style="font-size:18px;font-weight:700;margin-bottom:6px;">{title}</p>
-        <p style="margin-top:0;color:#6b7280;">{subtitle}</p>
-        <p>Adjuntamos el informe en {attachment_label}.</p>
-        <p>Este envío fue generado automáticamente.</p>
-        {warning_block}
+      <body style="font-family:Arial,Helvetica,sans-serif;color:#111827;line-height:1.45;">
+        <p>Hola equipo!</p>
+
+        <p>Les comparto el informe de gestión de <strong>{period_label_html}</strong> 🚀:</p>
+        <p>Una mirada rápida sobre qué funcionó mejor, qué contenidos destacaron y qué oportunidades aparecen para seguir mejorando.</p>
+
+        <p>Ojalá les sirva para leer resultados y pensar próximos pasos.</p>
+
+        <p>Saludos!!</p>
       </body>
     </html>
     """.strip()

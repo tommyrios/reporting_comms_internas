@@ -206,16 +206,31 @@ function chartColor(idx, options = {}) {
   return SECONDARY_CHART_COLORS[(idx - 1) % SECONDARY_CHART_COLORS.length];
 }
 
-function shortSentence(value, max = 120) {
+function hasIncompleteEnding(value) {
+  const text = cleanText(value, '').replace(/…/g, '').trim();
+  if (!text) return true;
+  return /(\b(?:a|al|ante|bajo|con|contra|de|del|desde|durante|e|en|entre|hacia|hasta|mediante|o|para|por|según|sin|sobre|tras|u|y)\.?$|\b(?:nuestro|nuestra|nuestros|nuestras|este|esta|estos|estas|ese|esa|esos|esas|su|sus)\.?$)/i.test(text);
+}
+
+function completeSentence(value, max = 120) {
   const text = ensureSentence(cleanText(value, '')).replace(/…/g, '').trim();
-  if (!text) return '';
+  if (!text || hasIncompleteEnding(text)) return '';
   if (text.length <= max) return text;
   const firstSentence = text.split(/(?<=[.!?])\s+/)[0];
-  if (firstSentence && firstSentence.length <= max) return ensureSentence(firstSentence);
+  if (firstSentence && firstSentence.length <= max && !hasIncompleteEnding(firstSentence)) return ensureSentence(firstSentence);
   const clause = text.split(/[,;:]/)[0];
-  if (clause && clause.length >= 28 && clause.length <= max) return ensureSentence(clause);
+  if (clause && clause.length >= 28 && clause.length <= max && !hasIncompleteEnding(clause)) return ensureSentence(clause);
+  return '';
+}
+
+function shortSentence(value, max = 120) {
+  const complete = completeSentence(value, max);
+  if (complete) return complete;
+  const text = ensureSentence(cleanText(value, '')).replace(/…/g, '').trim();
+  if (!text) return '';
   const cut = text.slice(0, max).split(' ').slice(0, -1).join(' ').trim();
-  return ensureSentence(cut || text.slice(0, max).trim());
+  if (!cut || hasIncompleteEnding(cut)) return '';
+  return ensureSentence(cut);
 }
 
 function hasMetric(value) {
@@ -715,7 +730,6 @@ function renderDonutChart(slide, x, y, w, h, rows, title = 'Mix', options = {}) 
       chartColors: colors,
       showTitle: false,
       showLeaderLines: false,
-      border: { color: COLORS.white, pt: 1 },
     });
 
     if (options.showSliceLabels) {
@@ -831,7 +845,7 @@ function renderExecutiveSummary(module) {
     'SITE funciona como soporte para profundizar contenidos.',
     'Revisar el balance temático antes del próximo cierre.',
   ];
-  const insights = buildExecutiveInsights(p).map((item) => shortSentence(item, 96));
+  const insights = buildExecutiveInsights(p).map((item) => shortSentence(item, 96)).filter(Boolean);
   bulletList(slide, 8.56, 2.46, 3.30, insights.length ? insights : defaultInsights, { max: 96, step: 0.58, fontSize: 8.4, itemH: 0.38, bulletColor: COLORS.electricBlue });
   slide.addShape(pptx.ShapeType.roundRect, { x: 8.56, y: 4.48, w: 3.28, h: 0.28, rectRadius: 0.05, fill: { color: COLORS.paleYellow }, line: { color: COLORS.paleYellow } });
   slide.addText('Implicancia clave: replicar beneficio claro + CTA visible.', { x: 8.72, y: 4.575, w: 2.96, h: 0.11, fontFace: 'Arial', bold: true, fontSize: 6.95, color: COLORS.midnight, margin: 0, fit: 'shrink' });
@@ -842,8 +856,7 @@ function renderExecutiveSummary(module) {
     { label: 'Mails', value: parseNumber(p.mail_total) },
     { label: 'Notas SITE', value: parseNumber(p.site_notes_total) },
   ];
-  renderHorizontalBarChart(slide, 1.04, 4.88, 6.25, 0.62, volumeRows, { valueMode: 'number', labelMax: 16, catSize: 7.0, dataSize: 7.0, labelWidth: 0.34, barH: 0.11, colors: [COLORS.electricBlue, COLORS.sky, COLORS.purple] });
-  slide.addText(`${fmtNum(p.site_total_views)} vistas SITE`, { x: 5.72, y: 5.46, w: 1.55, h: 0.14, fontFace: 'Arial', bold: true, fontSize: 7.2, color: COLORS.orange, margin: 0, fit: 'shrink', align: 'right' });
+  renderHorizontalBarChart(slide, 1.04, 4.88, 6.25, 0.62, volumeRows, { valueMode: 'number', labelMax: 16, catSize: 7.0, dataSize: 7.0, labelWidth: 0.34, barH: 0.11, colors: [COLORS.electricBlue, COLORS.lime, COLORS.purple] });
 
   slide.addText(`Período: ${periodLabel()} · fuente: dashboard mensual consolidado`, { x: 0.72, y: 6.72, w: 7.8, h: 0.18, fontFace: 'Arial', fontSize: 7.6, color: COLORS.muted, margin: 0 });
   finalizeSlide(slide);
@@ -947,7 +960,7 @@ function renderPushRanking(module) {
   bulletList(slide, 9.20, 2.38, 2.82, bullets, { max: 76, step: 0.44, fontSize: 7.8, itemH: 0.31, bulletColor: COLORS.cyan });
 
   panel(slide, 0.72, 4.38, 11.62, 1.84, 'Ranking de interacción', { fill: COLORS.white, shadow: false });
-  renderHorizontalBarChart(slide, 1.04, 4.88, 10.70, 1.02, byInteraction.map((row) => ({ label: row.name || row.title, value: parseNumber(row.interaction || row.ctr) })), { valueMode: 'percent', limit: 5, labelMax: 32, labelLines: 1, catSize: 7.1, dataSize: 7.2, labelWidth: 0.34, valueWidth: 0.11, barH: 0.12, colors: [COLORS.electricBlue, COLORS.sky, COLORS.purple, COLORS.lime, COLORS.yellow] });
+  renderHorizontalBarChart(slide, 1.04, 4.88, 10.70, 1.02, byInteraction.map((row) => ({ label: row.name || row.title, value: parseNumber(row.interaction || row.ctr) })), { valueMode: 'percent', limit: 5, labelMax: 32, labelLines: 1, catSize: 7.1, dataSize: 7.2, labelWidth: 0.34, valueWidth: 0.11, barH: 0.12, colors: [COLORS.electricBlue, COLORS.lime, COLORS.purple, COLORS.orange, COLORS.yellow] });
   finalizeSlide(slide);
 }
 
@@ -967,7 +980,7 @@ function renderPullRanking(module) {
   }
 
   panel(slide, 0.72, 1.88, 7.45, 4.38, 'Top 5 notas por vistas', { fill: COLORS.white, shadow: false });
-  renderHorizontalBarChart(slide, 1.08, 2.48, 6.72, 3.10, rows.map((row) => ({ label: row.title || row.name, value: parseNumber(row.total_reads || row.views) })), { valueMode: 'number', labelMax: 31, labelLines: 2, catSize: 6.8, dataSize: 7.2, labelWidth: 0.53, valueWidth: 0.11, barH: 0.12, colors: [COLORS.electricBlue, COLORS.sky, COLORS.purple, COLORS.lime, COLORS.yellow] });
+  renderHorizontalBarChart(slide, 1.08, 2.48, 6.72, 3.10, rows.map((row) => ({ label: row.title || row.name, value: parseNumber(row.total_reads || row.views) })), { valueMode: 'number', labelMax: 31, labelLines: 2, catSize: 6.8, dataSize: 7.2, labelWidth: 0.53, valueWidth: 0.11, barH: 0.12, colors: [COLORS.electricBlue, COLORS.lime, COLORS.purple, COLORS.orange, COLORS.yellow] });
 
   heroMetric(slide, 8.46, 1.88, 3.70, 1.14, 'Promedio lecturas/nota', fmtNum(p.average_reads_per_note), `${fmtNum(p.site_total_views)} vistas totales SITE`, COLORS.electricBlue, { valueSize: 28, detailMax: 88, fill: COLORS.paleBlue, shadow: false });
 
@@ -1013,13 +1026,13 @@ function renderMilestones(module) {
 
 function actionItems(source, defaults, limit) {
   const maxWords = 12;
-  const items = Array.isArray(source) ? source.map((item) => shortSentence(item, 82)).filter(Boolean) : [];
+  const items = Array.isArray(source) ? source.map((item) => completeSentence(item, 92)).filter(Boolean) : [];
   const usable = items
-    .filter((item) => item.length <= 88)
+    .filter((item) => item.length <= 96)
     .filter((item) => item.split(/\s+/).length <= maxWords)
-    .filter((item) => !/(\bde\.?$|\bpara\.?$|\bcon\.?$|\by\.?$|\bej\.?$|\bejemplo\.?$|\binteracción y\.?$)/i.test(item))
+    .filter((item) => !hasIncompleteEnding(item))
     .filter((item) => !item.includes('…'));
-  return (usable.length >= Math.min(limit, 2) ? usable : defaults).slice(0, limit);
+  return (usable.length >= limit ? usable : defaults).slice(0, limit);
 }
 
 function renderRecommendations(module) {
@@ -1042,7 +1055,8 @@ function renderRecommendations(module) {
   const slide = baseSlide(module.title || 'Conclusiones y próximos pasos', 'Plan de mejora');
 
   slide.addText('Plan 30 días: foco, prueba y seguimiento', { x: 0.72, y: 1.30, w: 9.0, h: 0.34, fontFace: 'Georgia', bold: true, fontSize: 20, color: COLORS.midnight, margin: 0, fit: 'shrink' });
-  slide.addText(shortSentence(p.summary || p.message || 'Priorizar beneficios, bienestar y segmentación para sostener engagement.', 105), { x: 0.74, y: 1.78, w: 8.0, h: 0.20, fontFace: 'Arial', fontSize: 8.4, color: COLORS.muted, margin: 0, fit: 'shrink' });
+  const summaryText = completeSentence(p.summary || p.message, 105) || 'Priorizar beneficios, bienestar y segmentación para sostener engagement.';
+  slide.addText(summaryText, { x: 0.74, y: 1.78, w: 8.0, h: 0.20, fontFace: 'Arial', fontSize: 8.4, color: COLORS.muted, margin: 0, fit: 'shrink' });
 
   const blocks = [
     { title: 'Quick wins', items: recs, color: COLORS.electricBlue, fill: COLORS.paleBlue },
@@ -1053,11 +1067,12 @@ function renderRecommendations(module) {
     const x = 0.72 + idx * 4.02;
     panel(slide, x, 2.30, 3.58, 3.58, block.title, { fill: block.fill, shadow: false, headerColor: block.color });
     slide.addShape(pptx.ShapeType.rect, { x, y: 2.30, w: 3.58, h: 0.08, fill: { color: block.color }, line: { color: block.color } });
-    bulletList(slide, x + 0.28, 2.94, 3.02, block.items, { limit: 3, step: 0.68, max: 72, fontSize: 8.6, itemH: 0.42, bulletColor: block.color });
+    bulletList(slide, x + 0.28, 2.90, 3.02, block.items, { limit: 3, step: 0.74, max: 96, fontSize: 8.1, itemH: 0.50, bulletColor: block.color });
   });
 
   slide.addShape(pptx.ShapeType.roundRect, { x: 0.72, y: 6.20, w: 11.62, h: 0.45, rectRadius: 0.06, fill: { color: COLORS.midnight }, line: { color: COLORS.midnight } });
-  slide.addText(shortSentence(p.owner_note || 'Seguimiento: apertura, interacción, vistas por nota, ranking de campañas y balance temático.', 130), { x: 0.98, y: 6.36, w: 11.02, h: 0.12, fontFace: 'Arial', fontSize: 7.5, bold: true, color: COLORS.white, margin: 0, fit: 'shrink' });
+  const ownerNote = completeSentence(p.owner_note, 130) || 'Seguimiento: apertura, interacción, vistas por nota, ranking de campañas y balance temático.';
+  slide.addText(ownerNote, { x: 0.98, y: 6.36, w: 11.02, h: 0.12, fontFace: 'Arial', fontSize: 7.5, bold: true, color: COLORS.white, margin: 0, fit: 'shrink' });
   finalizeSlide(slide);
 }
 
