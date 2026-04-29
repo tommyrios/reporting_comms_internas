@@ -782,11 +782,11 @@ function renderFullCover() {
   if (period.secondary) {
     slide.addText(period.secondary, { x: 0.38, y: 2.73, w: 2.4, h: 0.18, fontFace: 'Arial', fontSize: 8.8, color: COLORS.sky, margin: 0, fit: 'shrink' });
   }
-  slide.addText('Comunicaciones Internas', { x: 0.38, y: 2.98, w: 3.1, h: 0.18, fontFace: 'Arial', fontSize: 8.9, color: COLORS.white, margin: 0, fit: 'shrink' });
+  slide.addText('Informe de gestión', { x: 0.38, y: 2.98, w: 3.1, h: 0.18, fontFace: 'Arial', fontSize: 8.9, color: COLORS.white, margin: 0, fit: 'shrink' });
   slide.addShape(pptx.ShapeType.line, { x: 0.38, y: 3.24, w: 9.4, h: 0, line: { color: COLORS.white, width: 0.6, transparency: 34 } });
 
-  slide.addText('Informe gestión\nInterna', {
-    x: 0.38, y: 3.52, w: 6.9, h: 1.95,
+  slide.addText('Comunicaciones\ninternas', {
+    x: 0.38, y: 3.46, w: 7.4, h: 2.05,
     fontFace: 'Arial', bold: true, fontSize: 40, color: COLORS.white,
     margin: 0, breakLine: true, fit: 'shrink',
   });
@@ -834,7 +834,7 @@ function renderExecutiveSummary(module) {
   const insights = buildExecutiveInsights(p).map((item) => shortSentence(item, 96));
   bulletList(slide, 8.56, 2.46, 3.30, insights.length ? insights : defaultInsights, { max: 96, step: 0.58, fontSize: 8.4, itemH: 0.38, bulletColor: COLORS.electricBlue });
   slide.addShape(pptx.ShapeType.roundRect, { x: 8.56, y: 4.48, w: 3.28, h: 0.28, rectRadius: 0.05, fill: { color: COLORS.paleYellow }, line: { color: COLORS.paleYellow } });
-  slide.addText('So what: replicar beneficio claro + CTA visible.', { x: 8.72, y: 4.575, w: 2.96, h: 0.11, fontFace: 'Arial', bold: true, fontSize: 7.1, color: COLORS.midnight, margin: 0, fit: 'shrink' });
+  slide.addText('Implicancia clave: replicar beneficio claro + CTA visible.', { x: 8.72, y: 4.575, w: 2.96, h: 0.11, fontFace: 'Arial', bold: true, fontSize: 6.95, color: COLORS.midnight, margin: 0, fit: 'shrink' });
 
   panel(slide, 0.72, 4.42, 7.10, 1.41, 'Volumen gestionado', { fill: COLORS.white, shadow: false });
   const volumeRows = [
@@ -938,7 +938,7 @@ function renderPushRanking(module) {
     slide.addText(clicksLabel(row), { x: 7.20, y: y + 0.60, w: 1.12, h: 0.10, fontFace: 'Arial', fontSize: 6.4, color: COLORS.muted, margin: 0, fit: 'shrink', align: 'right' });
   });
 
-  panel(slide, 8.92, 1.88, 3.42, 2.10, 'So what', { fill: COLORS.paleCyan, shadow: false });
+  panel(slide, 8.92, 1.88, 3.42, 2.10, 'Implicancias clave', { fill: COLORS.paleCyan, shadow: false });
   const bullets = [
     'Beneficio concreto + urgencia elevó la respuesta.',
     `${fmtPct(best.open_rate)} de apertura es referencia aspiracional.`,

@@ -117,7 +117,7 @@ def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_ex
     period_label = report.get("period", {}).get("label", "-")
     metadata = {
         "title": "Comunicaciones Internas",
-        "subtitle": "Informe ejecutivo mensual",
+        "subtitle": "Informe de gestión",
         "period": period_label,
         "period_slug": period_slug,
         "generated_at": datetime.utcnow().isoformat() + "Z",

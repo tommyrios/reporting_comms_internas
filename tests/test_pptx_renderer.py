@@ -110,7 +110,8 @@ class PptxRendererFrameTemplateTests(unittest.TestCase):
             rendered = Presentation(str(output_path))
             self.assertEqual(len(rendered.slides), 4)
             self.assertIn("Marzo 2026", _slide_texts(rendered.slides[0]))
-            self.assertIn("Informe gestión", _slide_texts(rendered.slides[0]))
+            self.assertIn("Comunicaciones", _slide_texts(rendered.slides[0]))
+            self.assertIn("Informe de gestión", _slide_texts(rendered.slides[0]))
             self.assertIn("Gracias", _slide_texts(rendered.slides[-1]))
 
     def test_conditional_module_changes_slide_count(self):

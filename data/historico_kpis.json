@@ -35,6 +35,42 @@
         "historical_comparison_allowed": true
       },
       "updated_at": "2026-04-29T14:05:09.512562Z"
+    },
+    "quarter:quarter_2026_Q1": {
+      "kind": "quarter",
+      "period_ref": "quarter_2026_Q1",
+      "period_slug": "quarter_2026_Q1",
+      "calculated_totals": {
+        "plan_total": 159,
+        "site_notes_total": 30,
+        "site_total_views": 15856,
+        "mail_total": 93,
+        "mail_open_rate": 79.33,
+        "mail_interaction_rate": 12.52,
+        "total_events": 0,
+        "total_event_participants": 0,
+        "latest_push_volume": 36,
+        "previous_push_volume": "Sin datos previos",
+        "latest_push_variation": "Sin datos previos",
+        "average_reads_per_note": 528.53,
+        "push_volume_period": 159,
+        "pull_notes_period": 30,
+        "pull_reads_period": 15856,
+        "average_open_rate": 79.33,
+        "average_interaction_rate": 12.52,
+        "volume_previous": "Sin datos previos",
+        "volume_change": "Sin datos previos"
+      },
+      "quality_flags": {
+        "scope_country": "AR",
+        "scope_mixed": false,
+        "site_has_no_data_sections": false,
+        "events_summary_available": false,
+        "push_ranking_available": true,
+        "pull_ranking_available": true,
+        "historical_comparison_allowed": true
+      },
+      "updated_at": "2026-04-29T14:23:23.971793Z"
     }
   }
 }
