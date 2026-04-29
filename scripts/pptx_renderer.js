@@ -1056,7 +1056,12 @@ function renderPushRanking(module) {
 function renderPullRanking(module) {
   const p = module.payload || {};
   const slide = baseSlide(module.title || 'Ranking pull', 'SITE / Intranet');
-  const rows = Array.isArray(p.top_pull_notes) ? p.top_pull_notes.slice(0, 5) : [];
+  const rows = Array.isArray(p.top_pull_notes)
+  ? p.top_pull_notes
+      .slice()
+      .sort((a, b) => parseNumber(b.total_reads || b.views) - parseNumber(a.total_reads || a.views))
+      .slice(0, 5)
+  : [];
   const best = rows[0] || {};
 
   slide.addText(clip(best.title ? 'Bienestar y servicios impulsan las lecturas del ecosistema pull.' : 'Ranking pull del período.', 106), { x: 0.72, y: 1.28, w: 10.8, h: 0.34, fontFace: 'Georgia', bold: true, fontSize: 19, color: COLORS.midnight, margin: 0, fit: 'shrink' });
@@ -1068,7 +1073,7 @@ function renderPullRanking(module) {
   }
 
   panel(slide, 0.72, 1.88, 7.45, 4.38, 'Top 5 notas por vistas', { fill: COLORS.white, shadow: false });
-  renderHorizontalBarChart(slide, 1.08, 2.48, 6.72, 3.10, rows.map((row) => ({ label: row.title || row.name, value: parseNumber(row.total_reads || row.views) })), { valueMode: 'number', labelMax: 31, labelLines: 2, catSize: 6.8, dataSize: 7.2, labelWidth: 0.53, valueWidth: 0.11, barH: 0.12, colors: [COLORS.electricBlue, COLORS.lime, COLORS.purple, COLORS.orange, COLORS.yellow] });
+  renderHorizontalBarChart(slide, 1.08, 2.48, 6.72, 3.10, rows.map((row) => ({ label: row.title || row.name, value: parseNumber(row.total_reads || row.views) })), { valueMode: 'number', labelMax: 38, labelLines: 3, catSize: 6.8, dataSize: 7.2, labelWidth: 0.53, valueWidth: 0.11, barH: 0.12, colors: [COLORS.electricBlue, COLORS.lime, COLORS.purple, COLORS.orange, COLORS.yellow] });
 
   heroMetric(slide, 8.46, 1.88, 3.70, 1.14, 'Promedio lecturas/nota', fmtNum(p.average_reads_per_note), `${fmtNum(p.site_total_views)} vistas totales SITE`, COLORS.electricBlue, { valueSize: 28, detailMax: 88, fill: COLORS.paleBlue, shadow: false });
 
