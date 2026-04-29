@@ -58,31 +58,49 @@ const COLORS = {
 
 const CHART_COLORS = [
   COLORS.electricBlue,
-  COLORS.lime,
-  COLORS.yellow,
   COLORS.orange,
-  COLORS.cyan,
   COLORS.purple,
-  COLORS.sky,
+  COLORS.lime,
+  COLORS.cyan,
+  COLORS.yellow,
   COLORS.red,
 ];
 
 const SECONDARY_CHART_COLORS = [
-  COLORS.lime,
-  COLORS.yellow,
   COLORS.orange,
-  COLORS.cyan,
   COLORS.purple,
-  COLORS.sky,
+  COLORS.lime,
+  COLORS.cyan,
+  COLORS.yellow,
+  COLORS.red,
 ];
 
 const CHANNEL_CHART_COLORS = [
   COLORS.electricBlue,
-  COLORS.lime,
-  COLORS.yellow,
   COLORS.orange,
-  COLORS.cyan,
+  COLORS.lime,
   COLORS.purple,
+  COLORS.cyan,
+  COLORS.yellow,
+];
+
+const AXIS_CHART_COLORS = [
+  COLORS.electricBlue,
+  COLORS.purple,
+  COLORS.orange,
+  COLORS.lime,
+  COLORS.cyan,
+  COLORS.yellow,
+];
+
+const AREA_CHART_COLORS = [
+  COLORS.electricBlue,
+  COLORS.orange,
+  COLORS.purple,
+  COLORS.lime,
+  COLORS.cyan,
+  COLORS.yellow,
+  COLORS.grey2,
 ];
 
 const BRAND_ASSETS_DIR = path.resolve(__dirname, '..', 'assets', 'brand');
@@ -100,8 +118,63 @@ function stripEmoji(value) {
   return String(value ?? '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim();
 }
 
+function repairSpanishText(value) {
+  let text = String(value ?? '');
+  const replacements = [
+    [/\bIncentivaci\s+n\b/g, 'Incentivación'],
+    [/\bincentivaci\s+n\b/g, 'incentivación'],
+    [/\bEvaluaci\s+n\b/g, 'Evaluación'],
+    [/\bevaluaci\s+n\b/g, 'evaluación'],
+    [/\bComunicaci\s+n\b/g, 'Comunicación'],
+    [/\bcomunicaci\s+n\b/g, 'comunicación'],
+    [/\bPlanificaci\s+n\b/g, 'Planificación'],
+    [/\bplanificaci\s+n\b/g, 'planificación'],
+    [/\bInteracci\s+n\b/g, 'Interacción'],
+    [/\binteracci\s+n\b/g, 'interacción'],
+    [/\bValid\s+los\s+datos\b/g, 'Validá los datos'],
+    [/\bvalid\s+los\s+datos\b/g, 'validá los datos'],
+    [/\bAcced\s+a\s+tu\s+info\b/g, 'Accedé a tu info'],
+    [/\bacced\s+a\s+tu\s+info\b/g, 'accedé a tu info'],
+    [/\bConoc\s+los\s+resultados\b/g, 'Conocé los resultados'],
+    [/\bconoc\s+los\s+resultados\b/g, 'conocé los resultados'],
+    [/\bPlanific\s+tu\s+mes\b/g, 'Planificá tu mes'],
+    [/\bplanific\s+tu\s+mes\b/g, 'planificá tu mes'],
+    [/\bProteg\s+tu\b/g, 'Protegé tu'],
+    [/\bproteg\s+tu\b/g, 'protegé tu'],
+    [/\bCuid\s+nuestra\b/g, 'Cuidá nuestra'],
+    [/\bcuid\s+nuestra\b/g, 'cuidá nuestra'],
+    [/\bMa\s+ana\b/g, 'Mañana'],
+    [/\bma\s+ana\b/g, 'mañana'],
+    [/\bten\s+s\b/g, 'tenés'],
+    [/\bTen\s+s\b/g, 'Tenés'],
+    [/\bAs\s+vivimos\b/g, 'Así vivimos'],
+    [/\bas\s+vivimos\b/g, 'así vivimos'],
+    [/\bD\s+a\s+Interna/g, 'Día Interna'],
+    [/\bd\s+a\s+interna/g, 'día interna'],
+    [/\bm\s+sica\b/g, 'música'],
+    [/\bM\s+sica\b/g, 'Música'],
+    [/\bm\s+s\s+cerca\b/g, 'más cerca'],
+    [/\bM\s+s\s+cerca\b/g, 'Más cerca'],
+    [/\bltimos\s+d\s+as\b/g, 'últimos días'],
+    [/\bLtimos\s+d\s+as\b/g, 'Últimos días'],
+    [/\bacad\s+mico\b/g, 'académico'],
+    [/\bAcad\s+mico\b/g, 'Académico'],
+    [/\bacad\s+mica\b/g, 'académica'],
+    [/\bAcad\s+mica\b/g, 'Académica'],
+    [/\bacompa\s+ando\b/g, 'acompañando'],
+    [/\bAcompa\s+ando\b/g, 'Acompañando'],
+    [/\blegi\s+n\b/g, 'legión'],
+    [/\bLegi\s+n\b/g, 'Legión'],
+    [/\bM\s+s\s+formaciones\b/g, 'Más formaciones'],
+    [/\bm\s+s\s+formaciones\b/g, 'más formaciones'],
+  ];
+  for (const [pattern, replacement] of replacements) text = text.replace(pattern, replacement);
+  return text;
+}
+
 function cleanText(value, fallback = '-') {
   let raw = String(value ?? '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  raw = repairSpanishText(raw);
   raw = raw.replace(/\.\.\./g, '…');
   const replacements = [
     [/Los beneficios de febrero van a llenarte el co(?:…)?$/i, 'Los beneficios de febrero van a llenarte el corazón'],
@@ -192,6 +265,21 @@ function valueAsPct(row, rows) {
   if (value <= 100 && total >= 95 && total <= 105) return fmtPct(value);
   if (total > 0) return fmtPct((value / total) * 100);
   return fmtNum(value);
+}
+
+function normalizeAreaLabel(label) {
+  const text = cleanText(label, '');
+  const replacements = [
+    [/^Relaciones$/i, 'Relaciones Institucionales'],
+    [/^Relaciones Institu(?:…|\.{3})?$/i, 'Relaciones Institucionales'],
+    [/^Country Manager$/i, 'Country Manager Office'],
+    [/^Country Manager Office.*$/i, 'Country Manager Office'],
+    [/^Internal Control.*$/i, 'Internal Control & Compliance'],
+  ];
+  for (const [pattern, replacement] of replacements) {
+    if (pattern.test(text)) return replacement;
+  }
+  return text;
 }
 
 function valueLabel(row, rows, options = {}) {
@@ -730,6 +818,8 @@ function renderDonutChart(slide, x, y, w, h, rows, title = 'Mix', options = {}) 
       chartColors: colors,
       showTitle: false,
       showLeaderLines: false,
+      showBorder: false,
+      showCatName: false,
     });
 
     if (options.showSliceLabels) {
@@ -850,7 +940,6 @@ function renderExecutiveSummary(module) {
   slide.addShape(pptx.ShapeType.roundRect, { x: 8.56, y: 4.48, w: 3.28, h: 0.28, rectRadius: 0.05, fill: { color: COLORS.paleYellow }, line: { color: COLORS.paleYellow } });
   slide.addText('Implicancia clave: replicar beneficio claro + CTA visible.', { x: 8.72, y: 4.575, w: 2.96, h: 0.11, fontFace: 'Arial', bold: true, fontSize: 6.95, color: COLORS.midnight, margin: 0, fit: 'shrink' });
 
-  panel(slide, 0.72, 4.42, 7.10, 1.41, 'Volumen gestionado', { fill: COLORS.white, shadow: false });
   const volumeRows = [
     { label: 'Planificación', value: parseNumber(p.plan_total) },
     { label: 'Mails', value: parseNumber(p.mail_total) },
@@ -861,7 +950,6 @@ function renderExecutiveSummary(module) {
   slide.addText(`Período: ${periodLabel()} · fuente: dashboard mensual consolidado`, { x: 0.72, y: 6.72, w: 7.8, h: 0.18, fontFace: 'Arial', fontSize: 7.6, color: COLORS.muted, margin: 0 });
   finalizeSlide(slide);
 }
-
 
 function renderChannelManagement(module) {
   const p = module.payload || {};
@@ -899,7 +987,7 @@ function renderMix(module) {
   const p = module.payload || {};
   const slide = baseSlide(module.title || 'Mix temático y áreas solicitantes', 'Contenido');
   const axes = weightedRows(p.strategic_axes, 6);
-  const clients = weightedRows(p.internal_clients, 8);
+  const clients = weightedRows(p.internal_clients, 8).map((row) => ({ ...row, label: normalizeAreaLabel(row.label) }));
   const formats = weightedRows(p.format_mix, 4);
   const leadAxis = axes[0];
   const leadClient = clients[0];
@@ -908,11 +996,11 @@ function renderMix(module) {
   slide.addText(clip(headline, 106), { x: 0.72, y: 1.28, w: 10.8, h: 0.34, fontFace: 'Georgia', bold: true, fontSize: 19, color: COLORS.midnight, margin: 0, fit: 'shrink' });
 
   panel(slide, 0.72, 1.86, 5.85, 4.12, 'Ejes estratégicos', { fill: COLORS.white, shadow: false });
-  renderHorizontalBarChart(slide, 1.04, 2.42, 5.20, 3.02, axes, { labelMax: 20, labelLines: 1, catSize: 7.3, dataSize: 7.4, valueMode: 'percent', labelWidth: 0.45, valueWidth: 0.13, barH: 0.13, colors: [COLORS.electricBlue, COLORS.sky, COLORS.purple, COLORS.lime, COLORS.yellow, COLORS.orange] });
+  renderHorizontalBarChart(slide, 1.04, 2.42, 5.20, 3.02, axes, { labelMax: 20, labelLines: 1, catSize: 7.3, dataSize: 7.4, valueMode: 'percent', labelWidth: 0.45, valueWidth: 0.13, barH: 0.13, colors: AXIS_CHART_COLORS });
 
   panel(slide, 6.86, 1.86, 5.48, 4.12, 'Áreas solicitantes', { fill: COLORS.white, shadow: false });
   if (clients.length) {
-    renderHorizontalBarChart(slide, 7.18, 2.42, 4.82, 3.02, clients, { labelMax: 23, labelLines: 1, catSize: 6.8, dataSize: 7.0, valueMode: 'percent', labelWidth: 0.52, valueWidth: 0.13, barH: 0.12, colors: [COLORS.electricBlue, COLORS.sky, COLORS.purple, COLORS.lime, COLORS.yellow, COLORS.orange, COLORS.cyan, COLORS.grey2] });
+    renderHorizontalBarChart(slide, 7.18, 2.42, 4.82, 3.02, clients, { labelMax: 30, labelLines: 2, catSize: 6.4, dataSize: 7.0, valueMode: 'percent', labelWidth: 0.60, valueWidth: 0.13, barH: 0.12, colors: AREA_CHART_COLORS });
   } else {
     emptyState(slide, 7.18, 2.34, 4.75, 2.62, 'Dato pendiente', 'No se detectó el bloque de áreas solicitantes en la página de planificación.');
   }
@@ -942,7 +1030,7 @@ function renderPushRanking(module) {
 
   byInteraction.slice(1, 3).forEach((row, idx) => {
     const y = 1.88 + idx * 1.04;
-    const accent = idx === 0 ? COLORS.sky : COLORS.purple;
+    const accent = idx === 0 ? COLORS.orange : COLORS.purple;
     panel(slide, 5.36, y, 3.22, 0.86, '', { fill: COLORS.white, shadow: false });
     slide.addShape(pptx.ShapeType.rect, { x: 5.36, y, w: 0.07, h: 0.86, fill: { color: accent }, line: { color: accent } });
     slide.addText(`Top ${idx + 2}`, { x: 5.58, y: y + 0.10, w: 0.72, h: 0.12, fontFace: 'Arial', bold: true, fontSize: 6.8, color: accent, margin: 0, fit: 'shrink' });
@@ -1000,31 +1088,38 @@ function renderPullRanking(module) {
 function renderMilestones(module) {
   const p = module.payload || {};
   const items = Array.isArray(p.items) ? p.items.slice(0, 3) : [];
-  const slide = baseSlide(module.title || 'Hitos del mes', 'Gestión');
+  const slide = baseSlide(module.title || 'Hitos destacados', 'Hitos');
+  slide.addText('Momentos relevantes del período', { x: 0.72, y: 1.30, w: 10.8, h: 0.32, fontFace: 'Georgia', bold: true, fontSize: 20, color: COLORS.midnight, margin: 0, fit: 'shrink' });
 
   if (!items.length) {
-    panel(slide, 0.82, 1.55, 11.68, 4.82, 'Cierre de gestión');
-    slide.addText('Sin hitos consolidados para este período', { x: 1.18, y: 2.24, w: 6.8, h: 0.42, fontFace: 'Georgia', bold: true, fontSize: 24, color: COLORS.electricBlue, margin: 0, fit: 'shrink' });
-    paragraph(slide, 1.18, 3.03, 6.1, 1.1, cleanText(p.message || 'No se registraron hitos destacados en la fuente. Puede completarse desde manual_context si el equipo quiere incorporar acciones cualitativas del período.'), { max: 230, fontSize: 10.2 });
-    emptyState(slide, 8.08, 2.16, 3.58, 2.55, 'Observación', 'Esta slide queda como recordatorio editorial: sumar campañas, coberturas, eventos o piezas clave del mes.');
+    emptyState(slide, 0.72, 2.0, 11.62, 3.8, 'Sin hitos cargados', 'El módulo de hitos requiere contexto manual o detección de eventos cualitativos en la fuente.');
     finalizeSlide(slide);
     return;
   }
 
   items.forEach((item, idx) => {
     const x = 0.72 + idx * 4.02;
-    const accent = CHART_COLORS[idx % CHART_COLORS.length];
-    panel(slide, x, 1.45, 3.56, 4.78, `Hito ${idx + 1}`);
-    slide.addShape(pptx.ShapeType.rect, { x, y: 1.45, w: 3.56, h: 0.08, fill: { color: accent }, line: { color: accent } });
-    slide.addText(clip(item.title || item.description || '-', 54), { x: x + 0.22, y: 1.96, w: 3.12, h: 0.58, fontFace: 'Georgia', bold: true, fontSize: 15, color: COLORS.electricBlue, margin: 0, fit: 'shrink' });
-    const bullets = Array.isArray(item.bullets) ? item.bullets.filter(Boolean).slice(0, 3) : [];
-    bulletList(slide, x + 0.24, 2.82, 3.05, bullets.length ? bullets : [item.description || 'Sin detalle adicional.'], { max: 72, limit: 3, fontSize: 8.8, step: 0.48, bulletColor: accent });
-    if (item.period) slide.addText(cleanText(item.period), { x: x + 0.24, y: 5.74, w: 2.9, h: 0.14, fontFace: 'Arial', fontSize: 7.6, color: COLORS.muted, margin: 0 });
+    const accent = chartColor(idx, { colors: [COLORS.electricBlue, COLORS.cyan, COLORS.lime] });
+    panel(slide, x, 2.05, 3.58, 3.72, '', { fill: COLORS.white, shadow: true });
+    slide.addShape(pptx.ShapeType.rect, { x, y: 2.05, w: 3.58, h: 0.10, fill: { color: accent }, line: { color: accent } });
+    if (item.image_path && resolveAsset(item.image_path)) {
+      const img = resolveAsset(item.image_path);
+      slide.addImage({ path: img, ...imageSizingContain(img, x + 0.25, 2.42, 3.08, 1.40) });
+    } else {
+      slide.addShape(pptx.ShapeType.ellipse, { x: x + 1.42, y: 2.50, w: 0.72, h: 0.72, fill: { color: accent, transparency: 8 }, line: { color: accent } });
+      slide.addText(String(idx + 1), { x: x + 1.42, y: 2.69, w: 0.72, h: 0.16, fontFace: 'Georgia', bold: true, fontSize: 14, color: COLORS.white, align: 'center', margin: 0 });
+    }
+    slide.addText(wrapText(item.title || item.name || `Hito ${idx + 1}`, 31, 2), { x: x + 0.26, y: 4.10, w: 3.06, h: 0.44, fontFace: 'Georgia', bold: true, fontSize: 12, color: COLORS.electricBlue, margin: 0, fit: 'shrink' });
+    paragraph(slide, x + 0.26, 4.64, 3.06, 0.62, item.description || item.detail || 'Acción destacada del período.', { max: 150, fontSize: 8.2 });
   });
+
+  const msg = cleanText(p.message || 'Hitos destacados del período.');
+  slide.addShape(pptx.ShapeType.roundRect, { x: 0.72, y: 6.14, w: 11.62, h: 0.46, rectRadius: 0.06, fill: { color: COLORS.paleCyan }, line: { color: COLORS.paleCyan } });
+  slide.addText(shortSentence(msg, 170), { x: 1.0, y: 6.31, w: 11.04, h: 0.14, fontFace: 'Arial', bold: true, fontSize: 8.1, color: COLORS.midnight, margin: 0, fit: 'shrink' });
   finalizeSlide(slide);
 }
 
-function actionItems(source, defaults, limit) {
+function actionItems(source, defaults, limit = 3) {
   const maxWords = 12;
   const items = Array.isArray(source) ? source.map((item) => completeSentence(item, 92)).filter(Boolean) : [];
   const usable = items
