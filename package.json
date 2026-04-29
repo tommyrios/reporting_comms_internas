@@ -1,11 +1,11 @@
 {
   "name": "reporting-comms-internas-bbva",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": true,
   "description": "Pipeline de reporting de Comunicaciones Internas con renderer BBVA en PowerPoint",
   "scripts": {
     "render:sample": "node scripts/pptx_renderer.js templates/sample_report_definitive.json output/smoke/sample_bbva_report_definitive.pptx --mode=full",
-    "render:ejecutivo": "node scripts/pptx_renderer.js data/report_jan_2026_ejecutivo_v3.json output/smoke/report_jan_2026_ejecutivo_v3.pptx --mode=full",
+    "render:ejecutivo": "python scripts/pptx_renderer.py data/report_jan_2026_ejecutivo_v3.json output/smoke/report_jan_2026_ejecutivo_v3.pptx",
     "validate:sample": "python scripts/validate_report.py data/canonical_jan_2026_ejecutivo_v3.json --kind canonical && python scripts/validate_report.py data/report_jan_2026_ejecutivo_v3.json --kind report",
     "qa:sample": "npm run validate:sample && npm run render:ejecutivo"
   },

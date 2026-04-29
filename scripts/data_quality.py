@@ -96,9 +96,6 @@ def normalize_push_row(row: dict[str, Any]) -> dict[str, Any]:
     if interaction <= 0:
         complete = False
         issue = "sin_interaccion"
-    elif open_rate <= 0 and interaction > 10:
-        complete = False
-        issue = "interaccion_sin_apertura"
     elif clicks <= 0 and interaction > 20:
         complete = False
         issue = "interaccion_alta_sin_clicks"
@@ -120,22 +117,30 @@ def sanitize_push_ranking(rows: Any, *, metric_key: str = "interaction", limit: 
     return normalized[:limit] if limit else normalized
 
 
-def _validate_push_rows(rows: Any, label: str) -> list[str]:
+def _validate_push_rows(rows: Any, label: str, *, metric_key: str = "interaction") -> list[str]:
     warnings: list[str] = []
     for row in rows or []:
         if not isinstance(row, dict):
             continue
         item = normalize_push_row(row)
         name = item.get("name") or "sin título"
-        issue = item.get("data_quality_issue")
-        if issue == "interaccion_sin_apertura":
-            warnings.append(f"{label}: interacción alta sin apertura en '{name}'")
-        elif issue == "interaccion_alta_sin_clicks":
-            warnings.append(f"{label}: interacción alta y 0 clics en '{name}'")
-        elif issue == "interaccion_mayor_a_apertura":
-            warnings.append(f"{label}: interacción mayor a apertura en '{name}'")
-        elif issue == "sin_interaccion":
+        interaction = normalize_percentage(item.get("interaction"))
+        open_rate = normalize_percentage(item.get("open_rate"))
+        clicks = to_int(item.get("clicks"))
+
+        if metric_key == "open_rate":
+            if open_rate <= 0:
+                warnings.append(f"{label}: fila sin apertura medible en '{name}'")
+            if open_rate > 0 and interaction > open_rate + 10:
+                warnings.append(f"{label}: interacción mayor a apertura en '{name}'")
+            continue
+
+        if interaction <= 0:
             warnings.append(f"{label}: fila sin interacción medible en '{name}'")
+        elif clicks <= 0 and interaction > 20:
+            warnings.append(f"{label}: interacción alta y 0 clics en '{name}'")
+        elif open_rate > 0 and interaction > open_rate + 10:
+            warnings.append(f"{label}: interacción mayor a apertura en '{name}'")
     return warnings
 
 
@@ -187,8 +192,8 @@ def validate_canonical_quality(canonical: dict[str, Any]) -> dict[str, Any]:
     if open_rate > 0 and interaction_rate > open_rate + 10:
         warnings.append("mail_interaction_rate supera mail_open_rate por más de 10 pp; revisar definición")
 
-    warnings.extend(_validate_push_rows(canonical.get("top_push_by_interaction"), "top_push_by_interaction"))
-    warnings.extend(_validate_push_rows(canonical.get("top_push_by_open_rate"), "top_push_by_open_rate"))
+    warnings.extend(_validate_push_rows(canonical.get("top_push_by_interaction"), "top_push_by_interaction", metric_key="interaction"))
+    warnings.extend(_validate_push_rows(canonical.get("top_push_by_open_rate"), "top_push_by_open_rate", metric_key="open_rate"))
 
     for row in canonical.get("top_pull_notes", []) or []:
         if not isinstance(row, dict):

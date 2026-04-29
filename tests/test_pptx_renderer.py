@@ -88,7 +88,7 @@ class PptxRendererFrameTemplateTests(unittest.TestCase):
             closing.shapes.title.text = "CLOSING_TEMPLATE"
             template.save(str(template_path))
 
-            create_pptx(self._sample_report(include_events=False), output_path, template_path=template_path)
+            create_pptx(self._sample_report(include_events=False), output_path, template_mode="frame", template_path=template_path)
 
             rendered = Presentation(str(output_path))
             all_text = "\n".join(_slide_texts(slide) for slide in rendered.slides)
@@ -102,6 +102,17 @@ class PptxRendererFrameTemplateTests(unittest.TestCase):
             for idx in range(1, len(rendered.slides) - 1):
                 self.assertTrue(_slide_texts(rendered.slides[idx]).strip())
 
+    def test_default_mode_uses_js_full_cover_and_closing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_path = Path(tmp) / "report.pptx"
+            create_pptx(self._sample_report(include_events=False), output_path)
+
+            rendered = Presentation(str(output_path))
+            self.assertEqual(len(rendered.slides), 4)
+            self.assertIn("Marzo 2026", _slide_texts(rendered.slides[0]))
+            self.assertIn("Informe gestión", _slide_texts(rendered.slides[0]))
+            self.assertIn("Gracias", _slide_texts(rendered.slides[-1]))
+
     def test_conditional_module_changes_slide_count(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
@@ -114,8 +125,8 @@ class PptxRendererFrameTemplateTests(unittest.TestCase):
             template.slides.add_slide(template.slide_layouts[1]).shapes.title.text = "CLOSING"
             template.save(str(template_path))
 
-            create_pptx(self._sample_report(include_events=False), out_without_events, template_path=template_path)
-            create_pptx(self._sample_report(include_events=True), out_with_events, template_path=template_path)
+            create_pptx(self._sample_report(include_events=False), out_without_events, template_mode="full", template_path=template_path)
+            create_pptx(self._sample_report(include_events=True), out_with_events, template_mode="full", template_path=template_path)
 
             self.assertEqual(len(Presentation(str(out_without_events)).slides), 4)
             self.assertEqual(len(Presentation(str(out_with_events)).slides), 5)

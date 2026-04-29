@@ -80,7 +80,7 @@ class GenerateReportTests(unittest.TestCase):
             result = generate_period_report("month_2026_03")
 
         self.assertEqual(result["generation_mode"], "llm")
-        self.assertIn("Módulo de eventos omitido", result["warning"])
+        self.assertIsNone(result["warning"])
 
     def test_generate_period_report_fail_fast_invalid_monthly_contract(self):
         period = {"slug": "month_2026_03", "months": ["2026-03"], "label": "Marzo 2026", "email_subject": "Subj", "kind": "month"}

@@ -58,22 +58,31 @@ const COLORS = {
 
 const CHART_COLORS = [
   COLORS.electricBlue,
-  COLORS.cyan,
-  COLORS.sky,
   COLORS.lime,
   COLORS.yellow,
-  COLORS.purple,
   COLORS.orange,
+  COLORS.cyan,
+  COLORS.purple,
+  COLORS.sky,
   COLORS.red,
 ];
 
 const SECONDARY_CHART_COLORS = [
-  COLORS.sky,
-  COLORS.purple,
   COLORS.lime,
   COLORS.yellow,
   COLORS.orange,
   COLORS.cyan,
+  COLORS.purple,
+  COLORS.sky,
+];
+
+const CHANNEL_CHART_COLORS = [
+  COLORS.electricBlue,
+  COLORS.lime,
+  COLORS.yellow,
+  COLORS.orange,
+  COLORS.cyan,
+  COLORS.purple,
 ];
 
 const BRAND_ASSETS_DIR = path.resolve(__dirname, '..', 'assets', 'brand');
@@ -213,14 +222,12 @@ function hasMetric(value) {
   return value !== null && value !== undefined && value !== '' && value !== '-';
 }
 
-function isCompletePushRow(row) {
+function isCompletePushRow(row, metricKey = 'interaction') {
   if (!row || typeof row !== 'object') return false;
-  const interaction = parseNumber(row.interaction || row.ctr);
-  const openRate = parseNumber(row.open_rate);
+  const metric = parseNumber(row[metricKey] || (metricKey === 'interaction' ? row.ctr : row.interaction));
   const clicks = parseNumber(row.clicks);
-  if (interaction <= 0) return false;
-  if (openRate <= 0 && interaction > 10) return false;
-  if (clicks <= 0 && interaction > 20) return false;
+  if (metric <= 0) return false;
+  if (metricKey === 'interaction' && clicks <= 0 && metric > 20) return false;
   return true;
 }
 
@@ -228,7 +235,7 @@ function usablePushRows(rows, metricKey = 'interaction', limit = 5) {
   if (!Array.isArray(rows)) return [];
   const seen = new Set();
   return rows
-    .filter(isCompletePushRow)
+    .filter((row) => isCompletePushRow(row, metricKey))
     .map((row) => ({ ...row, name: cleanText(row.name || row.title || 'Sin título') }))
     .filter((row) => {
       const key = `${_compact(row.name)}-${Math.round(parseNumber(row[metricKey] || row.ctr || row.interaction) * 100)}`;
@@ -504,40 +511,56 @@ function heroMetric(slide, x, y, w, h, label, value, detail, accent = COLORS.ele
 function topCampaignCard(slide, x, y, w, h, row, options = {}) {
   const accent = options.accent || COLORS.electricBlue;
   const title = stripEmoji(row?.name || row?.title || 'Campaña líder');
+  const valueSize = Math.min(options.valueSize || 29, 30);
+  const labelSize = options.labelSize || 7.6;
+  const titleSize = Math.min(options.titleSize || 9.8, 10.6);
+  const metaSize = options.metaSize || 5.9;
   slide.addShape(pptx.ShapeType.roundRect, {
     x, y, w, h, rectRadius: 0.08,
     fill: { color: options.fill || COLORS.paleBlue },
     line: { color: options.line || COLORS.paleBlue, width: 0.75 },
-    shadow: safeOuterShadow('000000', 0.09, 45, 0.7, 0.20),
+    shadow: safeOuterShadow('000000', 0.08, 45, 0.62, 0.18),
   });
   slide.addShape(pptx.ShapeType.rect, { x, y, w: 0.12, h, fill: { color: accent }, line: { color: accent } });
+
+  const left = x + 0.32;
+  const innerW = w - 0.66;
   slide.addText(cleanText(options.label || 'Top campaña'), {
-    x: x + 0.32, y: y + 0.16, w: w - 0.64, h: 0.16,
-    fontFace: 'Arial', fontSize: options.labelSize || 8.0, bold: true, color: COLORS.muted, margin: 0, fit: 'shrink', breakLine: false,
+    x: left, y: y + 0.15, w: innerW, h: 0.16,
+    fontFace: 'Arial', fontSize: labelSize, bold: true, color: COLORS.muted, margin: 0,
+    fit: 'shrink', breakLine: false,
   });
   slide.addText(fmtPct(row?.interaction || row?.ctr), {
-    x: x + 0.32, y: y + 0.34, w: w - 0.68, h: 0.36,
-    fontFace: 'Georgia', fontSize: options.valueSize || 31, bold: true, color: accent,
+    x: left, y: y + 0.38, w: innerW, h: 0.40,
+    fontFace: 'Georgia', fontSize: valueSize, bold: true, color: accent,
     margin: 0, fit: 'shrink', breakLine: false,
   });
   slide.addText('interacción', {
-    x: x + 0.34, y: y + 0.70, w: 1.25, h: 0.10,
-    fontFace: 'Arial', fontSize: options.unitSize || 6.6, bold: true, color: COLORS.muted, margin: 0, fit: 'shrink', breakLine: false,
+    x: left + 0.02, y: y + 0.82, w: 1.32, h: 0.13,
+    fontFace: 'Arial', fontSize: options.unitSize || 6.2, bold: true, color: COLORS.muted,
+    margin: 0, fit: 'shrink', breakLine: false,
   });
-  slide.addText(wrapText(title, options.titleLine || 26, options.titleLines || 3), {
-    x: x + 0.32, y: y + 0.90, w: w - 0.66, h: 0.52,
-    fontFace: 'Georgia', fontSize: options.titleSize || 10.6, bold: true, color: COLORS.midnight,
-    margin: 0, fit: 'shrink', valign: 'mid', breakLine: false,
-  });
+
   const meta = [];
   if (parseNumber(row?.clicks) > 0) meta.push(`${fmtNum(row.clicks)} clics`);
   if (parseNumber(row?.open_rate) > 0) meta.push(`${fmtPct(row.open_rate)} apertura`);
   const uplift = upliftLabel(row, options.benchmark);
   if (uplift) meta.push(uplift);
-  slide.addShape(pptx.ShapeType.line, { x: x + 0.32, y: y + h - 0.26, w: w - 0.64, h: 0, line: { color: COLORS.grey2, width: 0.6 } });
-  slide.addText(meta.join(' · ') || 'Datos completos no disponibles', {
-    x: x + 0.32, y: y + h - 0.19, w: w - 0.66, h: 0.08,
-    fontFace: 'Arial', fontSize: options.metaSize || 6.2, bold: true, color: COLORS.ink,
+  const metaText = meta.join(' · ') || 'Datos completos no disponibles';
+
+  const metaY = y + h - 0.24;
+  const lineY = y + h - 0.33;
+  const titleY = y + 1.05;
+  const titleH = Math.max(0.30, lineY - titleY - 0.09);
+  slide.addText(wrapText(title, options.titleLine || 25, options.titleLines || 2), {
+    x: left, y: titleY, w: innerW, h: titleH,
+    fontFace: 'Georgia', fontSize: titleSize, bold: true, color: COLORS.midnight,
+    margin: 0, fit: 'shrink', valign: 'mid', breakLine: false,
+  });
+  slide.addShape(pptx.ShapeType.line, { x: left, y: lineY, w: innerW, h: 0, line: { color: COLORS.grey2, width: 0.6 } });
+  slide.addText(metaText, {
+    x: left, y: metaY, w: innerW, h: 0.13,
+    fontFace: 'Arial', fontSize: metaSize, bold: true, color: COLORS.ink,
     margin: 0, fit: 'shrink', breakLine: false,
   });
 }
@@ -695,30 +718,34 @@ function renderDonutChart(slide, x, y, w, h, rows, title = 'Mix', options = {}) 
       border: { color: COLORS.white, pt: 1 },
     });
 
-    const total = sumValues(data) || 1;
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const rx = w * 0.47;
-    const ry = h * 0.47;
-    let angle = -Math.PI / 2;
-    data.forEach((row, idx) => {
-      const frac = parseNumber(row.value) / total;
-      const mid = angle + frac * Math.PI;
-      const lx = cx + Math.cos(mid) * rx;
-      const ly = cy + Math.sin(mid) * ry;
-      const boxW = 0.62;
-      const boxH = 0.18;
-      const textX = Math.max(x - 0.05, Math.min(x + w - boxW + 0.05, lx - boxW / 2));
-      const textY = Math.max(y - 0.02, Math.min(y + h - boxH + 0.02, ly - boxH / 2));
-      slide.addText(fmtPct(row.value), {
-        x: textX, y: textY, w: boxW, h: boxH,
-        fontFace: 'Arial', bold: true, fontSize: options.percentSize || 8.0,
-        color: idx === 0 ? COLORS.electricBlue : COLORS.ink,
-        margin: 0, fit: 'shrink', align: 'center', valign: 'mid',
-        breakLine: false,
+    if (options.showSliceLabels) {
+      const total = sumValues(data) || 1;
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      const rx = w * 0.47;
+      const ry = h * 0.47;
+      let angle = -Math.PI / 2;
+      data.forEach((row, idx) => {
+        const frac = parseNumber(row.value) / total;
+        const mid = angle + frac * Math.PI;
+        if (frac >= (options.minSliceLabelPct || 0.06)) {
+          const lx = cx + Math.cos(mid) * rx;
+          const ly = cy + Math.sin(mid) * ry;
+          const boxW = 0.62;
+          const boxH = 0.18;
+          const textX = Math.max(x - 0.05, Math.min(x + w - boxW + 0.05, lx - boxW / 2));
+          const textY = Math.max(y - 0.02, Math.min(y + h - boxH + 0.02, ly - boxH / 2));
+          slide.addText(fmtPct(row.value), {
+            x: textX, y: textY, w: boxW, h: boxH,
+            fontFace: 'Arial', bold: true, fontSize: options.percentSize || 8.0,
+            color: idx === 0 ? COLORS.electricBlue : COLORS.ink,
+            margin: 0, fit: 'shrink', align: 'center', valign: 'mid',
+            breakLine: false,
+          });
+        }
+        angle += frac * Math.PI * 2;
       });
-      angle += frac * Math.PI * 2;
-    });
+    }
   } catch (err) {
     renderHorizontalBarChart(slide, x, y + 0.1, w, h - 0.2, data, { valueMode: 'percent', limit: 5 });
   }
@@ -790,7 +817,7 @@ function renderExecutiveSummary(module) {
   });
 
   if (best) {
-    topCampaignCard(slide, 0.72, 1.94, 4.55, 2.10, best, { label: 'Top campaña', titleLine: 25, titleLines: 3, titleSize: 10.6, valueSize: 31, metaSize: 6.1, benchmark: p.mail_interaction_rate });
+    topCampaignCard(slide, 0.72, 1.94, 4.55, 2.10, best, { label: 'Top campaña', titleLine: 25, titleLines: 2, titleSize: 10.0, valueSize: 29, metaSize: 5.9, benchmark: p.mail_interaction_rate });
   } else {
     emptyState(slide, 0.72, 1.94, 4.55, 2.10, 'Top campaña', 'Ranking push no disponible con datos completos.');
   }
@@ -833,8 +860,8 @@ function renderChannelManagement(module) {
   slide.addText(clip(headline, 106), { x: 0.72, y: 1.28, w: 10.8, h: 0.34, fontFace: 'Georgia', bold: true, fontSize: 19, color: COLORS.midnight, margin: 0, fit: 'shrink' });
 
   panel(slide, 0.72, 1.88, 7.15, 4.38, 'Mix de canales', { fill: COLORS.white, shadow: false });
-  renderDonutChart(slide, 0.96, 2.34, 3.00, 2.95, mixRows, 'Mix de canales', { limit: 5, colors: [COLORS.electricBlue, COLORS.sky, COLORS.purple, COLORS.lime, COLORS.yellow], percentSize: 8.2 });
-  renderLegend(slide, 4.30, 2.42, 3.05, mixRows, { limit: 5, labelMax: 24, fontSize: 7.5, colors: [COLORS.electricBlue, COLORS.sky, COLORS.cyan, COLORS.yellow, COLORS.purple] });
+  renderDonutChart(slide, 0.96, 2.34, 3.00, 2.95, mixRows, 'Mix de canales', { limit: 5, colors: CHANNEL_CHART_COLORS });
+  renderLegend(slide, 4.30, 2.42, 3.05, mixRows, { limit: 5, labelMax: 24, fontSize: 7.5, colors: CHANNEL_CHART_COLORS });
   if (lead) {
     slide.addShape(pptx.ShapeType.roundRect, { x: 1.18, y: 5.48, w: 6.20, h: 0.34, rectRadius: 0.06, fill: { color: COLORS.paleBlue }, line: { color: COLORS.paleBlue } });
     slide.addText(`${lead.label}: canal principal del período`, { x: 1.40, y: 5.60, w: 5.75, h: 0.10, align: 'center', fontFace: 'Arial', bold: true, fontSize: 7.6, color: COLORS.electricBlue, margin: 0, fit: 'shrink' });
@@ -898,7 +925,7 @@ function renderPushRanking(module) {
   const best = byInteraction[0] || {};
   slide.addText(clip(`La campaña líder alcanzó ${fmtPct(best.interaction || best.ctr)} de interacción.`, 104), { x: 0.72, y: 1.28, w: 10.8, h: 0.34, fontFace: 'Georgia', bold: true, fontSize: 19, color: COLORS.midnight, margin: 0, fit: 'shrink' });
 
-  topCampaignCard(slide, 0.72, 1.88, 4.36, 2.10, best, { label: 'Top 1 por interacción', titleLine: 28, titleSize: 12.4, valueSize: 39, benchmark: p.average_interaction_rate });
+  topCampaignCard(slide, 0.72, 1.88, 4.36, 2.10, best, { label: 'Top 1 por interacción', titleLine: 26, titleLines: 2, titleSize: 10.4, valueSize: 30, metaSize: 5.9, benchmark: p.average_interaction_rate });
 
   byInteraction.slice(1, 3).forEach((row, idx) => {
     const y = 1.88 + idx * 1.04;

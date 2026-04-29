@@ -127,7 +127,7 @@ def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_ex
 
     (report_dir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     (report_dir / "report_raw.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    create_pptx(report, report_dir / "report.pptx", template_mode="frame")
+    create_pptx(report, report_dir / "report.pptx", template_mode="full")
     html_content = (
         "<html><body>"
         f"<h2>{metadata['title']}</h2>"
@@ -215,8 +215,6 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False, pdf
 
     modules = [module.get("key") for module in report.get("render_plan", {}).get("modules", []) if isinstance(module, dict)]
     is_events_omitted = "events" not in modules
-    if is_events_omitted:
-        warnings.append("Módulo de eventos omitido por falta de datos suficientes")
 
     metadata_extra = {
         "warning": " | ".join(warnings) if warnings else manual_context.get("metadata", {}).get("warning"),

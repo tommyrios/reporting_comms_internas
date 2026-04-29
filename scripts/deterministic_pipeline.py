@@ -585,7 +585,7 @@ def _extract_mail_table(page_text: str) -> list[dict[str, Any]]:
             body = body.replace(pct, "")
 
         metric_match = re.search(
-            r"\s+Argentina\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s*$",
+            r"\s*Argentina\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s*$",
             body,
             flags=re.IGNORECASE,
         )
@@ -681,14 +681,14 @@ def _extract_top_mail_ranking_section(page_text: str, anchor: str, metric_key: s
 
 
 def _match_mail_table_row(ranking_row: dict[str, Any], mail_rows: list[dict[str, Any]], metric_key: str) -> dict[str, Any] | None:
-    target_sig = _title_signature(str(ranking_row.get("raw") or ranking_row.get("title") or ""))
+    target_sig = _title_signature(str(ranking_row.get("title") or ranking_row.get("name") or ranking_row.get("raw") or ""))
     target_value = ranking_row.get(metric_key)
     best: tuple[float, dict[str, Any]] | None = None
 
     for candidate in mail_rows:
         if (candidate.get("sent") or 0) < 1:
             continue
-        candidate_sig = _title_signature(candidate.get("raw") or candidate.get("title") or "")
+        candidate_sig = _title_signature(candidate.get("title") or candidate.get("raw") or "")
         prefix = _common_prefix_len(target_sig, candidate_sig)
         rate_key = "open_rate" if metric_key == "open_rate" else "ctr"
         candidate_rate = candidate.get(rate_key)
