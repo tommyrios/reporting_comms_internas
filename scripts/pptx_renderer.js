@@ -1206,7 +1206,7 @@ function renderFullClosing() {
   slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.333, h: 7.5, fill: { color: COLORS.electricBlue }, line: { color: COLORS.electricBlue } });
   slide.addShape(pptx.ShapeType.arc, { x: -1.1, y: 4.4, w: 4.0, h: 4.0, adjustPoint: 0.28, line: { color: COLORS.cyan, transparency: 55, width: 2.2 } });
   slide.addShape(pptx.ShapeType.arc, { x: 10.7, y: -1.2, w: 4.0, h: 4.0, adjustPoint: 0.28, line: { color: COLORS.sky, transparency: 60, width: 1.6 } });
-  addLogo(slide, 'white', 5.53, 2.10, 2.25, 0.74);
+  addLogo(slide, 'white', 5.72, 2.15, 1.90, 0.62);
   slide.addText('Gracias', { x: 3.2, y: 3.20, w: 6.9, h: 0.66, fontFace: 'Arial', bold: true, fontSize: 28, color: COLORS.white, align: 'center', margin: 0, fit: 'shrink' });
   slide.addText(`Comunicaciones Internas · ${periodLabel()}`, { x: 2.45, y: 4.00, w: 8.4, h: 0.26, fontFace: 'Georgia', bold: true, fontSize: 15.5, color: COLORS.white, align: 'center', margin: 0, fit: 'shrink' });
   slide.addText('Informe automatizado para seguimiento ejecutivo de agenda, canales y resultados.', { x: 2.25, y: 4.42, w: 8.8, h: 0.20, fontFace: 'Arial', fontSize: 8.7, color: COLORS.sky, align: 'center', margin: 0, fit: 'shrink' });
