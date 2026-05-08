@@ -3,30 +3,16 @@ name: Comms Period Report
 on:
   schedule:
     - cron: '18 11 1 * *'
-  workflow_dispatch:
-    inputs:
-      report_mode:
-        description: 'auto | quarter | year | quarter_and_year'
-        required: false
-        default: 'quarter'
-      report_year:
-        description: 'Año del período (si aplica)'
-        required: false
-      report_quarter:
-        description: 'Trimestre 1-4 (si aplica)'
-        required: false
-      required_scopes:
-        description: 'Scopes separados por coma: argentina,holding,combined'
-        required: false
-        default: 'argentina,holding,combined'
-      allow_partial_period:
-        description: 'Permitir período incompleto (true/false)'
-        required: false
-        default: 'false'
-      allow_partial_report:
-        description: 'Permitir continuar aunque generación/envío fallen (true/false)'
-        required: false
-        default: 'false'
+workflow_dispatch:
+  inputs:
+    report_year:
+      description: 'Año del período'
+      required: true
+      default: '2026'
+    report_quarter:
+      description: 'Trimestre 1-4'
+      required: true
+      default: '1'
 
 jobs:
   generate-and-send-report:
@@ -87,12 +73,12 @@ jobs:
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
 
           REPORT_TIMEZONE: America/Argentina/Buenos_Aires
-          REPORT_MODE: ${{ github.event.inputs.report_mode || 'auto' }}
+          REPORT_MODE: quarter
           REPORT_YEAR: ${{ github.event.inputs.report_year }}
           REPORT_QUARTER: ${{ github.event.inputs.report_quarter }}
-          REPORT_REQUIRED_SCOPES: ${{ github.event.inputs.required_scopes || 'argentina,holding,combined' }}
-          ALLOW_PARTIAL_PERIOD: ${{ github.event.inputs.allow_partial_period || 'false' }}
-          ALLOW_PARTIAL_REPORT: ${{ github.event.inputs.allow_partial_report || 'false' }}
+          REPORT_REQUIRED_SCOPES: argentina,holding,combined
+          ALLOW_PARTIAL_PERIOD: false
+          ALLOW_PARTIAL_REPORT: false
         run: |
           python scripts/run_scheduled_reports.py
 
