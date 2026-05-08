@@ -253,9 +253,44 @@ def _filtered_numbers(text: str, kind: str) -> list[str]:
     return [n for n in nums if "%" not in n]
 
 
-def _label_pattern(label: str) -> str:
+def _label_pattern(label: str, allow_truncated_tail: bool = True) -> str:
+    """Construye un patrón tolerante para labels de KPI.
+
+    En exports trimestrales de Looker/pypdf aparecen anchors truncadas con
+    puntos suspensivos, por ejemplo:
+
+    - "79,48 %Tasa de interacción sobre mails envia…"
+    - "12,63 %Tasa de interacción sobre mails abiert…"
+
+    El patrón conserva los tokens completos y, solo para el último token, permite
+    que venga truncado a un prefijo suficientemente largo. Esto mantiene la
+    especificidad entre "mails enviados" y "mails abiertos", pero evita perder
+    KPIs cuando Looker recorta visualmente el label.
+    """
     tokens = _normalize_text(label).split()
-    return r"\s*".join(re.escape(token) for token in tokens)
+    if not tokens:
+        return ""
+
+    pattern_tokens: list[str] = []
+    for index, token in enumerate(tokens):
+        if allow_truncated_tail and index == len(tokens) - 1 and len(token) >= 7:
+            prefix_len = 5
+            prefix = re.escape(token[:prefix_len])
+            full = re.escape(token)
+            # \S* cubre truncamientos con ellipsis ("envia…") y sin ellipsis.
+            pattern_tokens.append(rf"(?:{full}|{prefix}\S*)")
+        else:
+            pattern_tokens.append(re.escape(token))
+
+    return r"\s*".join(pattern_tokens)
+
+
+def _label_regex_matches(line: str, label: str) -> list[re.Match[str]]:
+    line_norm = _normalize_text(_normalize_number_spacing(line))
+    pattern = _label_pattern(label)
+    if not pattern:
+        return []
+    return list(re.finditer(pattern, line_norm))
 
 
 def _line_contains_label(line: str, label: str) -> bool:
@@ -266,26 +301,28 @@ def _line_contains_label(line: str, label: str) -> bool:
     "ARGENTINA 30 40Total Páginas Vistas".
 
     La especificidad evita que "N total de comunicaciones" matchee contra
-    "N total de comunicaciones por mes".
+    "N total de comunicaciones por mes". Además tolera anchors truncadas con
+    puntos suspensivos en exports trimestrales de Looker.
     """
     line_compact = _compact_text(line)
     label_compact = _compact_text(label)
 
-    if label_compact not in line_compact:
-        return False
+    if label_compact in line_compact:
+        label_pos = line_compact.find(label_compact)
+        same_start_matches = [
+            known
+            for known in KNOWN_KPI_LABELS
+            if line_compact.find(_compact_text(known)) == label_pos
+        ]
 
-    label_pos = line_compact.find(label_compact)
-    same_start_matches = [
-        known
-        for known in KNOWN_KPI_LABELS
-        if line_compact.find(_compact_text(known)) == label_pos
-    ]
+        if same_start_matches:
+            longest = max(same_start_matches, key=lambda known: len(_compact_text(known)))
+            return _compact_text(longest) == label_compact
 
-    if same_start_matches:
-        longest = max(same_start_matches, key=lambda known: len(_compact_text(known)))
-        return _compact_text(longest) == label_compact
+        return True
 
-    return True
+    # Fallback tolerante: labels recortados, ej. "mails envia…" / "mails abiert…".
+    return bool(_label_regex_matches(line, label))
 
 
 def _line_matches_label(line: str, label: str) -> bool:
@@ -311,14 +348,13 @@ def _line_matches_label(line: str, label: str) -> bool:
 
 
 def _line_contains_any_known_anchor(line: str, current_labels: list[str]) -> bool:
-    line_compact = _compact_text(line)
     current_compacts = {_compact_text(label) for label in current_labels}
 
     for known_label in KNOWN_KPI_LABELS:
         known_compact = _compact_text(known_label)
         if known_compact in current_compacts:
             continue
-        if known_compact in line_compact:
+        if _line_contains_label(line, known_label):
             return True
 
     return False

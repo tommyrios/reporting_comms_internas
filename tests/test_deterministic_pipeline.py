@@ -501,6 +501,31 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertEqual(canonical["top_push_by_interaction"][1]["name"], "Los beneficios de febrero van a llenarte el corazón")
         self.assertNotIn("…", canonical["top_push_by_interaction"][1]["name"])
 
+
+    def test_extract_raw_monthly_pdf_handles_truncated_quarter_mail_kpi_labels(self):
+        pages = [
+            "Pagina 1\nMedia comunicaciones diarias\n0,19\nN total de comunicaciones\n163",
+            "Pagina 2\nTotal Paginas Vistas\n38.410\nNoticias Publicadas\n31\nPromedio Vistas\n1239",
+            (
+                "Pagina 3\nTasa de apertura promedio\n"
+                "79,48 %Tasa de interaccion sobre mails envia...\n"
+                "12,63 %Tasa de interaccion sobre mails abiert...\n"
+                "15,89 %Mails enviados\n93"
+            ),
+        ]
+
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("quarter_2026_Q1_argentina", Path("/tmp/fake.pdf"))
+
+        canonical = canonicalize_monthly(raw)
+        validation = validate_canonical_monthly(canonical)
+
+        self.assertEqual(canonical["mail_open_rate"], 79.48)
+        self.assertEqual(canonical["mail_interaction_rate"], 12.63)
+        self.assertEqual(canonical["mail_interaction_rate_over_opened"], 15.89)
+        self.assertEqual(canonical["mail_total"], 93)
+        self.assertTrue(validation["is_valid"], validation)
+
     def test_infer_month_key_requires_explicit_month_when_filename_has_no_yyyy_mm(self):
         with self.assertRaisesRegex(ValueError, "No pude inferir month_key.*Pasa month_key explícitamente"):
             infer_month_key_from_pdf_path(Path("/tmp/Dashboard_Marzo.pdf"))
