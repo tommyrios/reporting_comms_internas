@@ -1,0 +1,113 @@
+name: Comms Period Report
+
+on:
+  schedule:
+    - cron: '18 11 1 * *'
+  workflow_dispatch:
+    inputs:
+      report_mode:
+        description: 'auto | quarter | year | quarter_and_year'
+        required: false
+        default: 'quarter'
+      report_year:
+        description: 'Año del período (si aplica)'
+        required: false
+      report_quarter:
+        description: 'Trimestre 1-4 (si aplica)'
+        required: false
+      required_scopes:
+        description: 'Scopes separados por coma: argentina,holding,combined'
+        required: false
+        default: 'argentina,holding,combined'
+      allow_partial_period:
+        description: 'Permitir período incompleto (true/false)'
+        required: false
+        default: 'false'
+      allow_partial_report:
+        description: 'Permitir continuar aunque generación/envío fallen (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  generate-and-send-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Node dependencies
+        run: npm install
+
+      - name: Run Python tests
+        run: python -m unittest discover -s tests -p 'test*.py'
+
+      - name: Validate sample contracts
+        run: npm run validate:sample
+
+      - name: Render sample deck smoke test
+        run: npm run render:ejecutivo
+
+      - name: Run period pipeline
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GOOGLE_TOKEN_URI: ${{ secrets.GOOGLE_TOKEN_URI }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          GEMINI_FALLBACK_MODELS: ${{ secrets.GEMINI_FALLBACK_MODELS || 'gemini-2.5-pro,gemini-2.0-flash' }}
+          GEMINI_ENABLE_MODEL_FALLBACK: ${{ secrets.GEMINI_ENABLE_MODEL_FALLBACK || 'true' }}
+          GEMINI_MAX_RETRIES_PER_MODEL: ${{ secrets.GEMINI_MAX_RETRIES_PER_MODEL || '3' }}
+          GEMINI_INITIAL_BACKOFF_SECONDS: ${{ secrets.GEMINI_INITIAL_BACKOFF_SECONDS || '3' }}
+          GEMINI_MAX_BACKOFF_SECONDS: ${{ secrets.GEMINI_MAX_BACKOFF_SECONDS || '30' }}
+
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
+          EMAIL_CC: ${{ secrets.EMAIL_CC }}
+          EMAIL_BCC: ${{ secrets.EMAIL_BCC }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+
+          REPORT_TIMEZONE: America/Argentina/Buenos_Aires
+          REPORT_MODE: ${{ github.event.inputs.report_mode || 'auto' }}
+          REPORT_YEAR: ${{ github.event.inputs.report_year }}
+          REPORT_QUARTER: ${{ github.event.inputs.report_quarter }}
+          REPORT_REQUIRED_SCOPES: ${{ github.event.inputs.required_scopes || 'argentina,holding,combined' }}
+          ALLOW_PARTIAL_PERIOD: ${{ github.event.inputs.allow_partial_period || 'false' }}
+          ALLOW_PARTIAL_REPORT: ${{ github.event.inputs.allow_partial_report || 'false' }}
+        run: |
+          python scripts/run_scheduled_reports.py
+
+      - name: Upload report.pptx artifacts (required)
+        uses: actions/upload-artifact@v4
+        with:
+          name: comms-period-report-pptx
+          path: output/reports/**/report.pptx
+          if-no-files-found: error
+
+      - name: Upload generated artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: comms-period-report-output
+          path: |
+            output/
+            data/reporting_periods.json
+            data/fetch_result.json

@@ -1,0 +1,119 @@
+{
+  "slide_1_cover": {
+    "area": "Comunicaciones Internas",
+    "period": "Mar 2026",
+    "subtitle": "Informe de gestión"
+  },
+  "slide_2_overview": {
+    "headline": "¿Cómo nos fue? CI",
+    "volume_current": 120,
+    "volume_previous": 98,
+    "volume_change": "22.4%",
+    "push_open_rate": "41%",
+    "push_interaction_rate": "14%",
+    "pull_notes_current": 35,
+    "average_reads": 128,
+    "audience_segments": [
+      { "label": "Red comercial", "value": 35 },
+      { "label": "Staff", "value": 25 },
+      { "label": "Sucursales", "value": 20 },
+      { "label": "Operaciones", "value": 12 },
+      { "label": "Otros", "value": 8 }
+    ],
+    "comparison_timeline": [
+      { "label": "2026-01", "value": 90 },
+      { "label": "2026-02", "value": 98 },
+      { "label": "2026-03", "value": 120 }
+    ],
+    "comparative_note": "El volumen crece con foco en agenda trimestral.",
+    "conclusion_message": "El período mostró mejora en volumen y estabilidad en métricas de lectura.",
+    "highlights": [
+      "Aumentó el volumen de comunicaciones push.",
+      "Se sostuvo la lectura promedio por nota.",
+      "La interacción creció en temas prioritarios."
+    ]
+  },
+  "slide_3_plan": {
+    "title": "Gestión del plan CI",
+    "mail_total": 120,
+    "segmented_share": "68%",
+    "open_rate": "41%",
+    "pull_total": 35,
+    "mail_timeline": [
+      { "label": "2026-01", "value": 90 },
+      { "label": "2026-02", "value": 98 },
+      { "label": "2026-03", "value": 120 }
+    ],
+    "pull_timeline": [
+      { "label": "2026-01", "value": 29 },
+      { "label": "2026-02", "value": 31 },
+      { "label": "2026-03", "value": 35 }
+    ],
+    "mail_message": "Se priorizó cobertura operativa con segmentación.",
+    "pull_message": "El canal pull sostuvo continuidad editorial.",
+    "footer": "La ejecución del plan mostró consistencia mensual."
+  },
+  "slide_4_strategy": {
+    "content_distribution": [
+      { "theme": "Negocio", "weight": 40 },
+      { "theme": "Personas", "weight": 30 },
+      { "theme": "Cultura", "weight": 20 },
+      { "theme": "Riesgo", "weight": 10 }
+    ],
+    "internal_clients": [
+      { "label": "Retail", "value": 42 },
+      { "label": "Corporate", "value": 27 },
+      { "label": "Soporte", "value": 19 },
+      { "label": "Otros", "value": 12 }
+    ],
+    "canal_balance": { "institutional": 62, "transactional_talent": 38 },
+    "theme_message": "La agenda se concentró en negocio y personas.",
+    "balance_message": "El mix mantuvo equilibrio entre institucional y servicio.",
+    "conclusion": "La estrategia fue consistente con las prioridades del período."
+  },
+  "slide_5_push_ranking": {
+    "top_communications": [
+      { "name": "Nuevo onboarding digital", "clicks": 812, "interaction": 22.4 },
+      { "name": "Beneficios de capacitación", "clicks": 694, "interaction": 19.8 },
+      { "name": "Campaña comercial Q1", "clicks": 650, "interaction": 18.1 }
+    ],
+    "key_learning": "Los mensajes accionables con impacto al negocio capturan mayor respuesta."
+  },
+  "slide_6_pull_performance": {
+    "pub_current": 35,
+    "pub_previous": 31,
+    "top_notes": [
+      { "title": "Resultados comerciales marzo", "unique_reads": 1450, "total_reads": 1840 },
+      { "title": "Historias de clientes", "unique_reads": 1202, "total_reads": 1530 },
+      { "title": "Novedades de producto", "unique_reads": 1110, "total_reads": 1488 }
+    ],
+    "avg_reads": 128,
+    "total_views": 4480,
+    "secondary_message": "Las notas de resultados y producto lideraron la lectura.",
+    "conclusion": "El desempeño pull reforzó la agenda de negocio."
+  },
+  "slide_7_hitos": [
+    { "period": "2026-03", "description": "Lanzamiento de campaña interna de eficiencia." },
+    { "period": "2026-03", "description": "Implementación de nuevo formato de newsletter." }
+  ],
+  "slide_8_events": {
+    "total_events": 4,
+    "total_participants": 620,
+    "secondary_message": "Los eventos internos sostuvieron alcance y engagement.",
+    "conclusion": "La agenda de eventos acompañó los objetivos del trimestre.",
+    "event_breakdown": [
+      { "name": "Townhall", "participants": 240 },
+      { "name": "Capacitación", "participants": 180 },
+      { "name": "Workshop", "participants": 120 },
+      { "name": "Comunidad", "participants": 80 }
+    ]
+  },
+  "slide_9_closure": {
+    "title": "Claves del período",
+    "bullets": [
+      "Mejoró el volumen push con foco en prioridades.",
+      "La lectura pull se mantuvo estable y relevante.",
+      "La estrategia de contenidos se sostuvo consistente."
+    ]
+  }
+}

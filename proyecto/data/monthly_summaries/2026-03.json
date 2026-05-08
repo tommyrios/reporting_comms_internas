@@ -1,0 +1,251 @@
+{
+  "month": "2026-03",
+  "generation_mode": "deterministic_pdf",
+  "extraction_method": "deterministic_pdf_v7_kpi_sequence_safe",
+  "plan_daily_average": 0.08,
+  "plan_total": 66,
+  "site_notes_total": 17,
+  "site_total_views": 6205,
+  "site_average_views": 365,
+  "mail_total": 36,
+  "mail_open_rate": 77.53,
+  "mail_interaction_rate": 8.86,
+  "mail_interaction_rate_over_opened": 11.43,
+  "strategic_axes": [
+    {
+      "label": "RCP",
+      "value": 14.0
+    },
+    {
+      "label": "Sostenibilidad",
+      "value": 15.0
+    },
+    {
+      "label": "Empresas",
+      "value": 7.0
+    },
+    {
+      "label": "Creación de valor",
+      "value": 0.0
+    },
+    {
+      "label": "Innovación",
+      "value": 9.0
+    },
+    {
+      "label": "Equipo",
+      "value": 12.0
+    },
+    {
+      "label": "Otros",
+      "value": 9.0
+    }
+  ],
+  "internal_clients": [
+    {
+      "label": "Talento y Cultura",
+      "value": 44.0
+    },
+    {
+      "label": "Relaciones Institucionales",
+      "value": 17.0
+    },
+    {
+      "label": "Client Solutions",
+      "value": 13.0
+    },
+    {
+      "label": "Engineering & Data",
+      "value": 8.0
+    },
+    {
+      "label": "Country Manager Office (Gabinete Presidencia)",
+      "value": 7.0
+    },
+    {
+      "label": "Red Comercial",
+      "value": 3.0
+    },
+    {
+      "label": "Banca Minorista",
+      "value": 3.0
+    },
+    {
+      "label": "Internal Control & Compliance",
+      "value": 3.0
+    },
+    {
+      "label": "Finanzas",
+      "value": 1.0
+    },
+    {
+      "label": "Banca Empresas",
+      "value": 1.0
+    }
+  ],
+  "channel_mix": [
+    {
+      "label": "Mail",
+      "value": 31.8
+    },
+    {
+      "label": "Intranet",
+      "value": 31.8
+    },
+    {
+      "label": "SITE",
+      "value": 31.8
+    },
+    {
+      "label": "Cartelería / Pantallas",
+      "value": 3.0
+    },
+    {
+      "label": "Widget #notelopierdas",
+      "value": 1.5
+    }
+  ],
+  "format_mix": [
+    {
+      "label": "Postal/Carta",
+      "value": 56.1
+    },
+    {
+      "label": "Noticia propia",
+      "value": 31.8
+    },
+    {
+      "label": "Noticia bbva.com",
+      "value": 6.1
+    },
+    {
+      "label": "Video",
+      "value": 3.0
+    }
+  ],
+  "top_push_by_interaction": [
+    {
+      "name": "En marzo, hay sorpresas escondidas para vos",
+      "clicks": 2713,
+      "open_rate": 89.87,
+      "interaction": 52.15,
+      "date": "Mar 9, 2026"
+    },
+    {
+      "name": "En marzo, sent la m sica m s cerca 🎸 RO",
+      "clicks": 59,
+      "open_rate": 90.91,
+      "interaction": 44.7,
+      "date": "Mar 9, 2026"
+    },
+    {
+      "name": "En marzo, sent la m sica m s cerca 🍷🎸",
+      "clicks": 67,
+      "open_rate": 82.04,
+      "interaction": 40.12,
+      "date": "Mar 9, 2026"
+    },
+    {
+      "name": "Ya comienza Impulso 2026 2T Conectate 💻",
+      "clicks": 110,
+      "open_rate": 82.75,
+      "interaction": 38.73,
+      "date": "Mar 30, 2026"
+    },
+    {
+      "name": "03 - Kit Mensajes - MARZO 2026 ARG",
+      "clicks": 146,
+      "open_rate": 79.36,
+      "interaction": 17.42,
+      "date": "Mar 18, 2026"
+    }
+  ],
+  "top_push_by_open_rate": [
+    {
+      "name": "Save the date 📅 Impulso 2026 2T",
+      "clicks": 0,
+      "open_rate": 93.01,
+      "interaction": 0.0,
+      "date": "Mar 18, 2026"
+    },
+    {
+      "name": "En marzo, sent la m sica m s cerca 🎸 RO",
+      "clicks": 59,
+      "open_rate": 90.91,
+      "interaction": 44.7,
+      "date": "Mar 9, 2026"
+    },
+    {
+      "name": "En marzo, hay sorpresas escondidas para vos",
+      "clicks": 2713,
+      "open_rate": 89.87,
+      "interaction": 52.15,
+      "date": "Mar 9, 2026"
+    },
+    {
+      "name": "Vuelve el descuento en comedores y coffee p",
+      "clicks": 180,
+      "open_rate": 88.91,
+      "interaction": 6.74,
+      "date": "Mar 26, 2026"
+    },
+    {
+      "name": "BBVA in memoriam Roque Iacovino Mongelli",
+      "clicks": 0,
+      "open_rate": 84.98,
+      "interaction": 0.0,
+      "date": "Mar 25, 2026"
+    }
+  ],
+  "top_pull_notes": [
+    {
+      "title": "¡Sumamos más formaciones sobre Google Workspace!",
+      "unique_reads": 843,
+      "total_reads": 1886,
+      "date": "Mar 18, 2026"
+    },
+    {
+      "title": "Expoagro: acompañamos al motor productivo de la Argentina",
+      "unique_reads": 742,
+      "total_reads": 889,
+      "date": "Mar 17, 2026"
+    },
+    {
+      "title": "Entramos en el Top 3 de las mejores empresas para trabajar en Argentina",
+      "unique_reads": 705,
+      "total_reads": 787,
+      "date": "Mar 31, 2026"
+    },
+    {
+      "title": "Tu próximo auto o moto, más cerca",
+      "unique_reads": 319,
+      "total_reads": 390,
+      "date": "Mar 18, 2026"
+    },
+    {
+      "title": "“Todos estos resultados nos llenan de orgullo, y nos generan mucha ilusión por lo que tenemos por delante”",
+      "unique_reads": 604,
+      "total_reads": 709,
+      "date": "Mar 6, 2026"
+    }
+  ],
+  "hitos": [],
+  "events": [],
+  "quality_flags": {
+    "scope_country": "AR",
+    "scope_mixed": false,
+    "site_has_no_data_sections": false,
+    "events_summary_available": false,
+    "push_ranking_available": true,
+    "pull_ranking_available": true,
+    "historical_comparison_allowed": true
+  },
+  "extraction_warnings": [],
+  "validation": {
+    "month": "2026-03",
+    "validated_at": "2026-04-29T14:05:09.507400Z",
+    "is_valid": true,
+    "errors": [],
+    "warnings": []
+  }
+}

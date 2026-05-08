@@ -1,0 +1,140 @@
+{
+  "period": {"slug": "month_2026_01", "label": "Ene 2026"},
+  "render_plan": {
+    "period": {"slug": "month_2026_01", "label": "Ene 2026"},
+    "modules": [
+      {
+        "key": "executive_summary",
+        "title": "Resumen ejecutivo del período",
+        "payload": {
+          "executive_headline": "80,05% de apertura: el mail sostuvo la llegada directa de enero.",
+          "plan_total": 54,
+          "site_notes_total": 10,
+          "site_total_views": 4071,
+          "mail_total": 23,
+          "mail_open_rate": 80.05,
+          "mail_interaction_rate": 12.54,
+          "historical_note": "Enero combinó 54 comunicaciones planificadas, 23 mails enviados y 10 noticias publicadas en SITE/Intranet. El mail mantuvo una apertura alta del 80,05% y una interacción promedio del 12,54%. El ecosistema pull aportó 4.071 vistas, con contenidos de bienestar y servicios entre los más consultados.",
+          "takeaways": [
+            "Replicar la lógica de beneficios: la pieza líder alcanzó 55,3% de interacción.",
+            "Usar SITE/Intranet para profundizar contenidos de interés: promedió 407 vistas por nota.",
+            "Revisar ejes sin presencia antes del cierre de planificación: Creación de valor no tuvo comunicaciones."
+          ]
+        }
+      },
+      {
+        "key": "channel_management",
+        "title": "Gestión de canales",
+        "payload": {
+          "mail_total": 23,
+          "mail_open_rate": 80.05,
+          "mail_interaction_rate": 12.54,
+          "site_notes_total": 10,
+          "site_total_views": 4071,
+          "channel_mix": [
+            {"label": "Mail", "value": 40.66},
+            {"label": "Intranet", "value": 27.77},
+            {"label": "SITE", "value": 27.77},
+            {"label": "Cartelería", "value": 1.9},
+            {"label": "Widget", "value": 1.9}
+          ],
+          "timeline_mail": [{"label":"Ene", "value":23}],
+          "timeline_site": [{"label":"Ene", "value":10}],
+          "message": "Mail fue el canal dominante del mes con 40,66% del mix, seguido por Intranet y SITE con 27,77% cada uno. La apertura del 80,05% confirma buena llegada del canal push; cartelería y widget aparecen como soportes de baja participación para acciones puntuales."
+        }
+      },
+      {
+        "key": "mix_thematic_clients",
+        "title": "Mix temático y áreas solicitantes",
+        "payload": {
+          "strategic_axes": [
+            {"label": "Innovación", "value": 37.74},
+            {"label": "Equipo", "value": 20.75},
+            {"label": "Otros", "value": 16.98},
+            {"label": "RCP", "value": 11.32},
+            {"label": "Empresas", "value": 9.43},
+            {"label": "Sostenibilidad", "value": 3.77}
+          ],
+          "internal_clients": [],
+          "format_mix": [
+            {"label": "Postal/Carta", "value": 38.9},
+            {"label": "Noticia propia", "value": 37.0},
+            {"label": "Noticia bbva.com", "value": 22.2},
+            {"label": "Video", "value": 1.9}
+          ],
+          "message": "Innovación lideró la agenda temática con 37,74%, seguida por Equipo con 20,75%. El dato de áreas solicitantes no quedó disponible en la extracción del mes, por lo que conviene revisar el bloque de planificación para completar la lectura de demanda interna."
+        }
+      },
+      {
+        "key": "ranking_push",
+        "title": "Ranking push",
+        "payload": {
+          "available": true,
+          "by_interaction": [
+            {"name": "Los beneficios que necesitás", "clicks": 2941, "interaction": 55.3, "open_rate": 90.32},
+            {"name": "Empezá el 2026", "clicks": 1302, "interaction": 24.5, "open_rate": 88.81},
+            {"name": "Queremos escucharte", "clicks": 273, "interaction": 17.56, "open_rate": 85.18},
+            {"name": "Seguimos acompañándote", "clicks": 1104, "interaction": 16.22, "open_rate": 86.39}
+          ],
+          "by_open_rate": [
+            {"name": "Los beneficios que necesitás", "clicks": 2941, "interaction": 55.3, "open_rate": 90.32},
+            {"name": "Empezá el 2026", "clicks": 1302, "interaction": 24.5, "open_rate": 88.81},
+            {"name": "Seguimos acompañándote", "clicks": 1104, "interaction": 16.22, "open_rate": 86.39},
+            {"name": "Queremos escucharte", "clicks": 273, "interaction": 17.56, "open_rate": 85.18}
+          ],
+          "message": "La pieza de beneficios fue la más efectiva: 2.941 clics, 90,32% de apertura y 55,3% de interacción. El patrón a replicar combina beneficio concreto, asunto directo y una acción clara para el empleado."
+        }
+      },
+      {
+        "key": "ranking_pull",
+        "title": "Ranking pull",
+        "payload": {
+          "available": true,
+          "average_reads_per_note": 407,
+          "site_total_views": 4071,
+          "top_pull_notes": [
+            {"title":"Vacunación contra el dengue: todo lo que tenés que saber", "unique_reads":520, "total_reads":720},
+            {"title":"Resultados NPS 2025: ¿dónde estamos y hacia dónde vamos?", "unique_reads":519, "total_reads":632},
+            {"title":"Eureka evolucionó con el Gen de la IA", "unique_reads":411, "total_reads":480},
+            {"title":"Global Finance nos reconoció como el mejor banco de comercio exterior en Argentina", "unique_reads":300, "total_reads":357},
+            {"title":"Cajas navideñas BBVA, una tradición que nos une", "unique_reads":297, "total_reads":310}
+          ],
+          "message":"La nota más leída fue la de vacunación contra el dengue, con 520 lecturas únicas y 720 totales. El interés por bienestar y servicios prácticos puede alimentar próximos envíos segmentados y refuerzos en SITE."
+        }
+      },
+      {
+        "key": "milestones",
+        "title": "Hitos del mes",
+        "payload": {
+          "items": [],
+          "message": "No se registraron hitos destacados en la fuente. Puede completarse desde manual_context si el equipo quiere incorporar acciones cualitativas del período."
+        }
+      },
+      {
+        "key": "recommendations",
+        "title": "Conclusiones y próximos pasos",
+        "payload": {
+          "summary": "El mes deja una oportunidad clara: capitalizar beneficios y bienestar sin saturar el canal mail.",
+          "recommendations": [
+            "Sostener mails de beneficios con CTA único: la pieza líder logró 55,3% de interacción.",
+            "Convertir notas de bienestar en refuerzos segmentados: vacunación alcanzó 520 lecturas únicas.",
+            "Completar áreas solicitantes para leer mejor la demanda interna y balancear la planificación.",
+            "Revisar ejes subrepresentados antes de cerrar el próximo calendario editorial."
+          ],
+          "experiments": [
+            "Test A/B de asunto en beneficios: directo vs. emocional, midiendo apertura e interacción.",
+            "Refuerzo SITE + mail corto para notas con más de 400 lecturas únicas.",
+            "Prueba de horario por segmento para piezas de servicios al empleado."
+          ],
+          "action_plan": [
+            "Cerrar calendario con foco en beneficios, bienestar e innovación.",
+            "Definir KPI objetivo por pieza antes de producir.",
+            "Revisar extracción de áreas solicitantes en planificación.",
+            "Comparar resultados con enero en el próximo cierre."
+          ],
+          "owner_note": "Seguimiento sugerido: apertura, interacción, vistas por nota, áreas solicitantes y balance de ejes estratégicos."
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,239 @@
+{
+  "month": "2026-02",
+  "generation_mode": "deterministic_pdf",
+  "extraction_method": "deterministic_pdf_v7_kpi_sequence_safe",
+  "plan_daily_average": 0.05,
+  "plan_total": 39,
+  "site_notes_total": 3,
+  "site_total_views": 5580,
+  "site_average_views": 1860,
+  "mail_total": 34,
+  "mail_open_rate": 80.75,
+  "mail_interaction_rate": 16.37,
+  "mail_interaction_rate_over_opened": 20.27,
+  "strategic_axes": [
+    {
+      "label": "RCP",
+      "value": 7.0
+    },
+    {
+      "label": "Sostenibilidad",
+      "value": 3.0
+    },
+    {
+      "label": "Empresas",
+      "value": 0.0
+    },
+    {
+      "label": "Creación de valor",
+      "value": 0.0
+    },
+    {
+      "label": "Innovación",
+      "value": 7.0
+    },
+    {
+      "label": "Equipo",
+      "value": 9.0
+    },
+    {
+      "label": "Otros",
+      "value": 8.0
+    }
+  ],
+  "internal_clients": [
+    {
+      "label": "Talento y Cultura",
+      "value": 44.0
+    },
+    {
+      "label": "Relaciones Institucionales",
+      "value": 17.0
+    },
+    {
+      "label": "Client Solutions",
+      "value": 13.0
+    },
+    {
+      "label": "Engineering & Data",
+      "value": 8.0
+    },
+    {
+      "label": "Country Manager Office (Gabinete Presidencia)",
+      "value": 7.0
+    },
+    {
+      "label": "Red Comercial",
+      "value": 3.0
+    },
+    {
+      "label": "Banca Minorista",
+      "value": 3.0
+    },
+    {
+      "label": "Internal Control & Compliance",
+      "value": 3.0
+    },
+    {
+      "label": "Finanzas",
+      "value": 1.0
+    },
+    {
+      "label": "Banca Empresas",
+      "value": 1.0
+    }
+  ],
+  "channel_mix": [
+    {
+      "label": "Mail",
+      "value": 61.5
+    },
+    {
+      "label": "Intranet",
+      "value": 17.9
+    },
+    {
+      "label": "SITE",
+      "value": 10.3
+    },
+    {
+      "label": "Cartelería / Pantallas",
+      "value": 7.7
+    },
+    {
+      "label": "Widget #notelopierdas",
+      "value": 2.6
+    }
+  ],
+  "format_mix": [
+    {
+      "label": "Postal/Carta",
+      "value": 74.4
+    },
+    {
+      "label": "Noticia propia",
+      "value": 12.8
+    },
+    {
+      "label": "Noticia bbva.com",
+      "value": 7.7
+    },
+    {
+      "label": "Video",
+      "value": 2.6
+    }
+  ],
+  "top_push_by_interaction": [
+    {
+      "name": "Incentivaci n variable 2025: Valid los datos",
+      "clicks": 247,
+      "open_rate": 99.24,
+      "interaction": 93.56,
+      "date": "Feb 9, 2026"
+    },
+    {
+      "name": "Incentivaci n variable 2025: Valid los datos",
+      "clicks": 154,
+      "open_rate": 98.24,
+      "interaction": 90.59,
+      "date": "Feb 9, 2026"
+    },
+    {
+      "name": "Incentivaci n Variable 2025: Acced a tu info",
+      "clicks": 3440,
+      "open_rate": 91.27,
+      "interaction": 59.82,
+      "date": "Feb 26, 2026"
+    },
+    {
+      "name": "Evaluaci n anual: A partir del 16/2 podr s co",
+      "clicks": 3548,
+      "open_rate": 92.32,
+      "interaction": 52.63,
+      "date": "Feb 13, 2026"
+    },
+    {
+      "name": "Incentivaci n variable: Conoc los resultados",
+      "clicks": 3145,
+      "open_rate": 91.63,
+      "interaction": 46.85,
+      "date": "Feb 18, 2026"
+    }
+  ],
+  "top_push_by_open_rate": [
+    {
+      "name": "Incentivaci n variable 2025: Valid los datos",
+      "clicks": 247,
+      "open_rate": 99.24,
+      "interaction": 93.56,
+      "date": "Feb 9, 2026"
+    },
+    {
+      "name": "Incentivaci n variable 2025: Valid los datos",
+      "clicks": 154,
+      "open_rate": 98.24,
+      "interaction": 90.59,
+      "date": "Feb 9, 2026"
+    },
+    {
+      "name": "👉🏻 Evaluaci n Anual 2025: Manager, sumate",
+      "clicks": 3548,
+      "open_rate": 95.49,
+      "interaction": 52.63,
+      "date": "Feb 13, 2026"
+    },
+    {
+      "name": "Evaluaci n anual: A partir del 16/2 podr s co",
+      "clicks": 3548,
+      "open_rate": 92.32,
+      "interaction": 52.63,
+      "date": "Feb 13, 2026"
+    },
+    {
+      "name": "Incentivaci n variable: Conoc los resultados",
+      "clicks": 3145,
+      "open_rate": 91.63,
+      "interaction": 46.85,
+      "date": "Feb 18, 2026"
+    }
+  ],
+  "top_pull_notes": [
+    {
+      "title": "Potenciá tu día a día con estas formaciones sobre Google Workspace",
+      "unique_reads": 1363,
+      "total_reads": 4018,
+      "date": "Feb 4, 2026"
+    },
+    {
+      "title": "Legión 2026: Conocé quienes ganaron el premio de Valoración Ventas",
+      "unique_reads": 1207,
+      "total_reads": 1408,
+      "date": "Feb 13, 2026"
+    },
+    {
+      "title": "BBVA Agro se relanza: sumate al evento virtual",
+      "unique_reads": 108,
+      "total_reads": 154,
+      "date": "Feb 24, 2026"
+    }
+  ],
+  "hitos": [],
+  "events": [],
+  "quality_flags": {
+    "scope_country": "AR",
+    "scope_mixed": false,
+    "site_has_no_data_sections": false,
+    "events_summary_available": false,
+    "push_ranking_available": true,
+    "pull_ranking_available": true,
+    "historical_comparison_allowed": true
+  },
+  "extraction_warnings": [],
+  "validation": {
+    "month": "2026-02",
+    "validated_at": "2026-04-29T14:05:08.166049Z",
+    "is_valid": true,
+    "errors": [],
+    "warnings": []
+  }
+}
