@@ -14,9 +14,6 @@ from pathlib import Path
 from typing import Dict, List
 from zoneinfo import ZoneInfo
 
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.append(str(SCRIPT_DIR))
@@ -60,6 +57,9 @@ def _has_expected_keywords(subject: str, filename: str, keywords: List[str]) -> 
 
 
 def build_gmail_service():
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+
     creds = Credentials(
         token=None,
         refresh_token=os.environ["GOOGLE_REFRESH_TOKEN"],
