@@ -235,7 +235,7 @@ class AnalyzerTests(unittest.TestCase):
         self.assertEqual(mix[0]["value"], 60.0)
         self.assertEqual(kpis["validation"]["mix_aggregation"]["strategic_axes"], "distribution_average")
 
-    def test_build_render_plan_omits_events_when_not_available(self):
+    def test_build_render_plan_returns_management_structure(self):
         kpis = {
             "calculated_totals": {"plan_total": 10, "site_notes_total": 2, "site_total_views": 200, "mail_total": 5, "mail_open_rate": 40, "mail_interaction_rate": 5},
             "mixes": {"strategic_axes": [], "internal_clients": [], "channel_mix": [], "format_mix": []},
@@ -253,8 +253,9 @@ class AnalyzerTests(unittest.TestCase):
         }
         plan = build_render_plan({"slug": "month_2026_03", "label": "Marzo 2026"}, kpis, {})
         keys = [m["key"] for m in plan["modules"]]
-        self.assertNotIn("events", keys)
-        self.assertEqual(keys[0], "executive_summary")
+        self.assertEqual(keys[0], "cover")
+        self.assertEqual(keys[-1], "closing")
+        self.assertEqual(len(keys), 8)
 
     def test_validate_contract_error_mentions_missing_fields(self):
         with self.assertRaises(ValueError) as ctx:

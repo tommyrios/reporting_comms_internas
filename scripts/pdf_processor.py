@@ -42,6 +42,7 @@ def _build_local_fallback_summary(month_key: str, warning: str) -> dict:
         "top_push_by_interaction": [],
         "top_push_by_open_rate": [],
         "top_pull_notes": [],
+        "top_pull_notes_tgm": [],
         "hitos": [],
         "events": [],
         "quality_flags": {

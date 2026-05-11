@@ -548,12 +548,12 @@ function baseSlide(title, subtitle = '') {
   addSubtleGrid(slide);
   addLogo(slide, 'blue');
   if (subtitle) {
-    slide.addText(`Comunicaciones Internas / ${cleanText(subtitle)}`, {
+    slide.addText(cleanText(subtitle), {
       x: 0.62, y: 0.22, w: 8.2, h: 0.18,
       fontFace: 'Arial', fontSize: 8.5, color: COLORS.muted, margin: 0,
     });
   }
-  slide.addText(cleanText(title, 'Reporte ejecutivo'), {
+  slide.addText(cleanText(title, `Gestión CI - ${periodLabel()}`), {
     x: 0.62, y: 0.48, w: 9.9, h: 0.48,
     fontFace: 'Georgia', bold: true, fontSize: 25, color: COLORS.electricBlue, margin: 0,
     fit: 'shrink', breakLine: false,
@@ -875,42 +875,258 @@ function insightBulletsFromText(text, fallbackItems = []) {
   return fromText.length ? fromText : fallbackItems.map(ensureSentence).filter(Boolean).slice(0, 3);
 }
 
-function renderFullCover() {
-  const s = report?.period || report?.slide_1_cover || {};
-  const period = splitPeriodDisplay(s.label || s.period || periodLabel());
-  const slide = pptx.addSlide();
-  slide.background = { color: COLORS.electricBlue };
-  slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.333, h: 7.5, fill: { color: COLORS.electricBlue }, line: { color: COLORS.electricBlue } });
-  slide.addShape(pptx.ShapeType.arc, { x: 8.95, y: -1.05, w: 5.8, h: 5.8, adjustPoint: 0.18, line: { color: COLORS.cyan, transparency: 50, width: 2.2 } });
-  slide.addShape(pptx.ShapeType.arc, { x: 9.6, y: -0.15, w: 4.2, h: 4.2, adjustPoint: 0.28, line: { color: COLORS.sky, transparency: 55, width: 1.4 } });
-  addLogo(slide, 'white', 0.38, 0.28, 1.28, 0.42);
-
-  // decorative bars / icon
-  const bars = [
-    { x: 7.78, y: 1.30, w: 0.52, h: 1.18, c: COLORS.sky },
-    { x: 8.47, y: 0.88, w: 0.52, h: 1.60, c: COLORS.cyan },
-    { x: 9.16, y: 1.10, w: 0.52, h: 1.38, c: COLORS.sky },
-  ];
-  bars.forEach((b) => slide.addShape(pptx.ShapeType.roundRect, {
-    x: b.x, y: b.y, w: b.w, h: b.h, rectRadius: 0.06,
-    fill: { color: b.c, transparency: 10 }, line: { color: COLORS.white, transparency: 65, width: 1.1 },
-  }));
-
-  slide.addText(period.primary, { x: 0.38, y: 2.50, w: 2.4, h: 0.22, fontFace: 'Georgia', fontSize: 12.5, color: COLORS.white, margin: 0, fit: 'shrink' });
-  if (period.secondary) {
-    slide.addText(period.secondary, { x: 0.38, y: 2.73, w: 2.4, h: 0.18, fontFace: 'Arial', fontSize: 8.8, color: COLORS.sky, margin: 0, fit: 'shrink' });
+function ensureScopes() {
+  const scopes = report?.kpis?.scopes;
+  if (!scopes || typeof scopes !== 'object') {
+    throw new Error('Faltan scopes en kpis para renderizar el informe.');
   }
-  slide.addText('Informe de gestión', { x: 0.38, y: 2.98, w: 3.1, h: 0.18, fontFace: 'Arial', fontSize: 8.9, color: COLORS.white, margin: 0, fit: 'shrink' });
-  slide.addShape(pptx.ShapeType.line, { x: 0.38, y: 3.24, w: 9.4, h: 0, line: { color: COLORS.white, width: 0.6, transparency: 34 } });
+  const required = ['argentina', 'holding', 'combined'];
+  const missing = required.filter((scope) => !scopes[scope]);
+  if (missing.length) {
+    throw new Error(`Faltan scopes requeridos para renderizar PPTX: ${missing.join(', ')}`);
+  }
+  return scopes;
+}
 
-  slide.addText('Comunicaciones\ninternas', {
-    x: 0.38, y: 3.46, w: 7.4, h: 2.05,
-    fontFace: 'Arial', bold: true, fontSize: 40, color: COLORS.white,
-    margin: 0, breakLine: true, fit: 'shrink',
+function scopeLabel(scope, fallback) {
+  return cleanText(scope?.scope_label || scope?.scope || fallback || '-', '-');
+}
+
+function renderObservationsBox(slide, x, y, w, h) {
+  panel(slide, x, y, w, h, 'Observaciones del manager', { fill: COLORS.paper, shadow: false, line: COLORS.grey2, lineWidth: 0.6 });
+  slide.addText('Agregar análisis del período…', {
+    x: x + 0.24, y: y + 0.36, w: w - 0.48, h: 0.2,
+    fontFace: 'Arial', fontSize: 8.4, color: COLORS.grey3, margin: 0, fit: 'shrink',
   });
-  slide.addText(coverSubtitle(), {
-    x: 0.42, y: 5.82, w: 5.95, h: 0.24,
-    fontFace: 'Arial', fontSize: 8.6, color: COLORS.sky, margin: 0, fit: 'shrink',
+}
+
+function renderChartPlaceholder(slide, x, y, w, h, title) {
+  panel(slide, x, y, w, h, title, { fill: COLORS.paleYellow, shadow: false });
+  paragraph(slide, x + 0.24, y + 0.52, w - 0.48, h - 0.76, 'Gráfico no disponible', { fontSize: 9.0, color: COLORS.muted });
+}
+
+function renderDistributionPanel(slide, x, y, w, h, title, rows, options = {}) {
+  panel(slide, x, y, w, h, title, { fill: COLORS.white, shadow: false });
+  const safeRows = rows || [];
+  if (!safeRows.length) {
+    paragraph(slide, x + 0.24, y + 0.52, w - 0.48, h - 0.76, 'Gráfico no disponible', { fontSize: 9.0, color: COLORS.muted });
+    return;
+  }
+  renderHorizontalBarChart(slide, x + 0.26, y + 0.46, w - 0.52, h - 0.72, safeRows, {
+    valueMode: options.valueMode || 'percent',
+    labelMax: options.labelMax || 26,
+    labelLines: options.labelLines || 1,
+    catSize: options.catSize || 7.0,
+    dataSize: options.dataSize || 7.0,
+    labelWidth: options.labelWidth || 0.55,
+    valueWidth: options.valueWidth || 0.12,
+    barH: options.barH || 0.11,
+    colors: options.colors,
+  });
+}
+
+function mailCountLabel(scope) {
+  const unique = parseNumber(scope?.mail_unique_total);
+  const sendTotal = parseNumber(scope?.mail_send_total || scope?.mail_total);
+  if (unique > 0) return `${fmtNum(unique)} únicos`;
+  return `${fmtNum(sendTotal)} envíos`;
+}
+
+function topRowsByMetric(rows, metricKey) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => {
+      const label = cleanText(row?.name || row?.title || row?.label, 'Sin título');
+      const value = parseNumber(row?.[metricKey] || (metricKey === 'interaction' ? row?.ctr : row?.open_rate));
+      return { label, value };
+    })
+    .filter((row) => row.label && row.label !== '-' && row.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+}
+
+function topRowsByReads(rows, valueKey) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => {
+      const label = cleanText(row?.title || row?.name || row?.label, 'Sin título');
+      const value = parseNumber(row?.[valueKey] || row?.views || row?.total_reads || row?.unique_reads || row?.users);
+      return { label, value };
+    })
+    .filter((row) => row.label && row.label !== '-')
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+}
+
+function renderTopTablePanel(slide, x, y, w, h, title, rows, valueFormatter) {
+  panel(slide, x, y, w, h, title, { fill: COLORS.white, shadow: false });
+  if (!rows.length) {
+    paragraph(slide, x + 0.24, y + 0.50, w - 0.48, h - 0.70, 'Sin datos para mostrar', { fontSize: 8.6, color: COLORS.muted });
+    return;
+  }
+  const tableRowsData = rows.map((row) => [row.label, valueFormatter(row.value)]);
+  tableRows(slide, x + 0.22, y + 0.45, w - 0.44, ['Detalle', 'Valor'], tableRowsData, {
+    widths: [0.72, 0.28],
+    rowHeight: 0.36,
+    maxRows: 5,
+    wrapMax: 34,
+    wrapLines: 2,
+    firstColSize: 7.0,
+    valueSize: 7.4,
+    headerSize: 7.1,
+  });
+}
+
+function renderPlanningColumn(slide, scope, label, x, w) {
+  const axes = weightedRows(scope?.strategic_axes, 5);
+  const channels = weightedRows(scope?.channel_mix, 5);
+  const clients = weightedRows(scope?.internal_clients, 5).map((row) => ({ ...row, label: normalizeAreaLabel(row.label) }));
+
+  slide.addText(cleanText(label), {
+    x, y: 1.28, w, h: 0.2,
+    fontFace: 'Arial', bold: true, fontSize: 10, color: COLORS.electricBlue, margin: 0,
+  });
+  metricTile(slide, x, 1.52, w, 0.68, 'Total de Acciones de Comunicación', fmtNum(scope?.plan_total), COLORS.electricBlue, { valueSize: 17 });
+  renderDistributionPanel(slide, x, 2.32, w, 1.18, 'Distribución por Eje Estratégico', axes, { colors: AXIS_CHART_COLORS });
+  renderDistributionPanel(slide, x, 3.60, w, 1.18, 'Distribución por Canales', channels, { colors: CHANNEL_CHART_COLORS });
+  renderDistributionPanel(slide, x, 4.88, w, 1.18, 'Área solicitante', clients, { colors: AREA_CHART_COLORS, labelLines: 2, labelMax: 28 });
+}
+
+function renderPlanningComparison(scopes) {
+  const slide = baseSlide(`Gestión CI - ${periodLabel()}`, 'Planificación | Argentina vs Holding');
+  const colW = 5.85;
+  renderPlanningColumn(slide, scopes.argentina, scopeLabel(scopes.argentina, 'Argentina'), 0.72, colW);
+  renderPlanningColumn(slide, scopes.holding, scopeLabel(scopes.holding, 'Holding'), 6.76, colW);
+  renderObservationsBox(slide, 0.72, 6.25, 11.90, 0.95);
+  finalizeSlide(slide);
+}
+
+function renderPlanningCombined(scopes) {
+  const slide = baseSlide(`Gestión CI - ${periodLabel()}`, 'Planificación | Argentina + Holding');
+  renderPlanningColumn(slide, scopes.combined, scopeLabel(scopes.combined, 'Argentina + Holding'), 0.72, 11.90);
+  renderObservationsBox(slide, 0.72, 6.25, 11.90, 0.95);
+  finalizeSlide(slide);
+}
+
+function renderMailTrend(slide, x, y, w, h, scope) {
+  const trend = Array.isArray(scope?.mail_timeline) ? scope.mail_timeline : Array.isArray(scope?.mail_trend) ? scope.mail_trend : [];
+  const hasData = trend.some((row) => parseNumber(row?.sent || row?.sends || row?.mail_total || row?.value) > 0);
+  if (!hasData) {
+    renderChartPlaceholder(slide, x, y, w, h, 'Tendencia mensual de envíos y aperturas');
+    return;
+  }
+  const labels = trend.map((row) => cleanText(row.label || row.month || '-', '-'));
+  const sentValues = trend.map((row) => parseNumber(row?.sent || row?.sends || row?.mail_total || row?.value));
+  const openValues = trend.map((row) => parseNumber(row?.opens || row?.open || row?.open_total));
+  const series = [{ name: 'Envíos', labels, values: sentValues }];
+  if (openValues.some((val) => val > 0)) {
+    series.push({ name: 'Aperturas', labels, values: openValues });
+  }
+  try {
+    panel(slide, x, y, w, h, 'Tendencia mensual de envíos y aperturas', { fill: COLORS.white, shadow: false });
+    slide.addChart(pptx.ChartType.line, series, {
+      x: x + 0.26, y: y + 0.45, w: w - 0.52, h: h - 0.72,
+      showLegend: false,
+      showValAxisTitle: false,
+      showCatAxisTitle: false,
+      chartColors: [COLORS.electricBlue, COLORS.cyan],
+    });
+  } catch (err) {
+    renderChartPlaceholder(slide, x, y, w, h, 'Tendencia mensual de envíos y aperturas');
+  }
+}
+
+function renderMailColumn(slide, scope, label, x, w) {
+  slide.addText(cleanText(label), {
+    x, y: 1.28, w, h: 0.2,
+    fontFace: 'Arial', bold: true, fontSize: 10, color: COLORS.electricBlue, margin: 0,
+  });
+
+  const tileW = (w - 0.18) / 2;
+  metricTile(slide, x, 1.52, tileW, 0.56, 'Cantidad de mails', mailCountLabel(scope), COLORS.electricBlue, { valueSize: 13.5 });
+  metricTile(slide, x + tileW + 0.18, 1.52, tileW, 0.56, 'Tasa de apertura promedio', fmtPct(scope?.mail_open_rate), COLORS.sky, { valueSize: 13.5 });
+  metricTile(slide, x, 2.14, tileW, 0.56, 'Interacción sobre enviados', fmtPct(scope?.mail_interaction_rate), COLORS.cyan, { valueSize: 13.5 });
+  metricTile(slide, x + tileW + 0.18, 2.14, tileW, 0.56, 'Interacción sobre abiertos', fmtPct(scope?.mail_interaction_rate_over_opened), COLORS.lime, { valueSize: 13.5 });
+
+  renderMailTrend(slide, x, 2.82, w, 0.95, scope);
+
+  const openRows = topRowsByMetric(scope?.top_push_by_open_rate, 'open_rate');
+  renderTopTablePanel(slide, x, 3.86, w, 1.05, 'Top five - Mayor Tasa de Apertura', openRows, fmtPct);
+
+  const interactionRows = topRowsByMetric(scope?.top_push_by_interaction, 'interaction');
+  renderTopTablePanel(slide, x, 4.98, w, 1.05, 'Top five - Mayor Tasa de Interacción', interactionRows, fmtPct);
+}
+
+function renderMailComparison(scopes) {
+  const slide = baseSlide(`Gestión CI - ${periodLabel()}`, 'Canal Mail | Argentina vs Holding');
+  const colW = 5.85;
+  renderMailColumn(slide, scopes.argentina, scopeLabel(scopes.argentina, 'Argentina'), 0.72, colW);
+  renderMailColumn(slide, scopes.holding, scopeLabel(scopes.holding, 'Holding'), 6.76, colW);
+  renderObservationsBox(slide, 0.72, 6.25, 11.90, 0.95);
+  finalizeSlide(slide);
+}
+
+function renderMailCombined(scopes) {
+  const slide = baseSlide(`Gestión CI - ${periodLabel()}`, 'Canal Mail | Argentina + Holding');
+  renderMailColumn(slide, scopes.combined, scopeLabel(scopes.combined, 'Argentina + Holding'), 0.72, 11.90);
+  renderObservationsBox(slide, 0.72, 6.25, 11.90, 0.95);
+  finalizeSlide(slide);
+}
+
+function renderIntranetColumn(slide, scope, label, x, w) {
+  slide.addText(cleanText(label), {
+    x, y: 1.28, w, h: 0.2,
+    fontFace: 'Arial', bold: true, fontSize: 10, color: COLORS.electricBlue, margin: 0,
+  });
+
+  const tileW = (w - 0.24) / 3;
+  metricTile(slide, x, 1.52, tileW, 0.56, 'Noticias Publicadas', fmtNum(scope?.site_notes_total), COLORS.electricBlue, { valueSize: 13.5 });
+  metricTile(slide, x + tileW + 0.12, 1.52, tileW, 0.56, 'Total Páginas Vistas', fmtNum(scope?.site_total_views), COLORS.orange, { valueSize: 13.5 });
+  metricTile(slide, x + (tileW + 0.12) * 2, 1.52, tileW, 0.56, 'Promedio Vistas', fmtNum(scope?.site_average_views), COLORS.lime, { valueSize: 13.5 });
+
+  const topUURows = topRowsByReads(scope?.top_pull_notes, 'unique_reads');
+  renderTopTablePanel(slide, x, 2.30, w, 1.55, 'Top five - Notas más leídas (uu)', topUURows, fmtNum);
+
+  const topTgmRows = topRowsByReads(scope?.top_pull_notes_tgm, 'total_reads');
+  renderTopTablePanel(slide, x, 3.95, w, 1.55, 'Top five - Notas más leídas (colectivo TGM)', topTgmRows, fmtNum);
+}
+
+function renderIntranetComparison(scopes) {
+  const slide = baseSlide(`Gestión CI - ${periodLabel()}`, 'Canal Intranet / Contenidos | Argentina vs Holding');
+  const colW = 5.85;
+  renderIntranetColumn(slide, scopes.argentina, scopeLabel(scopes.argentina, 'Argentina'), 0.72, colW);
+  renderIntranetColumn(slide, scopes.holding, scopeLabel(scopes.holding, 'Holding'), 6.76, colW);
+  renderObservationsBox(slide, 0.72, 6.25, 11.90, 0.95);
+  finalizeSlide(slide);
+}
+
+function renderIntranetCombined(scopes) {
+  const slide = baseSlide(`Gestión CI - ${periodLabel()}`, 'Canal Intranet / Contenidos | Argentina + Holding');
+  renderIntranetColumn(slide, scopes.combined, scopeLabel(scopes.combined, 'Argentina + Holding'), 0.72, 11.90);
+  renderObservationsBox(slide, 0.72, 6.25, 11.90, 0.95);
+  finalizeSlide(slide);
+}
+
+function renderFullCover() {
+  const slide = pptx.addSlide();
+  slide.background = { color: COLORS.white };
+  slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.333, h: 7.5, fill: { color: COLORS.white }, line: { color: COLORS.white } });
+  addLogo(slide, 'blue', 11.10, 0.30, 1.10, 0.36);
+  slide.addText('Comunicaciones Internas', {
+    x: 0.84, y: 2.20, w: 11.5, h: 0.6,
+    fontFace: 'Georgia', bold: true, fontSize: 32, color: COLORS.electricBlue,
+    margin: 0, fit: 'shrink',
+  });
+  slide.addText(`Gestión ${periodLabel()}`, {
+    x: 0.84, y: 3.05, w: 11.5, h: 0.32,
+    fontFace: 'Arial', fontSize: 16, color: COLORS.muted,
+    margin: 0, fit: 'shrink',
+  });
+  slide.addShape(pptx.ShapeType.line, { x: 0.84, y: 3.55, w: 11.8, h: 0, line: { color: COLORS.grey2, width: 0.8 } });
+  slide.addText('Portada placeholder', {
+    x: 0.84, y: 4.02, w: 11.5, h: 0.24,
+    fontFace: 'Arial', fontSize: 9.5, color: COLORS.grey3,
+    margin: 0, fit: 'shrink',
   });
   finalizeSlide(slide);
 }
@@ -1216,65 +1432,31 @@ function renderEvents(module) {
 
 function renderFullClosing() {
   const slide = pptx.addSlide();
-  slide.background = { color: COLORS.electricBlue };
-  slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.333, h: 7.5, fill: { color: COLORS.electricBlue }, line: { color: COLORS.electricBlue } });
-  slide.addShape(pptx.ShapeType.arc, { x: -1.1, y: 4.4, w: 4.0, h: 4.0, adjustPoint: 0.28, line: { color: COLORS.cyan, transparency: 55, width: 2.2 } });
-  slide.addShape(pptx.ShapeType.arc, { x: 10.7, y: -1.2, w: 4.0, h: 4.0, adjustPoint: 0.28, line: { color: COLORS.sky, transparency: 60, width: 1.6 } });
-  addLogo(slide, 'white', 5.72, 2.15, 1.90, 0.62);
-  slide.addText('Gracias', { x: 3.2, y: 3.20, w: 6.9, h: 0.66, fontFace: 'Arial', bold: true, fontSize: 28, color: COLORS.white, align: 'center', margin: 0, fit: 'shrink' });
-  slide.addText(`Comunicaciones Internas · ${periodLabel()}`, { x: 2.45, y: 4.00, w: 8.4, h: 0.26, fontFace: 'Georgia', bold: true, fontSize: 15.5, color: COLORS.white, align: 'center', margin: 0, fit: 'shrink' });
-  slide.addText('Informe automatizado para seguimiento ejecutivo de agenda, canales y resultados.', { x: 2.25, y: 4.42, w: 8.8, h: 0.20, fontFace: 'Arial', fontSize: 8.7, color: COLORS.sky, align: 'center', margin: 0, fit: 'shrink' });
+  slide.background = { color: COLORS.white };
+  slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.333, h: 7.5, fill: { color: COLORS.white }, line: { color: COLORS.white } });
+  addLogo(slide, 'blue', 5.90, 1.55, 1.60, 0.52);
+  slide.addText('Comunicaciones Internas', {
+    x: 2.0, y: 3.0, w: 9.4, h: 0.46,
+    fontFace: 'Georgia', bold: true, fontSize: 22, color: COLORS.electricBlue, align: 'center',
+    margin: 0, fit: 'shrink',
+  });
+  slide.addText(`Gestión ${periodLabel()}`, {
+    x: 2.0, y: 3.58, w: 9.4, h: 0.26,
+    fontFace: 'Arial', fontSize: 12.5, color: COLORS.muted, align: 'center',
+    margin: 0, fit: 'shrink',
+  });
   finalizeSlide(slide);
 }
 
-function buildLegacyRenderPlan(payload) {
-  const s2 = payload.slide_2_overview || {};
-  const s3 = payload.slide_3_plan || {};
-  const s4 = payload.slide_4_strategy || payload.slide_3_strategy || {};
-  const s5 = payload.slide_5_push_ranking || payload.slide_4_push_ranking || {};
-  const s6 = payload.slide_6_pull_performance || payload.slide_5_pull_performance || {};
-  const s7 = payload.slide_7_hitos || payload.slide_6_hitos || [];
-  const s8 = payload.slide_8_events || payload.slide_7_events || {};
-  const includeEvents = Array.isArray(s8.event_breakdown) && s8.event_breakdown.length > 0;
-  return {
-    period: { label: payload?.slide_1_cover?.period || payload?.period?.label || '-' },
-    modules: [
-      { key: 'executive_summary', title: 'Resumen ejecutivo del período', payload: { headline: s2.headline, plan_total: s2.volume_current, site_notes_total: s2.pull_notes_current, site_total_views: s6.total_views, mail_total: s3.mail_total, mail_open_rate: s2.push_open_rate, mail_interaction_rate: s2.push_interaction_rate, historical_note: s2.comparative_note, takeaways: s2.highlights } },
-      { key: 'channel_management', title: 'Gestión de canales', payload: { mail_total: s3.mail_total, mail_open_rate: s3.open_rate, mail_interaction_rate: s2.push_interaction_rate, site_notes_total: s3.pull_total, site_total_views: s6.total_views, channel_mix: s2.audience_segments || [], timeline_mail: s3.mail_timeline || [], timeline_site: s3.pull_timeline || [], message: s3.footer || s3.mail_message } },
-      { key: 'mix_thematic_clients', title: 'Mix temático y áreas solicitantes', payload: { strategic_axes: s4.content_distribution || [], internal_clients: s4.internal_clients || [], format_mix: s4.format_mix || [], message: s4.conclusion || s4.theme_message } },
-      { key: 'ranking_push', title: 'Ranking push', payload: { by_interaction: s5.top_communications || [], by_open_rate: s5.top_by_open_rate || [], available: Array.isArray(s5.top_communications) && s5.top_communications.length > 0, message: s5.key_learning } },
-      { key: 'ranking_pull', title: 'Ranking pull', payload: { top_pull_notes: s6.top_notes || [], available: Array.isArray(s6.top_notes) && s6.top_notes.length > 0, average_reads_per_note: s6.avg_reads, site_total_views: s6.total_views, message: s6.conclusion } },
-      { key: 'milestones', title: 'Hitos del mes', payload: { items: s7, message: 'Hitos destacados del período' } },
-      { key: 'recommendations', title: 'Conclusiones y próximos pasos', payload: { message: s2.conclusion_message || s4.conclusion, recommendations: s2.highlights || [], experiments: ['Testear asuntos y horarios en piezas de beneficios.', 'Cruzar top notas SITE con próximos envíos segmentados.', 'Revisar canales subutilizados para campañas de bajo alcance.'], action_plan: ['Definir foco editorial del próximo mes.', 'Priorizar 2 campañas con call to action claro.', 'Medir variación de apertura, interacción y vistas.'] } },
-      ...(includeEvents ? [{ key: 'events', title: 'Eventos del mes', payload: { events: s8.event_breakdown || [], total_events: s8.total_events, total_participants: s8.total_participants, message: s8.conclusion || s8.secondary_message } }] : []),
-    ],
-  };
-}
-
-const renderPlan = report?.render_plan && Array.isArray(report.render_plan.modules)
-  ? report.render_plan
-  : buildLegacyRenderPlan(report);
-
-const renderers = {
-  executive_summary: renderExecutiveSummary,
-  channel_management: renderChannelManagement,
-  mix_thematic_clients: renderMix,
-  ranking_push: renderPushRanking,
-  ranking_pull: renderPullRanking,
-  milestones: renderMilestones,
-  recommendations: renderRecommendations,
-  events: renderEvents,
-};
+const scopes = ensureScopes();
 
 if (renderMode === 'full') renderFullCover();
-for (const module of renderPlan.modules || []) {
-  if (module.key === 'milestones') {
-    const items = module?.payload?.items;
-    if (!Array.isArray(items) || !items.length) continue;
-  }
-  const fn = renderers[module.key];
-  if (fn) fn(module);
-}
+renderPlanningComparison(scopes);
+renderPlanningCombined(scopes);
+renderMailComparison(scopes);
+renderMailCombined(scopes);
+renderIntranetComparison(scopes);
+renderIntranetCombined(scopes);
 if (renderMode === 'full') renderFullClosing();
 
 fs.mkdirSync(path.dirname(outputPptxPath), { recursive: true });
