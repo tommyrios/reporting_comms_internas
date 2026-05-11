@@ -450,10 +450,24 @@ function bulletize(items, fallback) {
   return rows.length ? rows : [fallback || 'Priorizar acciones de mayor impacto y medir el efecto en el siguiente período.'];
 }
 
+function mailVolumeText(p) {
+  const unique = parseNumber(p.mail_unique_total);
+  const sends = parseNumber(p.mail_send_total || p.mail_total);
+  if (unique > 0 && sends > 0 && unique !== sends) return `${fmtNum(unique)} mails únicos (${fmtNum(sends)} envíos)`;
+  return `${fmtNum(sends || unique)} envíos de mail`;
+}
+
+function mailVolumeShort(p) {
+  const unique = parseNumber(p.mail_unique_total);
+  const sends = parseNumber(p.mail_send_total || p.mail_total);
+  if (unique > 0 && sends > 0 && unique !== sends) return `${fmtNum(unique)} únicos · ${fmtNum(sends)} envíos`;
+  return `${fmtNum(sends || unique)} mails enviados`;
+}
+
 function buildExecutiveMessage(p) {
   const supplied = p.historical_note || p.headline;
   if (supplied && !isGenericNarrative(supplied) && cleanText(supplied).length > 40) return cleanText(supplied);
-  return `La gestión de ${periodLabel()} combinó ${fmtNum(p.plan_total)} comunicaciones planificadas, ${fmtNum(p.mail_total)} envíos de mail y ${fmtNum(p.site_notes_total)} publicaciones en SITE/Intranet. El mailing sostuvo ${fmtPct(p.mail_open_rate)} de apertura y ${fmtPct(p.mail_interaction_rate)} de interacción, mientras el ecosistema pull acumuló ${fmtNum(p.site_total_views)} vistas.`;
+  return `La gestión de ${periodLabel()} combinó ${fmtNum(p.plan_total)} comunicaciones planificadas, ${mailVolumeText(p)} y ${fmtNum(p.site_notes_total)} publicaciones en SITE/Intranet. El mailing sostuvo ${fmtPct(p.mail_open_rate)} de apertura y ${fmtPct(p.mail_interaction_rate)} de interacción, mientras el ecosistema pull acumuló ${fmtNum(p.site_total_views)} vistas.`;
 }
 
 function buildExecutiveInsights(p) {
@@ -475,7 +489,7 @@ function buildChannelNarrative(p) {
   const supplied = p.message;
   if (supplied && !isGenericNarrative(supplied) && cleanText(supplied).length > 50) return cleanText(supplied);
   const rows = weightedRows(p.channel_mix, 5);
-  if (!rows.length) return `Mail aportó ${fmtNum(p.mail_total)} envíos, con ${fmtPct(p.mail_open_rate)} de apertura y ${fmtPct(p.mail_interaction_rate)} de interacción. Falta mix de canales para identificar oportunidades de balance.`;
+  if (!rows.length) return `Mail aportó ${mailVolumeText(p)}, con ${fmtPct(p.mail_open_rate)} de apertura y ${fmtPct(p.mail_interaction_rate)} de interacción. Falta mix de canales para identificar oportunidades de balance.`;
   const top = rows.slice(0, 3).map((row) => `${row.label} (${valueAsPct(row, rows)})`).join(', ');
   return `El mix se concentró en ${top}. Mail sostuvo el alcance directo (${fmtPct(p.mail_open_rate)} de apertura) y SITE/Intranet funcionó como soporte de profundización con ${fmtNum(p.site_total_views)} vistas.`;
 }
@@ -942,7 +956,7 @@ function renderExecutiveSummary(module) {
 
   const volumeRows = [
     { label: 'Planificación', value: parseNumber(p.plan_total) },
-    { label: 'Mails', value: parseNumber(p.mail_total) },
+    { label: parseNumber(p.mail_unique_total) > 0 ? 'Mails únicos' : 'Mails', value: parseNumber(p.mail_unique_total) || parseNumber(p.mail_total) },
     { label: 'Notas SITE', value: parseNumber(p.site_notes_total) },
   ];
   renderHorizontalBarChart(slide, 1.04, 4.88, 6.25, 0.62, volumeRows, { valueMode: 'number', labelMax: 16, catSize: 7.0, dataSize: 7.0, labelWidth: 0.34, barH: 0.11, colors: [COLORS.electricBlue, COLORS.lime, COLORS.purple] });
@@ -968,7 +982,7 @@ function renderChannelManagement(module) {
     slide.addText(`${lead.label}: canal principal del período`, { x: 1.40, y: 5.60, w: 5.75, h: 0.10, align: 'center', fontFace: 'Arial', bold: true, fontSize: 7.6, color: COLORS.electricBlue, margin: 0, fit: 'shrink' });
   }
 
-  heroMetric(slide, 8.20, 1.88, 3.95, 1.14, 'Apertura promedio', fmtPct(p.mail_open_rate), `${fmtNum(p.mail_total)} mails enviados`, COLORS.electricBlue, { valueSize: 28, detailMax: 80, fill: COLORS.paleBlue, shadow: false });
+  heroMetric(slide, 8.20, 1.88, 3.95, 1.14, 'Apertura promedio', fmtPct(p.mail_open_rate), mailVolumeShort(p), COLORS.electricBlue, { valueSize: 28, detailMax: 80, fill: COLORS.paleBlue, shadow: false });
   metricTile(slide, 8.20, 3.25, 1.85, 0.76, 'Interacción', fmtPct(p.mail_interaction_rate), COLORS.cyan, { valueSize: 17 });
   metricTile(slide, 10.30, 3.25, 1.85, 0.76, 'Vistas SITE', fmtNum(p.site_total_views), COLORS.orange, { valueSize: 17 });
 

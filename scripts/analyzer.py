@@ -431,7 +431,12 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
     latest_push = _to_int(push_timeline[-1]["value"]) if push_timeline else 0
     previous_push = _to_int(push_timeline[-2]["value"]) if len(push_timeline) > 1 else 0
     validation_warnings: list[str] = []
-    if plan_total > 0 and mail_total > plan_total * 1.15:
+    mail_unique_total = sum(_to_int(row.get("mail_unique_total")) for row in normalized_rows)
+    if mail_unique_total > 0 and mail_total > mail_unique_total * 10:
+        validation_warnings.append(
+            f"mail_total ({mail_total}) supera ampliamente los mails únicos planificados ({mail_unique_total}); revisar segmentación o extracción"
+        )
+    elif mail_unique_total <= 0 and plan_total > 0 and mail_total > plan_total * 1.15:
         validation_warnings.append(
             f"mail_total ({mail_total}) supera el total planificado ({plan_total}); revisar extracción"
         )
@@ -459,6 +464,8 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
             "site_notes_total": site_notes_total,
             "site_total_views": site_total_views,
             "mail_total": mail_total,
+            "mail_unique_total": mail_unique_total,
+            "mail_send_total": mail_total,
             "mail_open_rate": mail_open_rate,
             "mail_interaction_rate": mail_interaction_rate,
             "total_events": total_events,

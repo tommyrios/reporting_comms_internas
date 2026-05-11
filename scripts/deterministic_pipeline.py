@@ -44,6 +44,43 @@ DEFAULT_AREA_ORDER = [
     "Banca Empresas",
 ]
 
+
+CHANNEL_LABELS = [
+    "Mail",
+    "Intranet",
+    "SITE",
+    "Cartelería / Pantallas",
+    "Widget #notelopierdas",
+    "Evento",
+    "Multiwidget 4",
+    "Multiwidget 3",
+    "Multiwidget 2",
+    "Multiwidget 1",
+    "Pop up",
+    "Otros",
+]
+
+FORMAT_LABELS = [
+    "Postal/Carta",
+    "Noticia propia",
+    "Noticia bbva.com",
+    "Video",
+    "Evento híbrido",
+    "Evento virtual",
+    "Newsletter",
+    "Banner",
+    "Evento presencial",
+    "Otros",
+]
+
+# El dashboard de mailing cuenta envíos/campañas efectivamente disparadas.
+# La planificación cuenta piezas únicas por canal. Para validar volumen mail,
+# comparamos contra el universo de piezas Mail planificadas, no contra todo
+# el total planificado, porque planificación incluye SITE, Intranet, widgets,
+# eventos y otros canales.
+MAIL_SEND_TO_UNIQUE_MAX_RATIO = 10
+MAIL_SEND_TO_UNIQUE_MIN_RATIO = 0.5
+
 MAIL_TITLE_FIXUPS = [
     (r"\bltimos d as\b", "Últimos días"),
     (r"\bd as\b", "días"),
@@ -861,63 +898,140 @@ def _extract_percent_values_from_items(items: list[str]) -> list[float]:
     return values
 
 
-def _extract_channel_mix(page_text: str) -> list[dict[str, Any]]:
+def _canonical_label_from_line(line: str, candidates: list[str]) -> str | None:
+    line_norm = _normalize_text(line).replace("…", "")
+    compact_line = _compact_text(line)
+
+    for label in sorted(candidates, key=len, reverse=True):
+        label_norm = _normalize_text(label).replace("…", "")
+        if label_norm and label_norm in line_norm:
+            return label
+        label_compact = _compact_text(label)
+        if label_compact and label_compact in compact_line:
+            return label
+
+    return None
+
+
+def _strip_percent_tokens(line: str) -> str:
+    cleaned = re.sub(r"(?<=\d)\s+(?=[.,]\d)", "", line)
+    cleaned = re.sub(r"(?<=[.,]\d)\s+(?=%)", "", cleaned)
+    return re.sub(r"\d+(?:[.,]\d+)?\s*%", " ", cleaned).strip()
+
+
+def _extract_channel_format_mix_sections(page_text: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Extrae el mix Canal/Formato respetando el orden real de labels.
+
+    En los PDFs mensuales de Argentina el orden suele ser Mail/Intranet/SITE,
+    pero en Holding Q1 aparece SITE/Intranet/Mail. No podemos asignar porcentajes
+    a una lista fija; hay que leer primero los porcentajes y luego los labels que
+    devuelve pypdf en el orden visual del gráfico.
+    """
     lines = [line.strip() for line in page_text.splitlines() if line.strip()]
 
+    start_idx: int | None = None
     for i, line in enumerate(lines):
-        if "que canales y formatos se han utilizado" not in _normalize_text(line):
+        if "que canales y formatos se han utilizado" in _normalize_text(line):
+            start_idx = i
+            break
+
+    if start_idx is None:
+        return [], []
+
+    window: list[str] = []
+    stop_markers = [
+        "que areas las han solicitado",
+        "listado completo de comunicaciones",
+        "distribucion por eje estrategico",
+        "distribucion por dimension",
+    ]
+    for line in lines[start_idx + 1:start_idx + 60]:
+        norm = _normalize_text(line)
+        if any(marker in norm for marker in stop_markers):
+            break
+        window.append(line)
+
+    channel_pcts: list[float] = []
+    channel_labels: list[str] = []
+    format_pcts: list[float] = []
+    format_labels: list[str] = []
+    stage = "channel_pcts"
+
+    for item in window:
+        pct_values = _extract_percent_values_from_items([item])
+        label_text = _strip_percent_tokens(item)
+        channel_label = _canonical_label_from_line(label_text, CHANNEL_LABELS)
+        format_label = _canonical_label_from_line(label_text, FORMAT_LABELS)
+
+        if stage == "channel_pcts":
+            if pct_values:
+                channel_pcts.extend(pct_values)
+            if channel_label:
+                channel_labels.append(channel_label)
+                stage = "channel_labels"
+            elif not pct_values and label_text:
+                inferred = _canonical_label_from_line(label_text, CHANNEL_LABELS)
+                if inferred:
+                    channel_labels.append(inferred)
+                    stage = "channel_labels"
             continue
 
-        window = lines[i + 1:i + 14]
+        if stage == "channel_labels":
+            if pct_values and not channel_label:
+                format_pcts.extend(pct_values)
+                stage = "format_pcts"
+                if format_label:
+                    format_labels.append(format_label)
+                    stage = "format_labels"
+                continue
+            if channel_label:
+                channel_labels.append(channel_label)
+                continue
+            if pct_values:
+                format_pcts.extend(pct_values)
+                stage = "format_pcts"
+                continue
+            continue
 
-        pct_values = _extract_percent_values_from_items(window)
+        if stage == "format_pcts":
+            if pct_values:
+                format_pcts.extend(pct_values)
+            if format_label:
+                format_labels.append(format_label)
+                stage = "format_labels"
+            elif not pct_values and label_text:
+                inferred = _canonical_label_from_line(label_text, FORMAT_LABELS)
+                if inferred:
+                    format_labels.append(inferred)
+                    stage = "format_labels"
+            continue
 
-        labels = [
-            "Mail",
-            "Intranet",
-            "SITE",
-            "Cartelería / Pantallas",
-            "Widget #notelopierdas",
-        ]
+        if stage == "format_labels":
+            if format_label:
+                format_labels.append(format_label)
 
-        return [
-            {"channel": label, "pct": pct}
-            for label, pct in zip(labels, pct_values[:len(labels)])
-            if pct is not None
-        ]
+    channel_rows = [
+        {"channel": label, "pct": pct}
+        for label, pct in zip(channel_labels, channel_pcts[:len(channel_labels)])
+        if pct is not None
+    ]
+    format_rows = [
+        {"format": label, "pct": pct}
+        for label, pct in zip(format_labels, format_pcts[:len(format_labels)])
+        if pct is not None
+    ]
 
-    return []
+    return channel_rows, format_rows
+
+
+def _extract_channel_mix(page_text: str) -> list[dict[str, Any]]:
+    channel_rows, _ = _extract_channel_format_mix_sections(page_text)
+    return channel_rows
 
 
 def _extract_format_mix(page_text: str) -> list[dict[str, Any]]:
-    lines = [line.strip() for line in page_text.splitlines() if line.strip()]
-
-    for i, line in enumerate(lines):
-        if "que canales y formatos se han utilizado" not in _normalize_text(line):
-            continue
-
-        window = lines[i + 1:i + 18]
-
-        pct_values = _extract_percent_values_from_items(window)
-
-        # Los primeros 5 porcentajes son canales.
-        # Los siguientes corresponden a formatos.
-        format_pcts = pct_values[5:]
-
-        labels = [
-            "Postal/Carta",
-            "Noticia propia",
-            "Noticia bbva.com",
-            "Video",
-        ]
-
-        return [
-            {"format": label, "pct": pct}
-            for label, pct in zip(labels, format_pcts[:len(labels)])
-            if pct is not None
-        ]
-
-    return []
+    _, format_rows = _extract_channel_format_mix_sections(page_text)
+    return format_rows
 
 
 def _extract_strategic_axes(page_text: str) -> list[dict[str, Any]]:
@@ -1347,6 +1461,26 @@ def _canon_distribution(
     return rows
 
 
+
+
+def _distribution_pct(rows: list[dict[str, Any]], label: str) -> float:
+    target = _normalize_text(label)
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        row_label = str(row.get("label") or row.get("channel") or row.get("format") or row.get("name") or "")
+        if _normalize_text(row_label) == target:
+            return round(to_float_locale(str(row.get("value", row.get("pct", 0))), 0.0), 2)
+    return 0.0
+
+
+def _derive_mail_unique_total(plan_total: int, channel_mix: list[dict[str, Any]]) -> tuple[int, float]:
+    mail_pct = _distribution_pct(channel_mix, "Mail")
+    if plan_total <= 0 or mail_pct <= 0:
+        return 0, mail_pct
+    return int(round(plan_total * mail_pct / 100)), mail_pct
+
+
 def _canon_push_rows(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows = []
 
@@ -1416,6 +1550,31 @@ def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
         site_total_views = site_notes_total * site_average_views
         derived_warnings.append("derived_metric:site_total_views:site_notes_total*site_average_views")
 
+    strategic_axes = _canon_distribution(
+        raw_extracted.get("strategic_axes", []),
+        label_keys=("label", "theme", "axis", "name"),
+        value_keys=("value", "weight", "count"),
+    )
+    internal_clients = _canon_distribution(
+        raw_extracted.get("internal_clients", []),
+        label_keys=("label", "area", "client", "name"),
+        value_keys=("value", "pct", "weight", "count"),
+    )
+    channel_mix = _canon_distribution(
+        raw_extracted.get("channel_mix", []),
+        label_keys=("label", "channel", "name"),
+        value_keys=("value", "pct", "weight"),
+    )
+    format_mix = _canon_distribution(
+        raw_extracted.get("format_mix", []),
+        label_keys=("label", "format", "name"),
+        value_keys=("value", "pct", "weight"),
+    )
+
+    mail_unique_total, mail_planning_pct = _derive_mail_unique_total(plan_total, channel_mix)
+    if mail_unique_total > 0:
+        derived_warnings.append("derived_metric:mail_unique_total:plan_total*channel_mix_mail_pct")
+
     return {
         "month": raw_extracted.get("month"),
         "generation_mode": "deterministic_pdf",
@@ -1427,30 +1586,17 @@ def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
         "site_total_views": site_total_views,
         "site_average_views": site_average_views,
         "mail_total": mail_total,
+        "mail_send_total": mail_total,
+        "mail_unique_total": mail_unique_total,
+        "mail_planning_pct": mail_planning_pct,
         "mail_open_rate": round(open_rate, 2),
         "mail_interaction_rate": round(interaction_rate, 2),
         "mail_interaction_rate_over_opened": round(interaction_rate_over_opened, 2),
 
-        "strategic_axes": _canon_distribution(
-            raw_extracted.get("strategic_axes", []),
-            label_keys=("label", "theme", "axis", "name"),
-            value_keys=("value", "weight", "count"),
-        ),
-        "internal_clients": _canon_distribution(
-            raw_extracted.get("internal_clients", []),
-            label_keys=("label", "area", "client", "name"),
-            value_keys=("value", "pct", "weight", "count"),
-        ),
-        "channel_mix": _canon_distribution(
-            raw_extracted.get("channel_mix", []),
-            label_keys=("label", "channel", "name"),
-            value_keys=("value", "pct", "weight"),
-        ),
-        "format_mix": _canon_distribution(
-            raw_extracted.get("format_mix", []),
-            label_keys=("label", "format", "name"),
-            value_keys=("value", "pct", "weight"),
-        ),
+        "strategic_axes": strategic_axes,
+        "internal_clients": internal_clients,
+        "channel_mix": channel_mix,
+        "format_mix": format_mix,
         "top_push_by_interaction": _canon_push_rows(raw_extracted.get("top_push_interaction", [])),
         "top_push_by_open_rate": _canon_push_rows(raw_extracted.get("top_push_open", [])),
         "top_pull_notes": _canon_pull_rows(raw_extracted.get("top_pull_notes", [])),
@@ -1561,14 +1707,21 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
     if mail_total < 0:
         errors.append("mail_total no puede ser negativo")
 
+    mail_unique_total = int(canonical.get("mail_unique_total", 0) or 0)
+
     if mail_total >= 0 and plan_total > 0:
-        min_mail = max(MIN_MAIL_ABSOLUTE, int(round(plan_total * MIN_MAIL_TO_PLAN_RELATION)))
+        if mail_unique_total > 0:
+            min_mail_send_total = max(1, int(round(mail_unique_total * MAIL_SEND_TO_UNIQUE_MIN_RATIO)))
 
-        if mail_total < min_mail:
-            errors.append("mail_total sospechosamente bajo respecto a plan_total")
+            if mail_total < min_mail_send_total:
+                errors.append("mail_total sospechosamente bajo respecto a mail_unique_total")
+            elif mail_total < mail_unique_total:
+                warnings.append("mail_total menor que mail_unique_total; revisar segmentación o alcance de fuentes")
 
-        if mail_total > plan_total * MAX_MAIL_TO_PLAN_RATIO:
-            warnings.append("mail_total muy alto respecto a plan_total; revisar escala o extracción")
+            if mail_total > mail_unique_total * MAIL_SEND_TO_UNIQUE_MAX_RATIO:
+                warnings.append("mail_total muy alto respecto a mail_unique_total; revisar segmentación o extracción")
+        else:
+            warnings.append("No se pudo calcular mail_unique_total desde planificación; se omite validación mail_total vs plan_total")
 
     if site_notes_total > 0 and site_total_views < site_notes_total * MIN_SITE_VIEWS_PER_NOTE:
         errors.append("site_total_views sospechosamente bajo respecto a site_notes_total")
