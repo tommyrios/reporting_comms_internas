@@ -882,6 +882,62 @@ def _extract_top_pull_notes(page_text: str) -> list[dict[str, Any]]:
     return rows[:5]
 
 
+def _extract_top_pull_notes_tgm(page_text: str) -> list[dict[str, Any]]:
+    lines = [line.strip() for line in page_text.splitlines() if line.strip()]
+    rows: list[dict[str, Any]] = []
+    capture = False
+
+    for line in lines:
+        norm = _normalize_text(line)
+
+        if "top five - notas mas leidas (colectivo tgm)" in norm:
+            capture = True
+            continue
+
+        if capture and ("top five - notas mas leidas (uu)" in norm or "herramienta de" in norm):
+            break
+
+        if not capture:
+            continue
+
+        date_match = re.match(
+            r"^([A-Z][a-z]{2}\s\d{1,2},\s(?:20\d{2}|20…))\s+(.*)$",
+            line,
+        )
+
+        if not date_match:
+            continue
+
+        date = date_match.group(1)
+        body = date_match.group(2)
+
+        nums = NUMBER_PATTERN.findall(line)
+        nums_no_percent = [n for n in nums if "%" not in n]
+
+        if len(nums_no_percent) < 3:
+            continue
+
+        users = parse_integer_value(nums_no_percent[-2])
+        views = parse_integer_value(nums_no_percent[-1])
+
+        title = body
+        title = re.sub(r"\s+ARGENTINA\s+[\d,]+\s+[\d,]+\s*$", "", title)
+        title = re.sub(r"\s+", " ", title).strip()
+
+        rows.append({
+            "date": date.replace("20…", "2026"),
+            "title": title[:CANON_TITLE_MAX_LENGTH],
+            "users": users,
+            "views": views,
+            "raw": line,
+        })
+
+        if len(rows) >= 5:
+            break
+
+    return rows[:5]
+
+
 def _extract_percent_values_from_items(items: list[str]) -> list[float]:
     values = []
 
@@ -1394,6 +1450,7 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
         top_push_open = top_push_open or fallback_open
         top_push_interaction = top_push_interaction or fallback_interaction
     top_pull_notes = _extract_top_pull_notes(page_for_site)
+    top_pull_notes_tgm = _extract_top_pull_notes_tgm(page_for_site)
     channel_mix = _extract_channel_mix(page_for_plan)
     format_mix = _extract_format_mix(page_for_plan)
     strategic_axes = _extract_strategic_axes(page_for_plan)
@@ -1416,6 +1473,7 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
         "top_push_open": top_push_open,
         "top_push_interaction": top_push_interaction,
         "top_pull_notes": top_pull_notes,
+        "top_pull_notes_tgm": top_pull_notes_tgm,
         "channel_mix": channel_mix,
         "format_mix": format_mix,
         "strategic_axes": strategic_axes,
@@ -1600,6 +1658,7 @@ def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
         "top_push_by_interaction": _canon_push_rows(raw_extracted.get("top_push_interaction", [])),
         "top_push_by_open_rate": _canon_push_rows(raw_extracted.get("top_push_open", [])),
         "top_pull_notes": _canon_pull_rows(raw_extracted.get("top_pull_notes", [])),
+        "top_pull_notes_tgm": _canon_pull_rows(raw_extracted.get("top_pull_notes_tgm", [])),
         "hitos": [],
         "events": [],
 
