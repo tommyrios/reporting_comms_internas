@@ -35,7 +35,6 @@ def _valid_summary(scope="combined", *, validation_valid=True, events=None):
         "top_push_by_interaction": [],
         "top_push_by_open_rate": [],
         "top_pull_notes": [],
-        "top_pull_notes_tgm": [],
         "hitos": [],
         "events": events if events is not None else [],
         "quality_flags": {
@@ -67,13 +66,23 @@ class GenerateReportTests(unittest.TestCase):
         self.assertEqual(merged["items"], [7])
         self.assertEqual(merged["keep"], "yes")
 
-    def test_generate_period_report_uses_deterministic_mode(self):
+    def test_generate_period_report_omits_events_module_without_data(self):
         period = {
             "slug": "quarter_2026_Q1",
             "months": ["2026-01", "2026-02", "2026-03"],
             "label": "Q1 2026",
             "email_subject": "Subj",
             "kind": "quarter",
+        }
+        narrative = {
+            "executive_summary": "Resumen",
+            "executive_takeaways": ["a", "b", "c"],
+            "channel_management": "x",
+            "mix_thematic_clients": "x",
+            "ranking_push": "x",
+            "ranking_pull": "x",
+            "milestones": "x",
+            "events": "x",
         }
         summaries = {
             "argentina": _valid_summary("argentina"),
@@ -86,7 +95,6 @@ class GenerateReportTests(unittest.TestCase):
                 patch("generate_report.resolve_period_scope_pdfs", return_value={}), \
                 patch("generate_report.summarize_period_scope", side_effect=lambda period, scope, **kwargs: deepcopy(summaries[scope])), \
                 patch("generate_report.apply_historical_comparison", side_effect=lambda period, payload: payload), \
-                patch("generate_report._request_narrative", side_effect=AssertionError("no debe invocarse")), \
                 patch("generate_report.load_manual_context", return_value={}), \
                 patch("generate_report.persist_calculated_totals"), \
                 patch("generate_report.write_report_artifacts", return_value="/tmp/report"):
@@ -105,21 +113,13 @@ class GenerateReportTests(unittest.TestCase):
         }
         invalid_summary = {"plan_total": 1}
 
-        with patch.dict(os.environ, {"REPORT_REQUIRED_SCOPES": "argentina,holding,combined"}, clear=False), \
+        with patch.dict(os.environ, {"REPORT_REQUIRED_SCOPES": "combined"}, clear=False), \
                 patch("generate_report.get_period_definition", return_value=period), \
                 patch("generate_report.resolve_period_scope_pdfs", return_value={}), \
                 patch("generate_report.summarize_period_scope", return_value=invalid_summary):
             with self.assertRaises(ValueError) as ctx:
                 generate_period_report("quarter_2026_Q1")
         self.assertIn("Contrato mensual incompleto", str(ctx.exception))
-
-    def test_generate_period_report_requires_all_scopes(self):
-        period = {"slug": "quarter_2026_Q1", "label": "Q1 2026", "email_subject": "Subj", "kind": "quarter"}
-        with patch.dict(os.environ, {"REPORT_REQUIRED_SCOPES": "argentina,combined"}, clear=False), \
-                patch("generate_report.get_period_definition", return_value=period):
-            with self.assertRaises(ValueError) as ctx:
-                generate_period_report("quarter_2026_Q1")
-        self.assertIn("Se requieren scopes argentina, holding y combined", str(ctx.exception))
 
     def test_generate_period_report_does_not_continue_invalid_scope_validation(self):
         period = {

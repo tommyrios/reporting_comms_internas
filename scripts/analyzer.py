@@ -167,7 +167,6 @@ def normalize_monthly_summary(summary: dict[str, Any]) -> dict[str, Any]:
         "top_push_by_interaction": summary.get("top_push_by_interaction") if isinstance(summary.get("top_push_by_interaction"), list) else ([] if not top_push_legacy else [top_push_legacy]),
         "top_push_by_open_rate": summary.get("top_push_by_open_rate") if isinstance(summary.get("top_push_by_open_rate"), list) else ([] if not top_push_legacy else [top_push_legacy]),
         "top_pull_notes": summary.get("top_pull_notes") if isinstance(summary.get("top_pull_notes"), list) else ([] if not top_pull_legacy else [top_pull_legacy]),
-        "top_pull_notes_tgm": summary.get("top_pull_notes_tgm") if isinstance(summary.get("top_pull_notes_tgm"), list) else [],
         "hitos": summary.get("hitos") if isinstance(summary.get("hitos"), list) else ([{"title": _clean_title(insights.get("hitos_mes"), 72)}] if insights.get("hitos_mes") else []),
         "events": summary.get("events") if isinstance(summary.get("events"), list) else [],
         "quality_flags": {},
@@ -525,20 +524,133 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
  
  
 def build_render_plan(period: dict[str, Any], kpis: dict[str, Any], narrative: dict[str, Any]) -> dict[str, Any]:
+    totals = kpis.get("calculated_totals", {})
+    mixes = kpis.get("mixes", {})
+    rankings = kpis.get("consolidated_rankings", {})
     flags = kpis.get("quality_flags", {})
-    modules = [
-        {"key": "cover", "title": "Portada placeholder", "payload": {}},
-        {"key": "planning_comparison", "title": "Planificación | Argentina vs Holding", "payload": {}},
-        {"key": "planning_combined", "title": "Planificación | Argentina + Holding", "payload": {}},
-        {"key": "mail_comparison", "title": "Canal Mail | Argentina vs Holding", "payload": {}},
-        {"key": "mail_combined", "title": "Canal Mail | Argentina + Holding", "payload": {}},
-        {"key": "intranet_comparison", "title": "Canal Intranet / Contenidos | Argentina vs Holding", "payload": {}},
-        {"key": "intranet_combined", "title": "Canal Intranet / Contenidos | Argentina + Holding", "payload": {}},
-        {"key": "closing", "title": "Contraportada", "payload": {}},
-    ]
+    hitos = kpis.get("hitos", [])
+    events = kpis.get("events", [])
+ 
+    ranking_push_rows = rankings.get("top_push_by_interaction") if isinstance(rankings.get("top_push_by_interaction"), list) else []
+    valid_ranking_push_rows = [row for row in ranking_push_rows if isinstance(row, dict) and row.get("data_complete", True)]
+    best_push = (valid_ranking_push_rows or ranking_push_rows or [{}])[0] if isinstance(ranking_push_rows, list) else {}
 
+    overview_module = {
+        "key": "executive_summary",
+        "title": "Resumen ejecutivo del período",
+        "payload": {
+            "headline": narrative.get("executive_headline") or narrative.get("executive_summary") or "Resumen ejecutivo del período",
+            "executive_headline": narrative.get("executive_headline", ""),
+            "plan_total": totals.get("plan_total", 0),
+            "site_notes_total": totals.get("site_notes_total", 0),
+            "site_total_views": totals.get("site_total_views", 0),
+            "mail_total": totals.get("mail_total", 0),
+            "mail_open_rate": totals.get("mail_open_rate", 0),
+            "mail_interaction_rate": totals.get("mail_interaction_rate", 0),
+            "top_campaign_title": best_push.get("name") or best_push.get("title") or "Campaña líder",
+            "top_campaign_interaction": best_push.get("interaction") or best_push.get("ctr") or 0,
+            "top_campaign_open_rate": best_push.get("open_rate") or 0,
+            "top_campaign_clicks": best_push.get("clicks") or 0,
+            "historical_note": narrative.get("executive_summary")
+            or ("No comparable por alcance de fuente" if not flags.get("historical_comparison_allowed", True) else "Comparación histórica disponible para el alcance actual."),
+            "takeaways": (narrative.get("executive_takeaways") if isinstance(narrative.get("executive_takeaways"), list) else [])[:3],
+        },
+    }
+ 
+    modules = [
+        overview_module,
+        {
+            "key": "channel_management",
+            "title": "Gestión de canales",
+            "payload": {
+                "mail_total": totals.get("mail_total", 0),
+                "mail_open_rate": totals.get("mail_open_rate", 0),
+                "mail_interaction_rate": totals.get("mail_interaction_rate", 0),
+                "site_notes_total": totals.get("site_notes_total", 0),
+                "site_total_views": totals.get("site_total_views", 0),
+                "channel_mix": mixes.get("channel_mix", []),
+                "timeline_mail": kpis.get("timelines", {}).get("mail_total", []),
+                "timeline_site": kpis.get("timelines", {}).get("site_notes_total", []),
+                "message": narrative.get("channel_management", "Gestión consolidada de canales del período."),
+                "site_has_no_data_sections": flags.get("site_has_no_data_sections", False),
+            },
+        },
+        {
+            "key": "mix_thematic_clients",
+            "title": "Mix temático y áreas solicitantes",
+            "payload": {
+                "strategic_axes": mixes.get("strategic_axes", []),
+                "internal_clients": mixes.get("internal_clients", []),
+                "format_mix": mixes.get("format_mix", []),
+                "message": narrative.get("mix_thematic_clients", "La agenda combina ejes estratégicos y demanda interna."),
+            },
+        },
+        {
+            "key": "ranking_push",
+            "title": "Ranking push",
+            "payload": {
+                "by_interaction": rankings.get("top_push_by_interaction", []),
+                "by_open_rate": rankings.get("top_push_by_open_rate", []),
+                "available": flags.get("push_ranking_available", False),
+                "message": narrative.get("ranking_push", "El ranking push resume piezas con mejor respuesta."),
+                "average_interaction_rate": totals.get("mail_interaction_rate", 0),
+            },
+        },
+        {
+            "key": "ranking_pull",
+            "title": "Ranking pull",
+            "payload": {
+                "top_pull_notes": rankings.get("top_pull_notes", []),
+                "available": flags.get("pull_ranking_available", False),
+                "average_reads_per_note": totals.get("average_reads_per_note", 0),
+                "site_total_views": totals.get("site_total_views", 0),
+                "message": narrative.get("ranking_pull", "El ranking pull identifica contenidos con mayor lectura."),
+            },
+        },
+        {
+            "key": "recommendations",
+            "title": "Conclusiones y próximos pasos",
+            "payload": {
+                "summary": narrative.get("recommendations_summary")
+                or narrative.get("next_steps_summary")
+                or "Próximos pasos construidos a partir de KPIs y rankings disponibles.",
+                "recommendations": (narrative.get("recommendations") if isinstance(narrative.get("recommendations"), list) else [])[:4],
+                "experiments": (narrative.get("experiments") if isinstance(narrative.get("experiments"), list) else [])[:3],
+                "action_plan": (narrative.get("action_plan") if isinstance(narrative.get("action_plan"), list) else [])[:4],
+                "owner_note": narrative.get("owner_note", "Seguimiento sugerido: apertura, interacción, vistas por nota y balance temático del próximo cierre."),
+            },
+        },
+    ]
+ 
+    if flags.get("events_summary_available") and events:
+        modules.append(
+            {
+                "key": "events",
+                "title": "Eventos del mes",
+                "payload": {
+                    "events": events,
+                    "total_events": totals.get("total_events", len(events)),
+                    "total_participants": totals.get("total_event_participants", 0),
+                    "message": narrative.get("events", "Los eventos del período tuvieron alcance medible."),
+                },
+            }
+        )
+ 
+
+    if hitos:
+        modules.insert(-1, {
+            "key": "milestones",
+            "title": "Hitos del mes",
+            "payload": {
+                "items": hitos,
+                "message": narrative.get("milestones", "Hitos relevantes de gestión del período."),
+            },
+        })
+
+    modules = [module for module in modules if isinstance(module, dict) and module.get("payload") is not None]
+ 
     return {
-        "template_mode": "full",
+        "template_mode": "frame",
         "period": {
             "slug": period.get("slug"),
             "label": period.get("label"),

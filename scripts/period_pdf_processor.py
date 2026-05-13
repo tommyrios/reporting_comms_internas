@@ -56,7 +56,6 @@ def _build_local_fallback_summary(period_slug: str, scope: str, warning: str) ->
         "top_push_by_interaction": [],
         "top_push_by_open_rate": [],
         "top_pull_notes": [],
-        "top_pull_notes_tgm": [],
         "hitos": [],
         "events": [],
         "quality_flags": {

@@ -22,145 +22,82 @@ def _slide_texts(slide) -> str:
 
 
 class PptxRendererFrameTemplateTests(unittest.TestCase):
-    def _sample_report(self, include_events: bool = False):
-        def _scope(label: str):
-            return {
-                "scope": label.lower(),
-                "scope_label": label,
-                "plan_total": 66,
-                "strategic_axes": [{"label": "Negocio", "value": 55}, {"label": "Personas", "value": 45}],
-                "channel_mix": [{"label": "Mail", "value": 60}, {"label": "Intranet", "value": 40}],
-                "internal_clients": [{"label": "Talento", "value": 40}, {"label": "Negocio", "value": 60}],
-                "mail_total": 36,
-                "mail_send_total": 36,
-                "mail_unique_total": 20,
-                "mail_open_rate": 77.53,
-                "mail_interaction_rate": 8.86,
-                "mail_interaction_rate_over_opened": 11.2,
-                "top_push_by_open_rate": [{"title": "Campaña A", "open_rate": 87.2}],
-                "top_push_by_interaction": [{"title": "Campaña B", "interaction": 12.4}],
-                "site_notes_total": 17,
-                "site_total_views": 6205,
-                "site_average_views": 365,
-                "top_pull_notes": [{"title": "Nota 1", "unique_reads": 220, "total_reads": 320}],
-                "top_pull_notes_tgm": [{"title": "Nota TGM", "unique_reads": 180, "total_reads": 250}],
-            }
-
+    def _scope(self, label="Argentina", plan_total=100):
         return {
-            "period": {"slug": "month_2026_03", "label": "Marzo 2026"},
+            "scope_label": label,
+            "plan_total": plan_total,
+            "strategic_axes": [{"label": "Innovación", "value": 35}, {"label": "Equipo", "value": 22}],
+            "channel_mix": [{"label": "Mail", "value": 40}, {"label": "Intranet", "value": 30}, {"label": "SITE", "value": 25}],
+            "internal_clients": [{"label": "Talento y Cultura", "value": 44}, {"label": "Comunicaciones", "value": 34}],
+            "mail_unique_total": 39,
+            "mail_send_total": 59,
+            "mail_total": 59,
+            "mail_open_rate": 76.1,
+            "mail_interaction_rate": 10.75,
+            "mail_interaction_rate_over_opened": 14.12,
+            "top_push_by_open_rate": [{"name": "Mail A", "open_rate": 97.6}],
+            "top_push_by_interaction": [{"name": "Mail B", "interaction": 93.0}],
+            "site_notes_total": 31,
+            "site_total_views": 38410,
+            "site_average_views": 1239,
+            "top_pull_notes": [{"title": "Nota A", "team": label, "unique_reads": 1200, "total_reads": 1800}],
+            "top_pull_notes_tgm": [{"title": "Nota TGM", "team": label, "unique_reads": 200, "total_reads": 280}],
+        }
+
+    def _sample_report(self):
+        return {
+            "period": {"slug": "quarter_2026_Q1", "label": "Q1 2026 (ene-mar)"},
             "kpis": {
                 "scopes": {
-                    "argentina": _scope("Argentina"),
-                    "holding": _scope("Holding"),
-                    "combined": _scope("Argentina + Holding"),
+                    "argentina": self._scope("Argentina", 163),
+                    "holding": self._scope("Holding", 319),
+                    "combined": self._scope("Argentina + Holding", 482),
                 }
             },
             "narrative": {},
             "quality_flags": {},
-            "render_plan": {
-                "period": {"slug": "month_2026_03", "label": "Marzo 2026"},
-                "modules": [{"key": "planning_comparison", "title": "Planificación | Argentina vs Holding", "payload": {}}],
-            },
+            "render_plan": {"period": {"slug": "quarter_2026_Q1", "label": "Q1 2026 (ene-mar)"}, "modules": []},
         }
 
-    def test_frame_mode_uses_template_cover_body_and_closing(self):
+    def test_renderer_generates_management_deck_with_eight_slides(self):
         with tempfile.TemporaryDirectory() as tmp:
-            tmp_dir = Path(tmp)
-            template_path = tmp_dir / "plantilla-bbva.pptx"
-            output_path = tmp_dir / "report.pptx"
-
-            template = Presentation()
-            cover = template.slides.add_slide(template.slide_layouts[0])
-            cover.shapes.title.text = "PORTADA_TEMPLATE"
-            cover.placeholders[1].text = "FECHA"
-            closing = template.slides.add_slide(template.slide_layouts[1])
-            closing.shapes.title.text = "CLOSING_TEMPLATE"
-            template.save(str(template_path))
-
-            create_pptx(self._sample_report(include_events=False), output_path, template_mode="frame", template_path=template_path)
+            output_path = Path(tmp) / "report.pptx"
+            create_pptx(self._sample_report(), output_path)
 
             rendered = Presentation(str(output_path))
             all_text = "\n".join(_slide_texts(slide) for slide in rendered.slides)
-            self.assertEqual(len(rendered.slides), 8)  # cover + 6 body + closing
-            self.assertIn("PORTADA_TEMPLATE", _slide_texts(rendered.slides[0]))
-            self.assertIn("Marzo 2026", _slide_texts(rendered.slides[0]))
-            self.assertNotIn("FECHA", _slide_texts(rendered.slides[0]))
-            self.assertIn("CLOSING_TEMPLATE", _slide_texts(rendered.slides[-1]))
-            self.assertNotIn("slide_", all_text.lower())
 
-            for idx in range(1, len(rendered.slides) - 1):
-                self.assertTrue(_slide_texts(rendered.slides[idx]).strip())
-
-    def test_default_mode_uses_js_full_cover_and_closing(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            output_path = Path(tmp) / "report.pptx"
-            create_pptx(self._sample_report(include_events=False), output_path)
-
-            rendered = Presentation(str(output_path))
             self.assertEqual(len(rendered.slides), 8)
-            self.assertIn("Marzo 2026", _slide_texts(rendered.slides[0]))
-            self.assertIn("Comunicaciones Internas", _slide_texts(rendered.slides[0]))
-            self.assertIn("Gestión", _slide_texts(rendered.slides[0]))
-            self.assertIn("Comunicaciones Internas", _slide_texts(rendered.slides[-1]))
+            self.assertIn("Comunicaciones", _slide_texts(rendered.slides[0]))
+            self.assertIn("Planificación | Argentina vs Holding", all_text)
+            self.assertIn("Canal Mail | Argentina vs Holding", all_text)
+            self.assertIn("Canal Intranet / Contenidos | Argentina vs Holding", all_text)
+            self.assertEqual(all_text.count("Observaciones del manager"), 6)
 
-    def test_slide_count_constant_when_tables_empty(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_dir = Path(tmp)
-            template_path = tmp_dir / "plantilla-bbva.pptx"
-            out_without_events = tmp_dir / "without_events.pptx"
-            out_with_events = tmp_dir / "with_events.pptx"
-
-            template = Presentation()
-            template.slides.add_slide(template.slide_layouts[0]).placeholders[1].text = "FECHA"
-            template.slides.add_slide(template.slide_layouts[1]).shapes.title.text = "CLOSING"
-            template.save(str(template_path))
-
-            empty_report = self._sample_report(include_events=False)
-            empty_report["kpis"]["scopes"]["argentina"]["top_push_by_open_rate"] = []
-            empty_report["kpis"]["scopes"]["argentina"]["top_push_by_interaction"] = []
-            empty_report["kpis"]["scopes"]["argentina"]["top_pull_notes"] = []
-            empty_report["kpis"]["scopes"]["argentina"]["top_pull_notes_tgm"] = []
-
-            create_pptx(empty_report, out_without_events, template_mode="full", template_path=template_path)
-            create_pptx(self._sample_report(include_events=False), out_with_events, template_mode="full", template_path=template_path)
-
-            self.assertEqual(len(Presentation(str(out_without_events)).slides), 8)
-            self.assertEqual(len(Presentation(str(out_with_events)).slides), 8)
-
-    def test_observations_placeholder_present(self):
+    def test_renderer_does_not_include_legacy_executive_language(self):
         with tempfile.TemporaryDirectory() as tmp:
             output_path = Path(tmp) / "report.pptx"
-            create_pptx(self._sample_report(include_events=False), output_path)
-            rendered = Presentation(str(output_path))
-            for idx in range(1, 7):
-                self.assertIn("Observaciones del manager", _slide_texts(rendered.slides[idx]))
+            create_pptx(self._sample_report(), output_path)
+            all_text = "\n".join(_slide_texts(slide) for slide in Presentation(str(output_path)).slides)
 
-    def test_no_executive_phrases_rendered(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            output_path = Path(tmp) / "report.pptx"
-            create_pptx(self._sample_report(include_events=False), output_path)
-            rendered = Presentation(str(output_path))
-            all_text = "\n".join(_slide_texts(slide) for slide in rendered.slides)
-            for phrase in [
+            forbidden = [
                 "Resumen ejecutivo del período",
                 "Lectura ejecutiva",
                 "Plan de mejora",
                 "Quick wins",
                 "Experimentos",
-            ]:
-                self.assertNotIn(phrase, all_text)
+                "Conclusiones y próximos pasos",
+            ]
+            for text in forbidden:
+                self.assertNotIn(text, all_text)
 
-    def test_missing_chart_uses_placeholder(self):
+    def test_missing_required_scope_fails_fast(self):
+        report = self._sample_report()
+        del report["kpis"]["scopes"]["combined"]
         with tempfile.TemporaryDirectory() as tmp:
             output_path = Path(tmp) / "report.pptx"
-            report = self._sample_report(include_events=False)
-            report["kpis"]["scopes"]["argentina"]["strategic_axes"] = []
-            report["kpis"]["scopes"]["argentina"]["channel_mix"] = []
-            report["kpis"]["scopes"]["argentina"]["internal_clients"] = []
-            create_pptx(report, output_path)
-            rendered = Presentation(str(output_path))
-            all_text = "\n".join(_slide_texts(slide) for slide in rendered.slides)
-            self.assertIn("Gráfico no disponible", all_text)
+            with self.assertRaises(Exception):
+                create_pptx(report, output_path)
 
     def test_js_renderer_is_invoked_in_body_mode(self):
         with tempfile.TemporaryDirectory() as tmp:

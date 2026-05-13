@@ -5,7 +5,10 @@ import re
 import time
 from typing import Any
 
-from google import genai
+try:
+    from google import genai
+except Exception:  # google-genai es opcional para el renderer determinístico.
+    genai = None
 
 from config import PROMPTS_DIR
 
@@ -27,7 +30,9 @@ def clean_json_response(text: str) -> str:
     return text.strip()
 
 
-def build_genai_client() -> genai.Client:
+def build_genai_client():
+    if genai is None:
+        raise RuntimeError("google-genai no está instalado")
     api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
     if not api_key:
         raise RuntimeError("Falta GEMINI_API_KEY")
@@ -85,7 +90,7 @@ def _read_env_float(name: str, default: float) -> float:
         raise RuntimeError(f"Valor inválido para {name}: '{raw}' (esperado número)") from exc
 
 
-def call_gemini_for_json(client: genai.Client, contents: list[Any]) -> dict[str, Any]:
+def call_gemini_for_json(client: Any, contents: list[Any]) -> dict[str, Any]:
     max_retries = max(1, _read_env_int("GEMINI_MAX_RETRIES_PER_MODEL", 3))
     initial_backoff = max(0.0, _read_env_float("GEMINI_INITIAL_BACKOFF_SECONDS", 3.0))
     max_backoff = max(initial_backoff, _read_env_float("GEMINI_MAX_BACKOFF_SECONDS", 30.0))

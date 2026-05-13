@@ -9,7 +9,6 @@ from typing import Any
 
 from analyzer import (
     BASE_STRUCTURE,
-    build_render_plan,
     compute_kpis,
     validate_monthly_summary_contract,
     validate_report_json,
@@ -17,7 +16,7 @@ from analyzer import (
 from config import DATA_DIR, INBOX_PDF_DIR, MANUAL_CONTEXT_DIR, REPORTS_DIR, ensure_dir
 from history_manager import apply_historical_comparison, persist_calculated_totals
 from period_pdf_processor import resolve_period_scope_pdfs, summarize_period_scope
-from period_scopes import REQUIRED_PERIOD_SCOPES, required_scopes_from_env
+from period_scopes import required_scopes_from_env
 from pptx_renderer import create_pptx
 
 logger = logging.getLogger(__name__)
@@ -162,6 +161,7 @@ def _build_scope_comparison(period_summaries: dict[str, dict[str, Any]]) -> dict
             "scope": scope,
             "scope_label": summary.get("scope_label", scope),
             "plan_total": summary.get("plan_total", 0),
+            "plan_daily_average": summary.get("plan_daily_average", 0),
             "mail_total": summary.get("mail_total", 0),
             "mail_send_total": summary.get("mail_send_total", summary.get("mail_total", 0)),
             "mail_unique_total": summary.get("mail_unique_total", 0),
@@ -175,10 +175,12 @@ def _build_scope_comparison(period_summaries: dict[str, dict[str, Any]]) -> dict
             "channel_mix": summary.get("channel_mix", []),
             "strategic_axes": summary.get("strategic_axes", []),
             "internal_clients": summary.get("internal_clients", []),
+            "format_mix": summary.get("format_mix", []),
+            "monthly_trend": summary.get("monthly_trend", summary.get("mail_monthly_trend", [])),
             "top_push_by_interaction": summary.get("top_push_by_interaction", []),
             "top_push_by_open_rate": summary.get("top_push_by_open_rate", []),
             "top_pull_notes": summary.get("top_pull_notes", []),
-            "top_pull_notes_tgm": summary.get("top_pull_notes_tgm", []),
+            "top_pull_notes_tgm": summary.get("top_pull_notes_tgm", summary.get("top_pull_tgm", [])),
         }
 
     return {scope: pick(scope) for scope in period_summaries.keys()}
@@ -188,12 +190,6 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False, pdf
     period = get_period_definition(period_slug)
     allow_partial = (os.environ.get("ALLOW_PARTIAL_PERIOD") or "false").lower() == "true"
     required_scopes = required_scopes_from_env(os.environ.get("REPORT_REQUIRED_SCOPES"))
-    missing_required = [scope for scope in REQUIRED_PERIOD_SCOPES if scope not in required_scopes]
-    if missing_required:
-        raise ValueError(
-            "Se requieren scopes argentina, holding y combined. "
-            f"Configuración actual incompleta: {', '.join(missing_required)}"
-        )
     resolve_period_scope_pdfs(period_slug, scopes=required_scopes, pdf_dir=pdf_dir, allow_partial=allow_partial)
 
     period_summaries_raw: dict[str, dict[str, Any]] = {}
@@ -226,11 +222,15 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False, pdf
     totals["volume_change"] = "No comparable: fuente trimestral filtrada"
     totals["latest_push_variation"] = "No comparable: fuente trimestral filtrada"
 
+    # El nuevo informe de gestión es determinístico y editable.
+    # No se genera narrativa ni plan de mejora con GenAI para el PPTX.
     narrative: dict[str, Any] = {}
     narrative_mode = "deterministic"
-    narrative_warning = None
-
-    render_plan = build_render_plan(period, kpis_calculados, narrative)
+    render_plan = {
+        "template_mode": "full",
+        "period": {"slug": period.get("slug"), "label": period.get("label")},
+        "modules": [],
+    }
 
     report = validate_report_json(
         {
