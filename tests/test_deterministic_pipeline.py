@@ -298,7 +298,7 @@ class DeterministicPipelineTests(unittest.TestCase):
         validation = validate_canonical_monthly(canonical)
         self.assertFalse(validation["is_valid"])
         self.assertIn("site_total_views sospechosamente bajo respecto a site_notes_total", validation["errors"])
-        self.assertIn("mail_total sospechosamente bajo respecto a plan_total", validation["errors"])
+        self.assertIn("No se pudo calcular mail_unique_total desde planificación; se omite validación mail_total vs plan_total", validation["warnings"])
         self.assertIn("mail_open_rate y mail_interaction_rate no deberían colapsar al mismo valor", validation["errors"])
 
     def test_canonicalize_monthly_normalizes_contract_aliases(self):
@@ -500,6 +500,108 @@ class DeterministicPipelineTests(unittest.TestCase):
         self.assertEqual(canonical["top_push_by_interaction"][0]["clicks"], 1642)
         self.assertEqual(canonical["top_push_by_interaction"][1]["name"], "Los beneficios de febrero van a llenarte el corazón")
         self.assertNotIn("…", canonical["top_push_by_interaction"][1]["name"])
+
+
+    def test_extract_raw_monthly_pdf_handles_truncated_quarter_mail_kpi_labels(self):
+        pages = [
+            "Pagina 1\nMedia comunicaciones diarias\n0,19\nN total de comunicaciones\n163",
+            "Pagina 2\nTotal Paginas Vistas\n38.410\nNoticias Publicadas\n31\nPromedio Vistas\n1239",
+            (
+                "Pagina 3\nTasa de apertura promedio\n"
+                "79,48 %Tasa de interaccion sobre mails envia...\n"
+                "12,63 %Tasa de interaccion sobre mails abiert...\n"
+                "15,89 %Mails enviados\n93"
+            ),
+        ]
+
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("quarter_2026_Q1_argentina", Path("/tmp/fake.pdf"))
+
+        canonical = canonicalize_monthly(raw)
+        validation = validate_canonical_monthly(canonical)
+
+        self.assertEqual(canonical["mail_open_rate"], 79.48)
+        self.assertEqual(canonical["mail_interaction_rate"], 12.63)
+        self.assertEqual(canonical["mail_interaction_rate_over_opened"], 15.89)
+        self.assertEqual(canonical["mail_total"], 93)
+        self.assertTrue(validation["is_valid"], validation)
+
+
+    def test_extract_channel_mix_respects_holding_order_and_mail_pct(self):
+        page_text = """
+        ¿Qué canales y formatos se han utilizado?
+        28.2%
+        27.9%
+        12.2%
+        6%
+        5.6%
+        SITE
+        Intranet
+        Mail
+        Multiwidget 4
+        Multiwidget 3
+        49.2%
+        35.7%
+        Noticia propia
+        Postal/Carta
+        ¿Qué áreas las han solicitado?
+        """
+        raw = {
+            "month": "quarter_2026_Q1_holding",
+            "parser": "test",
+            "metrics": {
+                "plan_daily_average": {"value": 0.37},
+                "plan_total": {"value": 319},
+                "site_notes_total": {"value": 105},
+                "site_total_views": {"value": 270469},
+                "site_average_views": {"value": 2528},
+                "mail_total": {"value": 59},
+                "mail_open_rate": {"value": 76.10},
+                "mail_interaction_rate": {"value": 10.75},
+                "mail_interaction_rate_over_opened": {"value": 14.12},
+            },
+            "channel_mix": __import__("deterministic_pipeline")._extract_channel_mix(page_text),
+            "warnings": [],
+        }
+
+        canonical = canonicalize_monthly(raw)
+        validation = validate_canonical_monthly(canonical)
+
+        self.assertEqual(canonical["channel_mix"][:3], [
+            {"label": "SITE", "value": 28.2},
+            {"label": "Intranet", "value": 27.9},
+            {"label": "Mail", "value": 12.2},
+        ])
+        self.assertEqual(canonical["mail_unique_total"], 39)
+        self.assertEqual(canonical["mail_send_total"], 59)
+        self.assertTrue(validation["is_valid"], validation)
+
+    def test_validation_uses_mail_unique_total_instead_of_plan_total(self):
+        canonical = {
+            "month": "quarter_2026_Q1_holding",
+            "plan_total": 319,
+            "site_notes_total": 105,
+            "site_total_views": 270469,
+            "mail_total": 59,
+            "mail_send_total": 59,
+            "mail_unique_total": 39,
+            "mail_open_rate": 76.10,
+            "mail_interaction_rate": 10.75,
+            "extraction_warnings": [],
+            "strategic_axes": [],
+            "internal_clients": [],
+            "channel_mix": [{"label": "Mail", "value": 12.2}],
+            "format_mix": [],
+            "top_push_by_interaction": [],
+            "top_push_by_open_rate": [],
+            "top_pull_notes": [],
+            "quality_flags": {},
+        }
+
+        validation = validate_canonical_monthly(canonical)
+
+        self.assertTrue(validation["is_valid"], validation)
+        self.assertNotIn("mail_total sospechosamente bajo respecto a plan_total", validation["errors"])
 
     def test_infer_month_key_requires_explicit_month_when_filename_has_no_yyyy_mm(self):
         with self.assertRaisesRegex(ValueError, "No pude inferir month_key.*Pasa month_key explícitamente"):

@@ -400,6 +400,9 @@ def render_management_deck(report: dict[str, Any], output_path: Path) -> None:
     report_context = report
     prs = _prs()
     scopes = _scope_bundle(report)
+    missing = [key for key in ("argentina", "holding", "combined") if not scopes.get(key)]
+    if missing:
+        raise ValueError(f"Faltan scopes requeridos para renderizar el informe: {', '.join(missing)}")
     slides = [
         _cover,
         lambda s: _planning_compare(s, scopes, report),
