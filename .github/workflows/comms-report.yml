@@ -2,30 +2,28 @@ name: Comms Period Report
 
 on:
   schedule:
-    - cron: '18 11 1 * *'
+    # Corre el primer día de cada trimestre.
+    # En enero, el script genera Q4 + anual del año anterior.
+    - cron: '18 11 1 1,4,7,10 *'
+
   workflow_dispatch:
     inputs:
-      report_mode:
-        description: 'auto | month | month_and_quarter | quarter | year | quarter_and_year'
-        required: false
-        default: 'month'
+      report_kind:
+        description: 'Tipo de reporte'
+        required: true
+        default: 'quarter'
+        type: choice
+        options:
+          - quarter
+          - year
       report_year:
-        description: 'Año del período (si aplica)'
-        required: false
-      report_month:
-        description: 'Mes 1-12 (si aplica)'
-        required: false
+        description: 'Año del período'
+        required: true
+        default: '2026'
       report_quarter:
-        description: 'Trimestre 1-4 (si aplica)'
+        description: 'Trimestre 1-4 (solo para reporte trimestral)'
         required: false
-      allow_partial_period:
-        description: 'Permitir período incompleto (true/false)'
-        required: false
-        default: 'false'
-      allow_partial_report:
-        description: 'Permitir continuar aunque generación/envío fallen (true/false)'
-        required: false
-        default: 'false'
+        default: '1'
 
 jobs:
   generate-and-send-report:
@@ -62,19 +60,34 @@ jobs:
       - name: Render sample deck smoke test
         run: npm run render:ejecutivo
 
+      - name: Resolve report period
+        run: |
+          KIND_INPUT="${{ github.event.inputs.report_kind || '' }}"
+          YEAR_INPUT="${{ github.event.inputs.report_year || '' }}"
+          QUARTER_INPUT="${{ github.event.inputs.report_quarter || '' }}"
+
+          if [ -z "$KIND_INPUT" ]; then
+            echo "REPORT_MODE=auto" >> "$GITHUB_ENV"
+          elif [ "$KIND_INPUT" = "year" ]; then
+            echo "REPORT_MODE=year" >> "$GITHUB_ENV"
+            echo "REPORT_YEAR=$YEAR_INPUT" >> "$GITHUB_ENV"
+          else
+            echo "REPORT_MODE=quarter" >> "$GITHUB_ENV"
+            echo "REPORT_YEAR=$YEAR_INPUT" >> "$GITHUB_ENV"
+            echo "REPORT_QUARTER=$QUARTER_INPUT" >> "$GITHUB_ENV"
+          fi
+
+          echo "REPORT_TIMEZONE=America/Argentina/Buenos_Aires" >> "$GITHUB_ENV"
+          echo "REPORT_REQUIRED_SCOPES=argentina,holding,combined" >> "$GITHUB_ENV"
+          echo "ALLOW_PARTIAL_PERIOD=false" >> "$GITHUB_ENV"
+          echo "ALLOW_PARTIAL_REPORT=false" >> "$GITHUB_ENV"
+
       - name: Run period pipeline
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           GOOGLE_TOKEN_URI: ${{ secrets.GOOGLE_TOKEN_URI }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || 'gemini-2.5-flash' }}
-          GEMINI_FALLBACK_MODELS: ${{ secrets.GEMINI_FALLBACK_MODELS || 'gemini-2.5-pro,gemini-2.0-flash' }}
-          GEMINI_ENABLE_MODEL_FALLBACK: ${{ secrets.GEMINI_ENABLE_MODEL_FALLBACK || 'true' }}
-          GEMINI_MAX_RETRIES_PER_MODEL: ${{ secrets.GEMINI_MAX_RETRIES_PER_MODEL || '3' }}
-          GEMINI_INITIAL_BACKOFF_SECONDS: ${{ secrets.GEMINI_INITIAL_BACKOFF_SECONDS || '3' }}
-          GEMINI_MAX_BACKOFF_SECONDS: ${{ secrets.GEMINI_MAX_BACKOFF_SECONDS || '30' }}
 
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
@@ -84,18 +97,11 @@ jobs:
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
-
-          REPORT_TIMEZONE: America/Argentina/Buenos_Aires
-          REPORT_MODE: ${{ github.event.inputs.report_mode || 'auto' }}
-          REPORT_YEAR: ${{ github.event.inputs.report_year }}
-          REPORT_MONTH: ${{ github.event.inputs.report_month }}
-          REPORT_QUARTER: ${{ github.event.inputs.report_quarter }}
-          ALLOW_PARTIAL_PERIOD: ${{ github.event.inputs.allow_partial_period || 'false' }}
-          ALLOW_PARTIAL_REPORT: ${{ github.event.inputs.allow_partial_report || 'false' }}
         run: |
+          echo "Running report mode=$REPORT_MODE year=$REPORT_YEAR quarter=$REPORT_QUARTER"
           python scripts/run_scheduled_reports.py
 
-      - name: Upload report.pptx artifacts (required)
+      - name: Upload report.pptx artifacts required
         uses: actions/upload-artifact@v4
         with:
           name: comms-period-report-pptx
