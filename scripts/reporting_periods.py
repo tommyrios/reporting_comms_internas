@@ -159,14 +159,10 @@ def _append_unique(periods: List[ReportingPeriod], period: ReportingPeriod) -> N
 
 
 def resolve_schedule_from_env() -> ReportingSchedule:
-    """Resuelve únicamente períodos ejecutivos: trimestre o año.
-
-    El flujo dejó de generar informes mensuales: los dashboards de entrada ya
-    vienen filtrados por trimestre/año desde Looker Studio.
-    """
     tz_name = os.environ.get("REPORT_TIMEZONE", DEFAULT_TZ)
     reference_date = _parse_reference_date(os.environ.get("REPORT_REFERENCE_DATE"), tz_name)
     report_mode = (os.environ.get("REPORT_MODE") or "auto").strip().lower()
+    include_monthly = (os.environ.get("REPORT_INCLUDE_MONTHLY") or "false").strip().lower() == "true"
 
     periods: List[ReportingPeriod] = []
     previous_month_last_day = reference_date.replace(day=1) - timedelta(days=1)
@@ -174,11 +170,28 @@ def resolve_schedule_from_env() -> ReportingSchedule:
     previous_month = previous_month_last_day.month
 
     if report_mode == "auto":
+        if include_monthly:
+            _append_unique(periods, build_month_period(previous_month_year, previous_month))
+
         if previous_month in {3, 6, 9}:
             _append_unique(periods, build_quarter_period(previous_month_year, _quarter_for_month(previous_month)))
         elif previous_month == 12:
             _append_unique(periods, build_quarter_period(previous_month_year, 4))
             _append_unique(periods, build_year_period(previous_month_year))
+    elif report_mode == "month":
+        year = int(os.environ.get("REPORT_YEAR") or previous_month_year)
+        month = int(os.environ.get("REPORT_MONTH") or previous_month)
+        if month not in set(range(1, 13)):
+            raise ValueError("REPORT_MONTH debe ser un valor entre 1 y 12")
+        periods = [build_month_period(year, month)]
+    elif report_mode == "month_and_quarter":
+        year = int(os.environ["REPORT_YEAR"])
+        quarter = int(os.environ["REPORT_QUARTER"])
+        if quarter not in {1, 2, 3, 4}:
+            raise ValueError("REPORT_QUARTER debe ser 1, 2, 3 o 4")
+        quarter_period = build_quarter_period(year, quarter)
+        last_month = QUARTER_TO_MONTHS[quarter][-1]
+        periods = [build_month_period(year, last_month), quarter_period]
     elif report_mode == "quarter":
         year = int(os.environ["REPORT_YEAR"])
         quarter = int(os.environ["REPORT_QUARTER"])
@@ -191,11 +204,11 @@ def resolve_schedule_from_env() -> ReportingSchedule:
     elif report_mode == "quarter_and_year":
         year = int(os.environ["REPORT_YEAR"])
         quarter = int(os.environ.get("REPORT_QUARTER", "4"))
-        if quarter not in {1, 2, 3, 4}:
-            raise ValueError("REPORT_QUARTER debe ser 1, 2, 3 o 4")
         periods = [build_quarter_period(year, quarter), build_year_period(year)]
     else:
-        raise ValueError("REPORT_MODE inválido. Usá: auto, quarter, year o quarter_and_year")
+        raise ValueError(
+            "REPORT_MODE inválido. Usá uno de: auto, month, month_and_quarter, quarter, year, quarter_and_year"
+        )
 
     return ReportingSchedule(
         timezone=tz_name,

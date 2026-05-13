@@ -31,8 +31,6 @@ MIN_SITE_VIEWS_PER_NOTE = 10
 MIN_MAIL_ABSOLUTE = 10
 MIN_MAIL_TO_PLAN_RELATION = 0.2
 MAX_MAIL_TO_PLAN_RATIO = 10
-MAIL_SEND_TO_UNIQUE_MIN_RATIO = 0.5
-MAIL_SEND_TO_UNIQUE_MAX_RATIO = 10
 
 
 def to_float(value: Any, default: float = 0.0) -> float:
@@ -181,19 +179,12 @@ def validate_canonical_quality(canonical: dict[str, Any]) -> dict[str, Any]:
     if not 0 <= interaction_rate <= 100:
         errors.append("mail_interaction_rate fuera de rango 0-100")
 
-    mail_unique_total = to_int(canonical.get("mail_unique_total"))
-
     if plan_total > 0:
-        if mail_unique_total > 0:
-            min_mail_send_total = max(1, int(round(mail_unique_total * MAIL_SEND_TO_UNIQUE_MIN_RATIO)))
-            if mail_total < min_mail_send_total:
-                errors.append("mail_total sospechosamente bajo respecto a mail_unique_total")
-            elif mail_total < mail_unique_total:
-                warnings.append("mail_total menor que mail_unique_total; revisar segmentación o alcance de fuentes")
-            if mail_total > mail_unique_total * MAIL_SEND_TO_UNIQUE_MAX_RATIO:
-                warnings.append("mail_total muy alto respecto a mail_unique_total; revisar segmentación o extracción")
-        else:
-            warnings.append("No se pudo calcular mail_unique_total desde planificación; se omite validación mail_total vs plan_total")
+        min_mail = max(MIN_MAIL_ABSOLUTE, int(round(plan_total * MIN_MAIL_TO_PLAN_RELATION)))
+        if mail_total < min_mail:
+            errors.append("mail_total sospechosamente bajo respecto a plan_total")
+        if mail_total > plan_total * MAX_MAIL_TO_PLAN_RATIO:
+            warnings.append("mail_total muy alto respecto a plan_total; revisar escala o extracción")
 
     if site_notes_total > 0 and site_total_views < site_notes_total * MIN_SITE_VIEWS_PER_NOTE:
         errors.append("site_total_views sospechosamente bajo respecto a site_notes_total")
