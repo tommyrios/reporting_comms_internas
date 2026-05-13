@@ -1,0 +1,730 @@
+{
+  "month": "quarter_2026_Q1_combined",
+  "source_pdf": "/mnt/data/fixproj/local_data/inbox_pdfs/quarter_2026_Q1_ARG_HOLDING.pdf",
+  "extracted_at": "2026-05-13T14:39:22.876532Z",
+  "parser": "deterministic_pdf_v7_kpi_sequence_safe",
+  "page_count": 3,
+  "metrics": {
+    "plan_daily_average": {
+      "anchor": "Media comunicaciones diarias",
+      "raw_value": "0.08",
+      "value": 0.08,
+      "unit": "number",
+      "page": 1,
+      "line": "",
+      "missing": false
+    },
+    "plan_total": {
+      "anchor": "Nº total de comunicaciones",
+      "raw_value": "66",
+      "value": 66,
+      "unit": "count",
+      "page": 1,
+      "line": "",
+      "missing": false
+    },
+    "site_total_views": {
+      "anchor": "Total Páginas Vistas",
+      "raw_value": "6,205",
+      "value": 6205,
+      "unit": "count",
+      "page": 2,
+      "line": "",
+      "missing": false
+    },
+    "site_notes_total": {
+      "anchor": "Noticias Publicadas",
+      "raw_value": "17",
+      "value": 17,
+      "unit": "count",
+      "page": 2,
+      "line": "",
+      "missing": false
+    },
+    "site_average_views": {
+      "anchor": "Promedio Vistas",
+      "raw_value": "365",
+      "value": 365,
+      "unit": "count",
+      "page": 2,
+      "line": "",
+      "missing": false
+    },
+    "mail_open_rate": {
+      "anchor": "Tasa de apertura promedio",
+      "raw_value": "77.53%",
+      "value": 77.53,
+      "unit": "percent",
+      "page": 3,
+      "line": "",
+      "missing": false
+    },
+    "mail_interaction_rate": {
+      "anchor": "Tasa de interacción sobre mails enviados",
+      "raw_value": "8.86%",
+      "value": 8.86,
+      "unit": "percent",
+      "page": 3,
+      "line": "",
+      "missing": false
+    },
+    "mail_interaction_rate_over_opened": {
+      "anchor": "Tasa de interacción sobre mails abiertos",
+      "raw_value": "11.43%",
+      "value": 11.43,
+      "unit": "percent",
+      "page": 3,
+      "line": "",
+      "missing": false
+    },
+    "mail_total": {
+      "anchor": "Mails enviados",
+      "raw_value": "36",
+      "value": 36,
+      "unit": "count",
+      "page": 3,
+      "line": "",
+      "missing": false
+    }
+  },
+  "mail_table": [
+    {
+      "date": "Mar 31, 2026",
+      "title": "Felicitaciones",
+      "sent": 1,
+      "opens": 1,
+      "clicks": 0,
+      "open_rate": 100.0,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Mar 31, 2026 _Felicitaciones__… Argentina 1 1 0 100% 0% 0%"
+    },
+    {
+      "date": "Mar 31, 2026",
+      "title": "Argentina a la",
+      "sent": 6600,
+      "opens": 4974,
+      "clicks": 410,
+      "open_rate": 75.36,
+      "ctr": 6.21,
+      "ctor": 8.24,
+      "raw": "Mar 31, 2026 Argentina_a_la_… Argentina 6,600 4,974 410 75.36% 6.21% 8.24%"
+    },
+    {
+      "date": "Mar 31, 2026",
+      "title": "Sorteo entradas",
+      "sent": 5,
+      "opens": 5,
+      "clicks": 0,
+      "open_rate": 100.0,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Mar 31, 2026 Sorteo_entradas… Argentina 5 5 0 100% 0% 0%"
+    },
+    {
+      "date": "Mar 30, 2026",
+      "title": "Ya comienza I",
+      "sent": 284,
+      "opens": 235,
+      "clicks": 110,
+      "open_rate": 82.75,
+      "ctr": 38.73,
+      "ctor": 46.81,
+      "raw": "Mar 30, 2026 Ya_comienza_I… Argentina 284 235 110 82.75% 38.73% 46.81%"
+    },
+    {
+      "date": "Mar 30, 2026",
+      "title": "Subimos al po",
+      "sent": 6605,
+      "opens": 5433,
+      "clicks": 649,
+      "open_rate": 82.26,
+      "ctr": 9.83,
+      "ctor": 11.95,
+      "raw": "Mar 30, 2026 _Subimos_al_po… Argentina 6,605 5,433 649 82.26% 9.83% 11.95%"
+    },
+    {
+      "date": "Mar 30, 2026",
+      "title": "Sorteo especial:",
+      "sent": 10,
+      "opens": 8,
+      "clicks": 0,
+      "open_rate": 80.0,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Mar 30, 2026 Sorteo_especial:… Argentina 10 8 0 80% 0% 0%"
+    },
+    {
+      "date": "Mar 30, 2026",
+      "title": "Sumate al Vol",
+      "sent": 6604,
+      "opens": 4916,
+      "clicks": 616,
+      "open_rate": 74.44,
+      "ctr": 9.33,
+      "ctor": 12.53,
+      "raw": "Mar 30, 2026 _Sumate_al_Vol… Argentina 6,604 4,916 616 74.44% 9.33% 12.53%"
+    },
+    {
+      "date": "Mar 27, 2026",
+      "title": "Tu bienestar e",
+      "sent": 6599,
+      "opens": 5382,
+      "clicks": 553,
+      "open_rate": 81.56,
+      "ctr": 8.38,
+      "ctor": 10.27,
+      "raw": "Mar 27, 2026 _Tu_bienestar_e… Argentina 6,599 5,382 553 81.56% 8.38% 10.27%"
+    },
+    {
+      "date": "Mar 26, 2026",
+      "title": "Vuelve el descu",
+      "sent": 2670,
+      "opens": 2374,
+      "clicks": 180,
+      "open_rate": 88.91,
+      "ctr": 6.74,
+      "ctor": 7.58,
+      "raw": "Mar 26, 2026 Vuelve_el_descu… Argentina 2,670 2,374 180 88.91% 6.74% 7.58%"
+    },
+    {
+      "date": "Mar 25, 2026",
+      "title": "BBVA solidarios",
+      "sent": 5159,
+      "opens": 3507,
+      "clicks": 16,
+      "open_rate": 67.98,
+      "ctr": 0.31,
+      "ctor": 0.46,
+      "raw": "Mar 25, 2026 BBVA_solidarios… Argentina 5,159 3,507 16 67.98% 0.31% 0.46%"
+    },
+    {
+      "date": "Mar 25, 2026",
+      "title": "BBVA in memor",
+      "sent": 6605,
+      "opens": 5542,
+      "clicks": 0,
+      "open_rate": 83.91,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Mar 25, 2026 BBVA_in_memor… Argentina 6,605 5,542 0 83.91% 0% 0%"
+    },
+    {
+      "date": "Mar 20, 2026",
+      "title": "Gracias por pa",
+      "sent": 29,
+      "opens": 27,
+      "clicks": 22,
+      "open_rate": 93.1,
+      "ctr": 75.86,
+      "ctor": 81.48,
+      "raw": "Mar 20, 2026 _Gracias_por_pa… Argentina 29 27 22 93.1% 75.86% 81.48%"
+    },
+    {
+      "date": "Mar 19, 2026",
+      "title": "Redes sociales:",
+      "sent": 6619,
+      "opens": 5067,
+      "clicks": 462,
+      "open_rate": 76.55,
+      "ctr": 6.98,
+      "ctor": 9.12,
+      "raw": "Mar 19, 2026 Redes_sociales:_… Argentina 6,619 5,067 462 76.55% 6.98% 9.12%"
+    },
+    {
+      "date": "Mar 19, 2026",
+      "title": "BBVA solidarios",
+      "sent": 5,
+      "opens": 5,
+      "clicks": 1,
+      "open_rate": 100.0,
+      "ctr": 20.0,
+      "ctor": 20.0,
+      "raw": "Mar 19, 2026 BBVA_solidarios… Argentina 5 5 1 100% 20% 20%"
+    },
+    {
+      "date": "Mar 18, 2026",
+      "title": "Ma ana ten s",
+      "sent": 43,
+      "opens": 41,
+      "clicks": 0,
+      "open_rate": 95.35,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Mar 18, 2026 _Ma_ana_ten_s_… Argentina 43 41 0 95.35% 0% 0%"
+    },
+    {
+      "date": "Mar 18, 2026",
+      "title": "Save the date",
+      "sent": 286,
+      "opens": 266,
+      "clicks": 0,
+      "open_rate": 93.01,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Mar 18, 2026 Save_the_date_… Argentina 286 266 0 93.01% 0% 0%"
+    },
+    {
+      "date": "Mar 18, 2026",
+      "title": "03 - Kit Mensaj",
+      "sent": 838,
+      "opens": 665,
+      "clicks": 146,
+      "open_rate": 79.36,
+      "ctr": 17.42,
+      "ctor": 21.95,
+      "raw": "Mar 18, 2026 03_-_Kit_Mensaj… Argentina 838 665 146 79.36% 17.42% 21.95%"
+    },
+    {
+      "date": "Mar 17, 2026",
+      "title": "BBVA solidarios",
+      "sent": 5181,
+      "opens": 3583,
+      "clicks": 13,
+      "open_rate": 69.16,
+      "ctr": 0.25,
+      "ctor": 0.36,
+      "raw": "Mar 17, 2026 BBVA_solidarios… Argentina 5,181 3,583 13 69.16% 0.25% 0.36%"
+    },
+    {
+      "date": "Mar 17, 2026",
+      "title": "Segu capacit n",
+      "sent": 6631,
+      "opens": 5079,
+      "clicks": 862,
+      "open_rate": 76.59,
+      "ctr": 13.0,
+      "ctor": 16.97,
+      "raw": "Mar 17, 2026 Segu__capacit_n… Argentina 6,631 5,079 862 76.59% 13% 16.97%"
+    },
+    {
+      "date": "Mar 17, 2026",
+      "title": "Gracias por pa",
+      "sent": 12,
+      "opens": 12,
+      "clicks": 7,
+      "open_rate": 100.0,
+      "ctr": 58.33,
+      "ctor": 58.33,
+      "raw": "Mar 17, 2026 _Gracias_por_pa… Argentina 12 12 7 100% 58.33% 58.33%"
+    },
+    {
+      "date": "Mar 16, 2026",
+      "title": "As vivimos Ex",
+      "sent": 6634,
+      "opens": 4990,
+      "clicks": 742,
+      "open_rate": 75.22,
+      "ctr": 11.18,
+      "ctor": 14.87,
+      "raw": "Mar 16, 2026 _As__vivimos_Ex… Argentina 6,634 4,990 742 75.22% 11.18% 14.87%"
+    },
+    {
+      "date": "Mar 13, 2026",
+      "title": "El lunes ten s",
+      "sent": 27,
+      "opens": 25,
+      "clicks": 0,
+      "open_rate": 92.59,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Mar 13, 2026 _El_lunes_ten_s_… Argentina 27 25 0 92.59% 0% 0%"
+    },
+    {
+      "date": "Mar 13, 2026",
+      "title": "Gracias por pa",
+      "sent": 30,
+      "opens": 29,
+      "clicks": 24,
+      "open_rate": 96.67,
+      "ctr": 80.0,
+      "ctor": 82.76,
+      "raw": "Mar 13, 2026 _Gracias_por_pa… Argentina 30 29 24 96.67% 80% 82.76%"
+    },
+    {
+      "date": "Mar 11, 2026",
+      "title": "Ma ana ten s",
+      "sent": 44,
+      "opens": 43,
+      "clicks": 0,
+      "open_rate": 97.73,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Mar 11, 2026 _Ma_ana_ten_s_… Argentina 44 43 0 97.73% 0% 0%"
+    },
+    {
+      "date": "Mar 9, 2026",
+      "title": "Gracias por pa",
+      "sent": 28,
+      "opens": 28,
+      "clicks": 16,
+      "open_rate": 100.0,
+      "ctr": 57.14,
+      "ctor": 57.14,
+      "raw": "Mar 9, 2026 _Gracias_por_pa… Argentina 28 28 16 100% 57.14% 57.14%"
+    },
+    {
+      "date": "Mar 9, 2026",
+      "title": "8M: D a Interna",
+      "sent": 6658,
+      "opens": 5188,
+      "clicks": 723,
+      "open_rate": 77.92,
+      "ctr": 10.86,
+      "ctor": 13.94,
+      "raw": "Mar 9, 2026 8M:_D_a_Interna… Argentina 6,658 5,188 723 77.92% 10.86% 13.94%"
+    },
+    {
+      "date": "Mar 9, 2026",
+      "title": "En marzo, sent",
+      "sent": 132,
+      "opens": 120,
+      "clicks": 59,
+      "open_rate": 90.91,
+      "ctr": 44.7,
+      "ctor": 49.17,
+      "raw": "Mar 9, 2026 En_marzo,_sent… Argentina 132 120 59 90.91% 44.7% 49.17%"
+    },
+    {
+      "date": "Mar 9, 2026",
+      "title": "En marzo, sent",
+      "sent": 167,
+      "opens": 137,
+      "clicks": 67,
+      "open_rate": 82.04,
+      "ctr": 40.12,
+      "ctor": 48.91,
+      "raw": "Mar 9, 2026 En_marzo,_sent… Argentina 167 137 67 82.04% 40.12% 48.91%"
+    },
+    {
+      "date": "Mar 9, 2026",
+      "title": "En marzo, hay",
+      "sent": 5202,
+      "opens": 4675,
+      "clicks": 2713,
+      "open_rate": 89.87,
+      "ctr": 52.15,
+      "ctor": 58.03,
+      "raw": "Mar 9, 2026 En_marzo,_hay_… Argentina 5,202 4,675 2,713 89.87% 52.15% 58.03%"
+    },
+    {
+      "date": "Mar 6, 2026",
+      "title": "📬 Newsletter",
+      "sent": 6672,
+      "opens": 5268,
+      "clicks": 902,
+      "open_rate": 78.96,
+      "ctr": 13.52,
+      "ctor": 17.12,
+      "raw": "Mar 6, 2026 _ 📬 _Newsletter_… Argentina 6,672 5,268 902 78.96% 13.52% 17.12%"
+    },
+    {
+      "date": "Mar 5, 2026",
+      "title": "Presentaci n de",
+      "sent": 6678,
+      "opens": 5093,
+      "clicks": 516,
+      "open_rate": 76.27,
+      "ctr": 7.73,
+      "ctor": 10.13,
+      "raw": "Mar 5, 2026 Presentaci_n_de… Argentina 6,678 5,093 516 76.27% 7.73% 10.13%"
+    }
+  ],
+  "top_push_open": [
+    {
+      "date": "Mar 18, 2026",
+      "title": "Save the date 📅 Impulso 2026 2T",
+      "sent": 286,
+      "opens": 266,
+      "clicks": 0,
+      "open_rate": 93.01,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Save_the_date_ 📅 _Impulso_2026_2T 93.01%",
+      "name": "Save the date 📅 Impulso 2026 2T",
+      "ranking_source": "top_five_section",
+      "interaction": 0.0
+    },
+    {
+      "date": "Mar 9, 2026",
+      "title": "En marzo, sent la m sica m s cerca 🎸 RO",
+      "sent": 132,
+      "opens": 120,
+      "clicks": 59,
+      "open_rate": 90.91,
+      "ctr": 44.7,
+      "ctor": 49.17,
+      "raw": "En_marzo,_sent__la_m_sica_m_s_cerca_ 🎸 ___RO… 90.91%",
+      "name": "En marzo, sent la m sica m s cerca 🎸 RO",
+      "ranking_source": "top_five_section",
+      "interaction": 44.7
+    },
+    {
+      "date": "Mar 9, 2026",
+      "title": "En marzo, hay sorpresas escondidas para vos",
+      "sent": 5202,
+      "opens": 4675,
+      "clicks": 2713,
+      "open_rate": 89.87,
+      "ctr": 52.15,
+      "ctor": 58.03,
+      "raw": "En_marzo,_hay_sorpresas_escondidas_para_vos… 89.87%",
+      "name": "En marzo, hay sorpresas escondidas para vos",
+      "ranking_source": "top_five_section",
+      "interaction": 52.15
+    },
+    {
+      "date": "Mar 26, 2026",
+      "title": "Vuelve el descuento en comedores y coffee p",
+      "sent": 2670,
+      "opens": 2374,
+      "clicks": 180,
+      "open_rate": 88.91,
+      "ctr": 6.74,
+      "ctor": 7.58,
+      "raw": "Vuelve_el_descuento_en_comedores_y_coffee_p… 88.91%",
+      "name": "Vuelve el descuento en comedores y coffee p",
+      "ranking_source": "top_five_section",
+      "interaction": 6.74
+    },
+    {
+      "date": "Mar 25, 2026",
+      "title": "BBVA in memoriam Roque Iacovino Mongelli",
+      "sent": 6605,
+      "opens": 5542,
+      "clicks": 0,
+      "open_rate": 84.98,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "BBVA_in_memoriam_Roque_Iacovino_Mongelli 84.98%",
+      "name": "BBVA in memoriam Roque Iacovino Mongelli",
+      "ranking_source": "top_five_section",
+      "interaction": 0.0
+    }
+  ],
+  "top_push_interaction": [
+    {
+      "date": "Mar 9, 2026",
+      "title": "En marzo, hay sorpresas escondidas para vos",
+      "sent": 5202,
+      "opens": 4675,
+      "clicks": 2713,
+      "open_rate": 89.87,
+      "ctr": 52.15,
+      "ctor": 58.03,
+      "raw": "En_marzo,_hay_sorpresas_escondidas_para_vos… 52.15%",
+      "name": "En marzo, hay sorpresas escondidas para vos",
+      "interaction": 52.15,
+      "ranking_source": "top_five_section"
+    },
+    {
+      "date": "Mar 9, 2026",
+      "title": "En marzo, sent la m sica m s cerca 🎸 RO",
+      "sent": 132,
+      "opens": 120,
+      "clicks": 59,
+      "open_rate": 90.91,
+      "ctr": 44.7,
+      "ctor": 49.17,
+      "raw": "En_marzo,_sent__la_m_sica_m_s_cerca_ 🎸 ___RO… 44.7%",
+      "name": "En marzo, sent la m sica m s cerca 🎸 RO",
+      "interaction": 44.7,
+      "ranking_source": "top_five_section"
+    },
+    {
+      "date": "Mar 9, 2026",
+      "title": "En marzo, sent la m sica m s cerca 🍷🎸",
+      "sent": 167,
+      "opens": 137,
+      "clicks": 67,
+      "open_rate": 82.04,
+      "ctr": 40.12,
+      "ctor": 48.91,
+      "raw": "En_marzo,_sent__la_m_sica_m_s_cerca_ 🍷🎸 ___… 40.12%",
+      "name": "En marzo, sent la m sica m s cerca 🍷🎸",
+      "interaction": 40.12,
+      "ranking_source": "top_five_section"
+    },
+    {
+      "date": "Mar 30, 2026",
+      "title": "Ya comienza Impulso 2026 2T Conectate 💻",
+      "sent": 284,
+      "opens": 235,
+      "clicks": 110,
+      "open_rate": 82.75,
+      "ctr": 38.73,
+      "ctor": 46.81,
+      "raw": "Ya_comienza_Impulso_2026_2T__Conectate__ 💻 38.73%",
+      "name": "Ya comienza Impulso 2026 2T Conectate 💻",
+      "interaction": 38.73,
+      "ranking_source": "top_five_section"
+    },
+    {
+      "date": "Mar 18, 2026",
+      "title": "03 - Kit Mensajes - MARZO 2026 ARG",
+      "sent": 838,
+      "opens": 665,
+      "clicks": 146,
+      "open_rate": 79.36,
+      "ctr": 17.42,
+      "ctor": 21.95,
+      "raw": "03_-_Kit_Mensajes_-_MARZO_2026__ARG_ 17.42%",
+      "name": "03 - Kit Mensajes - MARZO 2026 ARG",
+      "interaction": 17.42,
+      "ranking_source": "top_five_section"
+    }
+  ],
+  "top_pull_notes": [
+    {
+      "date": "Mar 18, 2026",
+      "title": "¡Sumamos más formaciones sobre Google Workspace!",
+      "users": 843,
+      "views": 1886,
+      "raw": "Mar 18, 20… ¡Sumamos más formaciones sobre Google Workspace! ARGENTINA 843 1886"
+    },
+    {
+      "date": "Mar 17, 2026",
+      "title": "Expoagro: acompañamos al motor productivo de la Argentina",
+      "users": 742,
+      "views": 889,
+      "raw": "Mar 17, 20… Expoagro: acompañamos al motor productivo de la Argentina ARGENTINA 742 889"
+    },
+    {
+      "date": "Mar 31, 2026",
+      "title": "Entramos en el Top 3 de las mejores empresas para trabajar en Argentina",
+      "users": 705,
+      "views": 787,
+      "raw": "Mar 31, 20… Entramos en el Top 3 de las mejores empresas para trabajar en Argentina ARGENTINA 705 787"
+    },
+    {
+      "date": "Mar 18, 2026",
+      "title": "Tu próximo auto o moto, más cerca",
+      "users": 319,
+      "views": 390,
+      "raw": "Mar 18, 20… Tu próximo auto o moto, más cerca ARGENTINA 319 390"
+    },
+    {
+      "date": "Mar 6, 2026",
+      "title": "“Todos estos resultados nos llenan de orgullo, y nos generan mucha ilusión por lo que tenemos por delante”",
+      "users": 604,
+      "views": 709,
+      "raw": "Mar 6, 2026 “Todos estos resultados nos llenan de orgullo, y nos generan mucha ilusión por lo que tenemos por delante” ARGENTINA 604 709"
+    }
+  ],
+  "channel_mix": [
+    {
+      "channel": "Mail",
+      "pct": 31.8
+    },
+    {
+      "channel": "SITE",
+      "pct": 31.8
+    },
+    {
+      "channel": "Intranet",
+      "pct": 31.8
+    },
+    {
+      "channel": "Evento",
+      "pct": 1.5
+    }
+  ],
+  "format_mix": [
+    {
+      "format": "Noticia propia",
+      "pct": 56.1
+    },
+    {
+      "format": "Postal/Carta",
+      "pct": 31.8
+    },
+    {
+      "format": "Noticia bbva.com",
+      "pct": 6.1
+    },
+    {
+      "format": "Video",
+      "pct": 1.5
+    },
+    {
+      "format": "Evento híbrido",
+      "pct": 1.5
+    }
+  ],
+  "strategic_axes": [
+    {
+      "axis": "RCP",
+      "count": 14
+    },
+    {
+      "axis": "Sostenibilidad",
+      "count": 15
+    },
+    {
+      "axis": "Empresas",
+      "count": 7
+    },
+    {
+      "axis": "Creación de valor",
+      "count": 0
+    },
+    {
+      "axis": "Innovación",
+      "count": 9
+    },
+    {
+      "axis": "Equipo",
+      "count": 12
+    },
+    {
+      "axis": "Otros",
+      "count": 9
+    }
+  ],
+  "internal_clients": [
+    {
+      "area": "Talento y Cultura",
+      "pct": 44.0
+    },
+    {
+      "area": "Relaciones Institucionales",
+      "pct": 17.0
+    },
+    {
+      "area": "Client Solutions",
+      "pct": 13.0
+    },
+    {
+      "area": "Engineering & Data",
+      "pct": 8.0
+    },
+    {
+      "area": "Country Manager Office (Gabinete Presidencia)",
+      "pct": 7.0
+    },
+    {
+      "area": "Red Comercial",
+      "pct": 3.0
+    },
+    {
+      "area": "Banca Minorista",
+      "pct": 3.0
+    },
+    {
+      "area": "Internal Control & Compliance",
+      "pct": 3.0
+    },
+    {
+      "area": "Finanzas",
+      "pct": 1.0
+    },
+    {
+      "area": "Banca Empresas",
+      "pct": 1.0
+    }
+  ],
+  "warnings": [],
+  "period": "quarter_2026_Q1",
+  "scope": "combined",
+  "scope_label": "Argentina + Holding"
+}

@@ -256,12 +256,17 @@ def _add_table(slide, x, y, w, h, title, headers, rows, col_widths=None, title_f
             cell = table.cell(r_idx, c_idx)
             cell.fill.solid(); cell.fill.fore_color.rgb = COLORS["white"]
             val = use_rows[r_idx - 1][c_idx] if r_idx - 1 < len(use_rows) else ""
-            cell.text = _safe_text(val, "")
+            text_value = _safe_text(val, "")
+            cell.text = text_value
             p = cell.text_frame.paragraphs[0]
             p.alignment = PP_ALIGN.LEFT if c_idx != len(headers) - 1 else PP_ALIGN.CENTER
             p.space_after = 0
             p.space_before = 0
-            r = p.runs[0]
+            # python-pptx can leave paragraphs without runs when the value is empty.
+            # Avoid tuple index errors in real dashboards with missing Top Five rows.
+            r = p.runs[0] if p.runs else p.add_run()
+            if not r.text:
+                r.text = text_value
             r.font.name = "Arial"; r.font.size = Pt(6.2 if len(headers) > 3 else 6.8); r.font.color.rgb = COLORS["text"]
             cell.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     for row in table.rows:

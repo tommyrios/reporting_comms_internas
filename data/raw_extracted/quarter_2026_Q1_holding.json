@@ -1,0 +1,716 @@
+{
+  "month": "quarter_2026_Q1_holding",
+  "source_pdf": "/mnt/data/fixproj/local_data/inbox_pdfs/quarter_2026_Q1_HOLDING.pdf",
+  "extracted_at": "2026-05-13T14:39:21.782612Z",
+  "parser": "deterministic_pdf_v7_kpi_sequence_safe",
+  "page_count": 3,
+  "metrics": {
+    "plan_daily_average": {
+      "anchor": "Media comunicaciones diarias",
+      "raw_value": "0.05",
+      "value": 0.05,
+      "unit": "number",
+      "page": 1,
+      "line": "",
+      "missing": false
+    },
+    "plan_total": {
+      "anchor": "Nº total de comunicaciones",
+      "raw_value": "39",
+      "value": 39,
+      "unit": "count",
+      "page": 1,
+      "line": "",
+      "missing": false
+    },
+    "site_total_views": {
+      "anchor": "Total Páginas Vistas",
+      "raw_value": "5,580",
+      "value": 5580,
+      "unit": "count",
+      "page": 2,
+      "line": "",
+      "missing": false
+    },
+    "site_notes_total": {
+      "anchor": "Noticias Publicadas",
+      "raw_value": "3",
+      "value": 3,
+      "unit": "count",
+      "page": 2,
+      "line": "",
+      "missing": false
+    },
+    "site_average_views": {
+      "anchor": "Promedio Vistas",
+      "raw_value": "1860",
+      "value": 1860,
+      "unit": "count",
+      "page": 2,
+      "line": "",
+      "missing": false
+    },
+    "mail_open_rate": {
+      "anchor": "Tasa de apertura promedio",
+      "raw_value": "80.75%",
+      "value": 80.75,
+      "unit": "percent",
+      "page": 3,
+      "line": "",
+      "missing": false
+    },
+    "mail_interaction_rate": {
+      "anchor": "Tasa de interacción sobre mails enviados",
+      "raw_value": "16.37%",
+      "value": 16.37,
+      "unit": "percent",
+      "page": 3,
+      "line": "",
+      "missing": false
+    },
+    "mail_interaction_rate_over_opened": {
+      "anchor": "Tasa de interacción sobre mails abiertos",
+      "raw_value": "20.27%",
+      "value": 20.27,
+      "unit": "percent",
+      "page": 3,
+      "line": "",
+      "missing": false
+    },
+    "mail_total": {
+      "anchor": "Mails enviados",
+      "raw_value": "34",
+      "value": 34,
+      "unit": "count",
+      "page": 3,
+      "line": "",
+      "missing": false
+    }
+  },
+  "mail_table": [
+    {
+      "date": "Feb 27, 2026",
+      "title": "Voluntariado B",
+      "sent": 2694,
+      "opens": 1937,
+      "clicks": 270,
+      "open_rate": 71.9,
+      "ctr": 10.02,
+      "ctor": 13.94,
+      "raw": "Feb 27, 2026 Voluntariado_B… Argentina 2,694 1,937 270 71.9% 10.02% 13.94%"
+    },
+    {
+      "date": "Feb 27, 2026",
+      "title": "Gracias por pa",
+      "sent": 6720,
+      "opens": 4958,
+      "clicks": 381,
+      "open_rate": 73.78,
+      "ctr": 5.67,
+      "ctor": 7.68,
+      "raw": "Feb 27, 2026 _Gracias_por_pa… Argentina 6,720 4,958 381 73.78% 5.67% 7.68%"
+    },
+    {
+      "date": "Feb 27, 2026",
+      "title": "Voluntariado B",
+      "sent": 2449,
+      "opens": 1696,
+      "clicks": 104,
+      "open_rate": 69.25,
+      "ctr": 4.25,
+      "ctor": 6.13,
+      "raw": "Feb 27, 2026 Voluntariado_B… Argentina 2,449 1,696 104 69.25% 4.25% 6.13%"
+    },
+    {
+      "date": "Feb 26, 2026",
+      "title": "Ya comienza B",
+      "sent": 6459,
+      "opens": 4484,
+      "clicks": 939,
+      "open_rate": 69.42,
+      "ctr": 14.54,
+      "ctor": 20.94,
+      "raw": "Feb 26, 2026 Ya_comienza_B… Argentina 6,459 4,484 939 69.42% 14.54% 20.94%"
+    },
+    {
+      "date": "Feb 26, 2026",
+      "title": "En minutos co",
+      "sent": 250,
+      "opens": 194,
+      "clicks": 0,
+      "open_rate": 77.6,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Feb 26, 2026 En_minutos_co… Argentina 250 194 0 77.6% 0% 0%"
+    },
+    {
+      "date": "Feb 26, 2026",
+      "title": "Incentivaci n V",
+      "sent": 5751,
+      "opens": 5249,
+      "clicks": 3440,
+      "open_rate": 91.27,
+      "ctr": 59.82,
+      "ctor": 65.54,
+      "raw": "Feb 26, 2026 Incentivaci_n_V… Argentina 5,751 5,249 3,440 91.27% 59.82% 65.54%"
+    },
+    {
+      "date": "Feb 25, 2026",
+      "title": "Muy pronto uni",
+      "sent": 6723,
+      "opens": 5668,
+      "clicks": 0,
+      "open_rate": 84.31,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Feb 25, 2026 Muy_pronto_uni… Argentina 6,723 5,668 0 84.31% 0% 0%"
+    },
+    {
+      "date": "Feb 25, 2026",
+      "title": "Tu bienestar es",
+      "sent": 6722,
+      "opens": 5554,
+      "clicks": 579,
+      "open_rate": 82.62,
+      "ctr": 8.61,
+      "ctor": 10.42,
+      "raw": "Feb 25, 2026 Tu_bienestar_es… Argentina 6,722 5,554 579 82.62% 8.61% 10.42%"
+    },
+    {
+      "date": "Feb 24, 2026",
+      "title": "Invitaci n espec",
+      "sent": 20,
+      "opens": 20,
+      "clicks": 0,
+      "open_rate": 100.0,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Feb 24, 2026 Invitaci_n_espec… Argentina 20 20 0 100% 0% 0%"
+    },
+    {
+      "date": "Feb 23, 2026",
+      "title": "Push BBVA No",
+      "sent": 5901,
+      "opens": 5135,
+      "clicks": 1235,
+      "open_rate": 87.02,
+      "ctr": 20.93,
+      "ctor": 24.05,
+      "raw": "Feb 23, 2026 Push_BBVA_No… Argentina 5,901 5,135 1,235 87.02% 20.93% 24.05%"
+    },
+    {
+      "date": "Feb 20, 2026",
+      "title": "Confirm tu par",
+      "sent": 298,
+      "opens": 259,
+      "clicks": 0,
+      "open_rate": 86.91,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Feb 20, 2026 Confirm__tu_par… Argentina 298 259 0 86.91% 0% 0%"
+    },
+    {
+      "date": "Feb 20, 2026",
+      "title": "BBVA solidarios",
+      "sent": 5256,
+      "opens": 3428,
+      "clicks": 26,
+      "open_rate": 65.22,
+      "ctr": 0.49,
+      "ctor": 0.76,
+      "raw": "Feb 20, 2026 BBVA_solidarios… Argentina 5,256 3,428 26 65.22% 0.49% 0.76%"
+    },
+    {
+      "date": "Feb 20, 2026",
+      "title": "Proteg tu iden",
+      "sent": 6732,
+      "opens": 5312,
+      "clicks": 502,
+      "open_rate": 78.91,
+      "ctr": 7.46,
+      "ctor": 9.45,
+      "raw": "Feb 20, 2026 Proteg__tu_iden… Argentina 6,732 5,312 502 78.91% 7.46% 9.45%"
+    },
+    {
+      "date": "Feb 19, 2026",
+      "title": "STD Managers",
+      "sent": 1,
+      "opens": 1,
+      "clicks": 0,
+      "open_rate": 100.0,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Feb 19, 2026 STD_Managers_… Argentina 1 1 0 100% 0% 0%"
+    },
+    {
+      "date": "Feb 18, 2026",
+      "title": "ON BBVA Clase",
+      "sent": 6738,
+      "opens": 4968,
+      "clicks": 324,
+      "open_rate": 73.73,
+      "ctr": 4.81,
+      "ctor": 6.52,
+      "raw": "Feb 18, 2026 ON_BBVA_Clase… Argentina 6,738 4,968 324 73.73% 4.81% 6.52%"
+    },
+    {
+      "date": "Feb 18, 2026",
+      "title": "02 - Kit Mensaj",
+      "sent": 843,
+      "opens": 705,
+      "clicks": 54,
+      "open_rate": 83.63,
+      "ctr": 6.41,
+      "ctor": 7.66,
+      "raw": "Feb 18, 2026 02_-_Kit_Mensaj… Argentina 843 705 54 83.63% 6.41% 7.66%"
+    },
+    {
+      "date": "Feb 18, 2026",
+      "title": "Incentivaci n va",
+      "sent": 6713,
+      "opens": 6151,
+      "clicks": 3145,
+      "open_rate": 91.63,
+      "ctr": 46.85,
+      "ctor": 51.13,
+      "raw": "Feb 18, 2026 Incentivaci_n_va… Argentina 6,713 6,151 3,145 91.63% 46.85% 51.13%"
+    },
+    {
+      "date": "Feb 13, 2026",
+      "title": "Evaluaci n anu",
+      "sent": 6741,
+      "opens": 6223,
+      "clicks": 3548,
+      "open_rate": 92.32,
+      "ctr": 52.63,
+      "ctor": 57.01,
+      "raw": "Feb 13, 2026 Evaluaci_n_anu… Argentina 6,741 6,223 3,548 92.32% 52.63% 57.01%"
+    },
+    {
+      "date": "Feb 13, 2026",
+      "title": "Planific tu mes",
+      "sent": 3997,
+      "opens": 3529,
+      "clicks": 1515,
+      "open_rate": 88.29,
+      "ctr": 37.9,
+      "ctor": 42.93,
+      "raw": "Feb 13, 2026 Planific__tu_mes… Argentina 3,997 3,529 1,515 88.29% 37.9% 42.93%"
+    },
+    {
+      "date": "Feb 13, 2026",
+      "title": "Sumate al Vol",
+      "sent": 27,
+      "opens": 26,
+      "clicks": 0,
+      "open_rate": 96.3,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Feb 13, 2026 _Sumate_al_Vol… Argentina 27 26 0 96.3% 0% 0%"
+    },
+    {
+      "date": "Feb 12, 2026",
+      "title": "STD - ARGENTI",
+      "sent": 5920,
+      "opens": 4901,
+      "clicks": 557,
+      "open_rate": 82.79,
+      "ctr": 9.41,
+      "ctor": 11.37,
+      "raw": "Feb 12, 2026 STD_-_ARGENTI… Argentina 5,920 4,901 557 82.79% 9.41% 11.37%"
+    },
+    {
+      "date": "Feb 12, 2026",
+      "title": "Legi n 2026 ✈",
+      "sent": 2613,
+      "opens": 2173,
+      "clicks": 1023,
+      "open_rate": 83.16,
+      "ctr": 39.15,
+      "ctor": 47.08,
+      "raw": "Feb 12, 2026 Legi_n_2026_ ✈… Argentina 2,613 2,173 1,023 83.16% 39.15% 47.08%"
+    },
+    {
+      "date": "Feb 11, 2026",
+      "title": "Cambios en la",
+      "sent": 6753,
+      "opens": 5686,
+      "clicks": 0,
+      "open_rate": 84.2,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Feb 11, 2026 Cambios_en_la_… Argentina 6,753 5,686 0 84.2% 0% 0%"
+    },
+    {
+      "date": "Feb 10, 2026",
+      "title": "STD Managers",
+      "sent": 263,
+      "opens": 219,
+      "clicks": 16,
+      "open_rate": 83.27,
+      "ctr": 6.08,
+      "ctor": 7.31,
+      "raw": "Feb 10, 2026 STD_Managers_… Argentina 263 219 16 83.27% 6.08% 7.31%"
+    },
+    {
+      "date": "Feb 10, 2026",
+      "title": "Cuid nuestra i",
+      "sent": 6759,
+      "opens": 5201,
+      "clicks": 0,
+      "open_rate": 76.95,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Feb 10, 2026 _Cuid__nuestra_i… Argentina 6,759 5,201 0 76.95% 0% 0%"
+    },
+    {
+      "date": "Feb 10, 2026",
+      "title": "STD Managers",
+      "sent": 576,
+      "opens": 507,
+      "clicks": 61,
+      "open_rate": 88.02,
+      "ctr": 10.59,
+      "ctor": 12.03,
+      "raw": "Feb 10, 2026 STD_Managers_… Argentina 576 507 61 88.02% 10.59% 12.03%"
+    },
+    {
+      "date": "Feb 9, 2026",
+      "title": "Incentivaci n va",
+      "sent": 170,
+      "opens": 167,
+      "clicks": 154,
+      "open_rate": 98.24,
+      "ctr": 90.59,
+      "ctor": 92.22,
+      "raw": "Feb 9, 2026 Incentivaci_n_va… Argentina 170 167 154 98.24% 90.59% 92.22%"
+    },
+    {
+      "date": "Feb 9, 2026",
+      "title": "Incentivaci n va",
+      "sent": 264,
+      "opens": 262,
+      "clicks": 247,
+      "open_rate": 99.24,
+      "ctr": 93.56,
+      "ctor": 94.27,
+      "raw": "Feb 9, 2026 Incentivaci_n_va… Argentina 264 262 247 99.24% 93.56% 94.27%"
+    },
+    {
+      "date": "Feb 9, 2026",
+      "title": "Incentivaci n va",
+      "sent": 99,
+      "opens": 97,
+      "clicks": 89,
+      "open_rate": 97.98,
+      "ctr": 89.9,
+      "ctor": 91.75,
+      "raw": "Feb 9, 2026 Incentivaci_n_va… Argentina 99 97 89 97.98% 89.9% 91.75%"
+    },
+    {
+      "date": "Feb 5, 2026",
+      "title": "📬 Newsletter",
+      "sent": 5914,
+      "opens": 4765,
+      "clicks": 527,
+      "open_rate": 80.57,
+      "ctr": 8.91,
+      "ctor": 11.06,
+      "raw": "Feb 5, 2026 📬 _Newsletter_… Argentina 5,914 4,765 527 80.57% 8.91% 11.06%"
+    },
+    {
+      "date": "Feb 5, 2026",
+      "title": "📬 Newsletter",
+      "sent": 841,
+      "opens": 689,
+      "clicks": 115,
+      "open_rate": 81.93,
+      "ctr": 13.67,
+      "ctor": 16.69,
+      "raw": "Feb 5, 2026 📬 _Newsletter_… Argentina 841 689 115 81.93% 13.67% 16.69%"
+    }
+  ],
+  "top_push_open": [
+    {
+      "date": "Feb 9, 2026",
+      "title": "Incentivaci n variable 2025: Valid los datos",
+      "sent": 264,
+      "opens": 262,
+      "clicks": 247,
+      "open_rate": 99.24,
+      "ctr": 93.56,
+      "ctor": 94.27,
+      "raw": "Incentivaci_n_variable_2025:__Valid__los_datos_… 99.24%",
+      "name": "Incentivaci n variable 2025: Valid los datos",
+      "ranking_source": "top_five_section",
+      "interaction": 93.56
+    },
+    {
+      "date": "Feb 9, 2026",
+      "title": "Incentivaci n variable 2025: Valid los datos",
+      "sent": 170,
+      "opens": 167,
+      "clicks": 154,
+      "open_rate": 98.24,
+      "ctr": 90.59,
+      "ctor": 92.22,
+      "raw": "Incentivaci_n_variable_2025:__Valid__los_datos_… 98.24%",
+      "name": "Incentivaci n variable 2025: Valid los datos",
+      "ranking_source": "top_five_section",
+      "interaction": 90.59
+    },
+    {
+      "date": "Feb 13, 2026",
+      "title": "👉🏻 Evaluaci n Anual 2025: Manager, sumate",
+      "sent": 6741,
+      "opens": 6223,
+      "clicks": 3548,
+      "open_rate": 95.49,
+      "ctr": 52.63,
+      "ctor": 57.01,
+      "raw": "👉🏻 _Evaluaci_n_Anual_2025:_Manager,_sumate_… 95.49%",
+      "name": "👉🏻 Evaluaci n Anual 2025: Manager, sumate",
+      "ranking_source": "top_five_section",
+      "interaction": 52.63
+    },
+    {
+      "date": "Feb 13, 2026",
+      "title": "Evaluaci n anual: A partir del 16/2 podr s co",
+      "sent": 6741,
+      "opens": 6223,
+      "clicks": 3548,
+      "open_rate": 92.32,
+      "ctr": 52.63,
+      "ctor": 57.01,
+      "raw": "Evaluaci_n_anual:_A_partir_del_16/2_podr_s_co… 92.32%",
+      "name": "Evaluaci n anual: A partir del 16/2 podr s co",
+      "ranking_source": "top_five_section",
+      "interaction": 52.63
+    },
+    {
+      "date": "Feb 18, 2026",
+      "title": "Incentivaci n variable: Conoc los resultados",
+      "sent": 6713,
+      "opens": 6151,
+      "clicks": 3145,
+      "open_rate": 91.63,
+      "ctr": 46.85,
+      "ctor": 51.13,
+      "raw": "Incentivaci_n_variable:_Conoc__los_resultados_… 91.63%",
+      "name": "Incentivaci n variable: Conoc los resultados",
+      "ranking_source": "top_five_section",
+      "interaction": 46.85
+    }
+  ],
+  "top_push_interaction": [
+    {
+      "date": "Feb 9, 2026",
+      "title": "Incentivaci n variable 2025: Valid los datos",
+      "sent": 264,
+      "opens": 262,
+      "clicks": 247,
+      "open_rate": 99.24,
+      "ctr": 93.56,
+      "ctor": 94.27,
+      "raw": "Incentivaci_n_variable_2025:__Valid__los_datos_… 93.56%",
+      "name": "Incentivaci n variable 2025: Valid los datos",
+      "interaction": 93.56,
+      "ranking_source": "top_five_section"
+    },
+    {
+      "date": "Feb 9, 2026",
+      "title": "Incentivaci n variable 2025: Valid los datos",
+      "sent": 170,
+      "opens": 167,
+      "clicks": 154,
+      "open_rate": 98.24,
+      "ctr": 90.59,
+      "ctor": 92.22,
+      "raw": "Incentivaci_n_variable_2025:__Valid__los_datos_… 90.59%",
+      "name": "Incentivaci n variable 2025: Valid los datos",
+      "interaction": 90.59,
+      "ranking_source": "top_five_section"
+    },
+    {
+      "date": "Feb 26, 2026",
+      "title": "Incentivaci n Variable 2025: Acced a tu info",
+      "sent": 5751,
+      "opens": 5249,
+      "clicks": 3440,
+      "open_rate": 91.27,
+      "ctr": 59.82,
+      "ctor": 65.54,
+      "raw": "Incentivaci_n_Variable_2025:_Acced__a_tu_info… 59.82%",
+      "name": "Incentivaci n Variable 2025: Acced a tu info",
+      "interaction": 59.82,
+      "ranking_source": "top_five_section"
+    },
+    {
+      "date": "Feb 13, 2026",
+      "title": "Evaluaci n anual: A partir del 16/2 podr s co",
+      "sent": 6741,
+      "opens": 6223,
+      "clicks": 3548,
+      "open_rate": 92.32,
+      "ctr": 52.63,
+      "ctor": 57.01,
+      "raw": "Evaluaci_n_anual:_A_partir_del_16/2_podr_s_co… 52.63%",
+      "name": "Evaluaci n anual: A partir del 16/2 podr s co",
+      "interaction": 52.63,
+      "ranking_source": "top_five_section"
+    },
+    {
+      "date": "Feb 18, 2026",
+      "title": "Incentivaci n variable: Conoc los resultados",
+      "sent": 6713,
+      "opens": 6151,
+      "clicks": 3145,
+      "open_rate": 91.63,
+      "ctr": 46.85,
+      "ctor": 51.13,
+      "raw": "Incentivaci_n_variable:_Conoc__los_resultados_… 46.85%",
+      "name": "Incentivaci n variable: Conoc los resultados",
+      "interaction": 46.85,
+      "ranking_source": "top_five_section"
+    }
+  ],
+  "top_pull_notes": [
+    {
+      "date": "Feb 4, 2026",
+      "title": "Potenciá tu día a día con estas formaciones sobre Google Workspace",
+      "users": 1363,
+      "views": 4018,
+      "raw": "Feb 4, 2026 Potenciá tu día a día con estas formaciones sobre Google Workspace ARGENTINA 1,363 4018"
+    },
+    {
+      "date": "Feb 13, 2026",
+      "title": "Legión 2026: Conocé quienes ganaron el premio de Valoración Ventas",
+      "users": 1207,
+      "views": 1408,
+      "raw": "Feb 13, 20… Legión 2026: Conocé quienes ganaron el premio de Valoración Ventas ARGENTINA 1,207 1408"
+    },
+    {
+      "date": "Feb 24, 2026",
+      "title": "BBVA Agro se relanza: sumate al evento virtual",
+      "users": 108,
+      "views": 154,
+      "raw": "Feb 24, 20… BBVA Agro se relanza: sumate al evento virtual ARGENTINA 108 154"
+    }
+  ],
+  "channel_mix": [
+    {
+      "channel": "Mail",
+      "pct": 61.5
+    },
+    {
+      "channel": "Intranet",
+      "pct": 17.9
+    },
+    {
+      "channel": "SITE",
+      "pct": 10.3
+    },
+    {
+      "channel": "Widget #notelopierdas",
+      "pct": 7.7
+    },
+    {
+      "channel": "Evento",
+      "pct": 2.6
+    }
+  ],
+  "format_mix": [
+    {
+      "format": "Postal/Carta",
+      "pct": 74.4
+    },
+    {
+      "format": "Noticia propia",
+      "pct": 12.8
+    },
+    {
+      "format": "Noticia bbva.com",
+      "pct": 7.7
+    },
+    {
+      "format": "Video",
+      "pct": 2.6
+    }
+  ],
+  "strategic_axes": [
+    {
+      "axis": "RCP",
+      "count": 7
+    },
+    {
+      "axis": "Sostenibilidad",
+      "count": 3
+    },
+    {
+      "axis": "Empresas",
+      "count": 0
+    },
+    {
+      "axis": "Creación de valor",
+      "count": 0
+    },
+    {
+      "axis": "Innovación",
+      "count": 7
+    },
+    {
+      "axis": "Equipo",
+      "count": 9
+    },
+    {
+      "axis": "Otros",
+      "count": 8
+    }
+  ],
+  "internal_clients": [
+    {
+      "area": "Talento y Cultura",
+      "pct": 44.0
+    },
+    {
+      "area": "Relaciones Institucionales",
+      "pct": 17.0
+    },
+    {
+      "area": "Client Solutions",
+      "pct": 13.0
+    },
+    {
+      "area": "Engineering & Data",
+      "pct": 8.0
+    },
+    {
+      "area": "Country Manager Office (Gabinete Presidencia)",
+      "pct": 7.0
+    },
+    {
+      "area": "Red Comercial",
+      "pct": 3.0
+    },
+    {
+      "area": "Banca Minorista",
+      "pct": 3.0
+    },
+    {
+      "area": "Internal Control & Compliance",
+      "pct": 3.0
+    },
+    {
+      "area": "Finanzas",
+      "pct": 1.0
+    },
+    {
+      "area": "Banca Empresas",
+      "pct": 1.0
+    }
+  ],
+  "warnings": [],
+  "period": "quarter_2026_Q1",
+  "scope": "holding",
+  "scope_label": "Holding"
+}

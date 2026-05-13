@@ -5,25 +5,27 @@
       "period_ref": "2026-Q1",
       "period_slug": "quarter_2026_Q1",
       "calculated_totals": {
-        "plan_total": 159,
-        "site_notes_total": 30,
-        "site_total_views": 15856,
-        "mail_total": 93,
-        "mail_open_rate": 79.33,
-        "mail_interaction_rate": 12.52,
+        "plan_total": 66,
+        "site_notes_total": 17,
+        "site_total_views": 6205,
+        "mail_total": 36,
+        "mail_unique_total": 0,
+        "mail_send_total": 36,
+        "mail_open_rate": 77.53,
+        "mail_interaction_rate": 8.86,
         "total_events": 0,
         "total_event_participants": 0,
         "latest_push_volume": 36,
         "previous_push_volume": "Sin datos previos",
-        "latest_push_variation": "Sin datos previos",
-        "average_reads_per_note": 528.53,
-        "push_volume_period": 159,
-        "pull_notes_period": 30,
-        "pull_reads_period": 15856,
-        "average_open_rate": 79.33,
-        "average_interaction_rate": 12.52,
+        "latest_push_variation": "No comparable: fuente trimestral filtrada",
+        "average_reads_per_note": 365.0,
+        "push_volume_period": 66,
+        "pull_notes_period": 17,
+        "pull_reads_period": 6205,
+        "average_open_rate": 77.53,
+        "average_interaction_rate": 8.86,
         "volume_previous": "Sin datos previos",
-        "volume_change": "Sin datos previos"
+        "volume_change": "No comparable: fuente trimestral filtrada"
       },
       "quality_flags": {
         "scope_country": "AR",
@@ -32,9 +34,9 @@
         "events_summary_available": false,
         "push_ranking_available": true,
         "pull_ranking_available": true,
-        "historical_comparison_allowed": true
+        "historical_comparison_allowed": false
       },
-      "updated_at": "2026-04-29T14:05:09.512562Z"
+      "updated_at": "2026-05-13T14:39:40.240283Z"
     },
     "quarter:quarter_2026_Q1": {
       "kind": "quarter",

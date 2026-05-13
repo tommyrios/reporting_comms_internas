@@ -1,0 +1,9 @@
+{
+  "month": "quarter_2026_Q1",
+  "validated_at": "2026-05-13T14:39:21.783244Z",
+  "is_valid": true,
+  "errors": [],
+  "warnings": [
+    "derived_metric:mail_unique_total:plan_total*channel_mix_mail_pct"
+  ]
+}

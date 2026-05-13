@@ -1,0 +1,649 @@
+{
+  "month": "quarter_2026_Q1_argentina",
+  "source_pdf": "/mnt/data/fixproj/local_data/inbox_pdfs/quarter_2026_Q1_ARG.pdf",
+  "extracted_at": "2026-05-13T14:39:20.732796Z",
+  "parser": "deterministic_pdf_v7_kpi_sequence_safe",
+  "page_count": 3,
+  "metrics": {
+    "plan_daily_average": {
+      "anchor": "Media comunicaciones diarias",
+      "raw_value": "0.06",
+      "value": 0.06,
+      "unit": "number",
+      "page": 1,
+      "line": "",
+      "missing": false
+    },
+    "plan_total": {
+      "anchor": "Nº total de comunicaciones",
+      "raw_value": "54",
+      "value": 54,
+      "unit": "count",
+      "page": 1,
+      "line": "",
+      "missing": false
+    },
+    "site_total_views": {
+      "anchor": "Total Páginas Vistas",
+      "raw_value": "4,071",
+      "value": 4071,
+      "unit": "count",
+      "page": 2,
+      "line": "",
+      "missing": false
+    },
+    "site_notes_total": {
+      "anchor": "Noticias Publicadas",
+      "raw_value": "10",
+      "value": 10,
+      "unit": "count",
+      "page": 2,
+      "line": "",
+      "missing": false
+    },
+    "site_average_views": {
+      "anchor": "Promedio Vistas",
+      "raw_value": "407",
+      "value": 407,
+      "unit": "count",
+      "page": 2,
+      "line": "",
+      "missing": false
+    },
+    "mail_open_rate": {
+      "anchor": "Tasa de apertura promedio",
+      "raw_value": "80.05%",
+      "value": 80.05,
+      "unit": "percent",
+      "page": 3,
+      "line": "",
+      "missing": false
+    },
+    "mail_interaction_rate": {
+      "anchor": "Tasa de interacción sobre mails enviados",
+      "raw_value": "12.54%",
+      "value": 12.54,
+      "unit": "percent",
+      "page": 3,
+      "line": "",
+      "missing": false
+    },
+    "mail_interaction_rate_over_opened": {
+      "anchor": "Tasa de interacción sobre mails abiertos",
+      "raw_value": "15.67%",
+      "value": 15.67,
+      "unit": "percent",
+      "page": 3,
+      "line": "",
+      "missing": false
+    },
+    "mail_total": {
+      "anchor": "Mails enviados",
+      "raw_value": "23",
+      "value": 23,
+      "unit": "count",
+      "page": 3,
+      "line": "",
+      "missing": false
+    }
+  },
+  "mail_table": [
+    {
+      "date": "Jan 30, 2026",
+      "title": "Los beneficios",
+      "sent": 5318,
+      "opens": 4803,
+      "clicks": 2941,
+      "open_rate": 90.32,
+      "ctr": 55.3,
+      "ctor": 61.23,
+      "raw": "Jan 30, 2026 Los_beneficios_… Argentina 5,318 4,803 2,941 90.32% 55.3% 61.23%"
+    },
+    {
+      "date": "Jan 28, 2026",
+      "title": "👉🏻 Últimos días",
+      "sent": 1555,
+      "opens": 1301,
+      "clicks": 228,
+      "open_rate": 83.67,
+      "ctr": 14.66,
+      "ctor": 17.52,
+      "raw": "Jan 28, 2026 👉🏻 _ltimos_d_as_… Argentina 1,555 1,301 228 83.67% 14.66% 17.52%"
+    },
+    {
+      "date": "Jan 27, 2026",
+      "title": "01 - Kit Mensaj",
+      "sent": 844,
+      "opens": 669,
+      "clicks": 49,
+      "open_rate": 79.27,
+      "ctr": 5.81,
+      "ctor": 7.32,
+      "raw": "Jan 27, 2026 01_-_Kit_Mensaj… Argentina 844 669 49 79.27% 5.81% 7.32%"
+    },
+    {
+      "date": "Jan 26, 2026",
+      "title": "Una nueva opo",
+      "sent": 191,
+      "opens": 145,
+      "clicks": 3,
+      "open_rate": 75.92,
+      "ctr": 1.57,
+      "ctor": 2.07,
+      "raw": "Jan 26, 2026 Una_nueva_opo… Argentina 191 145 3 75.92% 1.57% 2.07%"
+    },
+    {
+      "date": "Jan 26, 2026",
+      "title": "Una nueva opo",
+      "sent": 6607,
+      "opens": 5158,
+      "clicks": 105,
+      "open_rate": 78.07,
+      "ctr": 1.59,
+      "ctor": 2.04,
+      "raw": "Jan 26, 2026 Una_nueva_opo… Argentina 6,607 5,158 105 78.07% 1.59% 2.04%"
+    },
+    {
+      "date": "Jan 23, 2026",
+      "title": "Lanzamos el pr",
+      "sent": 2757,
+      "opens": 2189,
+      "clicks": 218,
+      "open_rate": 79.4,
+      "ctr": 7.91,
+      "ctor": 9.96,
+      "raw": "Jan 23, 2026 Lanzamos_el_pr… Argentina 2,757 2,189 218 79.4% 7.91% 9.96%"
+    },
+    {
+      "date": "Jan 23, 2026",
+      "title": "BBVA solidarios",
+      "sent": 5309,
+      "opens": 3658,
+      "clicks": 21,
+      "open_rate": 68.9,
+      "ctr": 0.4,
+      "ctor": 0.57,
+      "raw": "Jan 23, 2026 BBVA_solidarios… Argentina 5,309 3,658 21 68.9% 0.4% 0.57%"
+    },
+    {
+      "date": "Jan 22, 2026",
+      "title": "Mirá el mensaje",
+      "sent": 830,
+      "opens": 556,
+      "clicks": 51,
+      "open_rate": 66.99,
+      "ctr": 6.14,
+      "ctor": 9.17,
+      "raw": "Jan 22, 2026 Mir__el_mensaje… Argentina 830 556 51 66.99% 6.14% 9.17%"
+    },
+    {
+      "date": "Jan 22, 2026",
+      "title": "Queremos escu",
+      "sent": 1555,
+      "opens": 1277,
+      "clicks": 273,
+      "open_rate": 82.12,
+      "ctr": 17.56,
+      "ctor": 21.38,
+      "raw": "Jan 22, 2026 Queremos_escu… Argentina 1,555 1,277 273 82.12% 17.56% 21.38%"
+    },
+    {
+      "date": "Jan 21, 2026",
+      "title": "Arranc BBVA",
+      "sent": 6770,
+      "opens": 5319,
+      "clicks": 433,
+      "open_rate": 78.57,
+      "ctr": 6.4,
+      "ctor": 8.14,
+      "raw": "Jan 21, 2026 Arranc__BBVA_… Argentina 6,770 5,319 433 78.57% 6.4% 8.14%"
+    },
+    {
+      "date": "Jan 20, 2026",
+      "title": "Somos el Mejor",
+      "sent": 6796,
+      "opens": 5275,
+      "clicks": 266,
+      "open_rate": 77.62,
+      "ctr": 3.91,
+      "ctor": 5.04,
+      "raw": "Jan 20, 2026 _Somos_el_Mejo… Argentina 6,796 5,275 266 77.62% 3.91% 5.04%"
+    },
+    {
+      "date": "Jan 20, 2026",
+      "title": "Vuelta al cole:",
+      "sent": 2246,
+      "opens": 2095,
+      "clicks": 1642,
+      "open_rate": 93.28,
+      "ctr": 73.11,
+      "ctor": 78.38,
+      "raw": "Jan 20, 2026 Vuelta_al_cole:__… Argentina 2,246 2,095 1,642 93.28% 73.11% 78.38%"
+    },
+    {
+      "date": "Jan 20, 2026",
+      "title": "Vuelta al cole 2",
+      "sent": 4576,
+      "opens": 3543,
+      "clicks": 168,
+      "open_rate": 77.43,
+      "ctr": 3.67,
+      "ctor": 4.74,
+      "raw": "Jan 20, 2026 Vuelta_al_cole_2… Argentina 4,576 3,543 168 77.43% 3.67% 4.74%"
+    },
+    {
+      "date": "Jan 19, 2026",
+      "title": "Vuelta al cole:",
+      "sent": 2,
+      "opens": 2,
+      "clicks": 2,
+      "open_rate": 100.0,
+      "ctr": 100.0,
+      "ctor": 100.0,
+      "raw": "Jan 19, 2026 Vuelta_al_cole:__… Argentina 2 2 2 100% 100% 100%"
+    },
+    {
+      "date": "Jan 19, 2026",
+      "title": "Hola Soy EuG",
+      "sent": 6799,
+      "opens": 5204,
+      "clicks": 314,
+      "open_rate": 76.54,
+      "ctr": 4.62,
+      "ctor": 6.03,
+      "raw": "Jan 19, 2026 _Hola__Soy_EuG… Argentina 6,799 5,204 314 76.54% 4.62% 6.03%"
+    },
+    {
+      "date": "Jan 16, 2026",
+      "title": "Realiz tus che",
+      "sent": 81,
+      "opens": 74,
+      "clicks": 19,
+      "open_rate": 91.36,
+      "ctr": 23.46,
+      "ctor": 25.68,
+      "raw": "Jan 16, 2026 Realiz__tus_che… Argentina 81 74 19 91.36% 23.46% 25.68%"
+    },
+    {
+      "date": "Jan 16, 2026",
+      "title": "Resultados NPS",
+      "sent": 6799,
+      "opens": 5362,
+      "clicks": 613,
+      "open_rate": 78.86,
+      "ctr": 9.02,
+      "ctor": 11.43,
+      "raw": "Jan 16, 2026 Resultados_NPS… Argentina 6,799 5,362 613 78.86% 9.02% 11.43%"
+    },
+    {
+      "date": "Jan 16, 2026",
+      "title": "Empez el 202",
+      "sent": 5315,
+      "opens": 4720,
+      "clicks": 1302,
+      "open_rate": 88.81,
+      "ctr": 24.5,
+      "ctor": 27.58,
+      "raw": "Jan 16, 2026 _Empez__el_202… Argentina 5,315 4,720 1,302 88.81% 24.5% 27.58%"
+    },
+    {
+      "date": "Jan 16, 2026",
+      "title": "Empez el 202",
+      "sent": 1336,
+      "opens": 1138,
+      "clicks": 171,
+      "open_rate": 85.18,
+      "ctr": 12.8,
+      "ctor": 15.03,
+      "raw": "Jan 16, 2026 _Empez__el_202… Argentina 1,336 1,138 171 85.18% 12.8% 15.03%"
+    },
+    {
+      "date": "Jan 14, 2026",
+      "title": "Protegé tu info",
+      "sent": 6801,
+      "opens": 5066,
+      "clicks": 401,
+      "open_rate": 74.49,
+      "ctr": 5.9,
+      "ctor": 7.92,
+      "raw": "Jan 14, 2026 _Proteg__tu_info… Argentina 6,801 5,066 401 74.49% 5.9% 7.92%"
+    },
+    {
+      "date": "Jan 12, 2026",
+      "title": "📬 Newsletter",
+      "sent": 6811,
+      "opens": 5380,
+      "clicks": 971,
+      "open_rate": 78.99,
+      "ctr": 14.26,
+      "ctor": 18.05,
+      "raw": "Jan 12, 2026 📬 _Newsletter_… Argentina 6,811 5,380 971 78.99% 14.26% 18.05%"
+    },
+    {
+      "date": "Jan 12, 2026",
+      "title": "Seguimos acom",
+      "sent": 6806,
+      "opens": 5880,
+      "clicks": 1104,
+      "open_rate": 86.39,
+      "ctr": 16.22,
+      "ctor": 18.78,
+      "raw": "Jan 12, 2026 Seguimos_acom… Argentina 6,806 5,880 1,104 86.39% 16.22% 18.78%"
+    },
+    {
+      "date": "Jan 9, 2026",
+      "title": "Comunicación c",
+      "sent": 6800,
+      "opens": 5552,
+      "clicks": 360,
+      "open_rate": 81.65,
+      "ctr": 5.29,
+      "ctor": 6.48,
+      "raw": "Jan 9, 2026 Comunicaci_n_c… Argentina 6,800 5,552 360 81.65% 5.29% 6.48%"
+    },
+    {
+      "date": "Jan 8, 2026",
+      "title": "Felicitaciones",
+      "sent": 9,
+      "opens": 9,
+      "clicks": 0,
+      "open_rate": 100.0,
+      "ctr": 0.0,
+      "ctor": 0.0,
+      "raw": "Jan 8, 2026 _Felicitaciones__… Argentina 9 9 0 100% 0% 0%"
+    }
+  ],
+  "top_push_open": [
+    {
+      "date": "Jan 20, 2026",
+      "title": "Vuelta al cole: Tu kit escolar te espera 🎒",
+      "sent": 2246,
+      "opens": 2095,
+      "clicks": 1642,
+      "open_rate": 93.27,
+      "ctr": 73.11,
+      "ctor": 78.38,
+      "raw": "Vuelta_al_cole:__Tu_kit_escolar_te_espera__ 🎒 93.27%",
+      "name": "Vuelta al cole: Tu kit escolar te espera 🎒",
+      "ranking_source": "top_five_section",
+      "interaction": 73.11
+    },
+    {
+      "date": "Jan 30, 2026",
+      "title": "Los beneficios de febrero van a llenarte el corazón",
+      "sent": 5318,
+      "opens": 4803,
+      "clicks": 2941,
+      "open_rate": 90.32,
+      "ctr": 55.3,
+      "ctor": 61.23,
+      "raw": "Los_beneficios_de_febrero_van_a_llenarte_el_co… 90.32%",
+      "name": "Los beneficios de febrero van a llenarte el corazón",
+      "ranking_source": "top_five_section",
+      "interaction": 55.3
+    },
+    {
+      "date": "Jan 16, 2026",
+      "title": "Empezá el 2026 con estos beneficios - AACC",
+      "sent": 5315,
+      "opens": 4720,
+      "clicks": 1302,
+      "open_rate": 88.81,
+      "ctr": 24.5,
+      "ctor": 27.58,
+      "raw": "_Empez__el_2026_con_estos_beneficios__AACC… 88.81%",
+      "name": "Empezá el 2026 con estos beneficios - AACC",
+      "ranking_source": "top_five_section",
+      "interaction": 24.5
+    },
+    {
+      "date": "Jan 12, 2026",
+      "title": "Seguimos acompañando tu desarrollo académico",
+      "sent": 6806,
+      "opens": 5880,
+      "clicks": 1104,
+      "open_rate": 86.39,
+      "ctr": 16.22,
+      "ctor": 18.78,
+      "raw": "Seguimos_acompa_ando_tu_desarrollo_acad_mi… 86.39%",
+      "name": "Seguimos acompañando tu desarrollo académico",
+      "ranking_source": "top_five_section",
+      "interaction": 16.22
+    },
+    {
+      "date": "Jan 16, 2026",
+      "title": "Empezá el 2026 con estos beneficios - RESTO",
+      "sent": 1336,
+      "opens": 1138,
+      "clicks": 171,
+      "open_rate": 85.18,
+      "ctr": 12.8,
+      "ctor": 15.03,
+      "raw": "_Empez__el_2026_con_estos_beneficios__RESTO 85.18%",
+      "name": "Empezá el 2026 con estos beneficios - RESTO",
+      "ranking_source": "top_five_section",
+      "interaction": 12.8
+    }
+  ],
+  "top_push_interaction": [
+    {
+      "date": "Jan 20, 2026",
+      "title": "Vuelta al cole: Tu kit escolar te espera 🎒",
+      "sent": 2246,
+      "opens": 2095,
+      "clicks": 1642,
+      "open_rate": 93.28,
+      "ctr": 73.07,
+      "ctor": 78.38,
+      "raw": "Vuelta_al_cole:__Tu_kit_escolar_te_espera__ 🎒 73.07%",
+      "name": "Vuelta al cole: Tu kit escolar te espera 🎒",
+      "interaction": 73.07,
+      "ranking_source": "top_five_section"
+    },
+    {
+      "date": "Jan 30, 2026",
+      "title": "Los beneficios de febrero van a llenarte el corazón",
+      "sent": 5318,
+      "opens": 4803,
+      "clicks": 2941,
+      "open_rate": 90.32,
+      "ctr": 55.3,
+      "ctor": 61.23,
+      "raw": "Los_beneficios_de_febrero_van_a_llenarte_el_co… 55.3%",
+      "name": "Los beneficios de febrero van a llenarte el corazón",
+      "interaction": 55.3,
+      "ranking_source": "top_five_section"
+    },
+    {
+      "date": "Jan 16, 2026",
+      "title": "Empezá el 2026 con estos beneficios - AACC",
+      "sent": 5315,
+      "opens": 4720,
+      "clicks": 1302,
+      "open_rate": 88.81,
+      "ctr": 24.5,
+      "ctor": 27.58,
+      "raw": "_Empez__el_2026_con_estos_beneficios__AACC… 24.5%",
+      "name": "Empezá el 2026 con estos beneficios - AACC",
+      "interaction": 24.5,
+      "ranking_source": "top_five_section"
+    },
+    {
+      "date": "Jan 22, 2026",
+      "title": "Queremos escucharte: ayudanos a mejorar la comunicación interna",
+      "sent": 1555,
+      "opens": 1277,
+      "clicks": 273,
+      "open_rate": 82.12,
+      "ctr": 17.56,
+      "ctor": 21.38,
+      "raw": "Queremos_escucharte:_ayudanos_a_mejorar_la… 17.56%",
+      "name": "Queremos escucharte: ayudanos a mejorar la comunicación interna",
+      "interaction": 17.56,
+      "ranking_source": "top_five_section"
+    },
+    {
+      "date": "Jan 12, 2026",
+      "title": "Seguimos acompañando tu desarrollo académico",
+      "sent": 6806,
+      "opens": 5880,
+      "clicks": 1104,
+      "open_rate": 86.39,
+      "ctr": 16.22,
+      "ctor": 18.78,
+      "raw": "Seguimos_acompa_ando_tu_desarrollo_acad_mi… 16.22%",
+      "name": "Seguimos acompañando tu desarrollo académico",
+      "interaction": 16.22,
+      "ranking_source": "top_five_section"
+    }
+  ],
+  "top_pull_notes": [
+    {
+      "date": "Jan 28, 2026",
+      "title": "Vacunación contra el dengue: todo lo que tenés que saber",
+      "users": 520,
+      "views": 720,
+      "raw": "Jan 28, 2026 Vacunación contra el dengue: todo lo que tenés que saber ARGENTINA 520 720"
+    },
+    {
+      "date": "Jan 19, 2026",
+      "title": "Resultados NPS 2025: ¿dónde estamos y hacia dónde vamos?",
+      "users": 519,
+      "views": 632,
+      "raw": "Jan 19, 2026 Resultados NPS 2025: ¿dónde estamos y hacia dónde vamos? ARGENTINA 519 632"
+    },
+    {
+      "date": "Jan 20, 2026",
+      "title": "Eureka evolucionó con el Gen de la IA",
+      "users": 411,
+      "views": 480,
+      "raw": "Jan 20, 2026 Eureka evolucionó con el Gen de la IA ARGENTINA 411 480"
+    },
+    {
+      "date": "Jan 21, 2026",
+      "title": "Global Finance nos reconoció como el mejor banco de comercio exterior en Argentina",
+      "users": 300,
+      "views": 357,
+      "raw": "Jan 21, 2026 Global Finance nos reconoció como el mejor banco de comercio exterior en Argentina ARGENTINA 300 357"
+    },
+    {
+      "date": "Jan 19, 2026",
+      "title": "Cajas navideñas BBVA, una tradición que nos une",
+      "users": 297,
+      "views": 310,
+      "raw": "Jan 19, 2026 Cajas navideñas BBVA, una tradición que nos une ARGENTINA 297 310"
+    }
+  ],
+  "channel_mix": [
+    {
+      "channel": "Mail",
+      "pct": 40.7
+    },
+    {
+      "channel": "Intranet",
+      "pct": 27.8
+    },
+    {
+      "channel": "SITE",
+      "pct": 27.8
+    },
+    {
+      "channel": "Cartelería / Pantallas",
+      "pct": 1.9
+    },
+    {
+      "channel": "Widget #notelopierdas",
+      "pct": 1.9
+    }
+  ],
+  "format_mix": [
+    {
+      "format": "Postal/Carta",
+      "pct": 38.9
+    },
+    {
+      "format": "Noticia propia",
+      "pct": 37.0
+    },
+    {
+      "format": "Noticia bbva.com",
+      "pct": 22.2
+    }
+  ],
+  "strategic_axes": [
+    {
+      "axis": "RCP",
+      "count": 6
+    },
+    {
+      "axis": "Sostenibilidad",
+      "count": 2
+    },
+    {
+      "axis": "Empresas",
+      "count": 5
+    },
+    {
+      "axis": "Creación de valor",
+      "count": 0
+    },
+    {
+      "axis": "Innovación",
+      "count": 20
+    },
+    {
+      "axis": "Equipo",
+      "count": 11
+    },
+    {
+      "axis": "Otros",
+      "count": 9
+    }
+  ],
+  "internal_clients": [
+    {
+      "area": "Talento y Cultura",
+      "pct": 44.0
+    },
+    {
+      "area": "Relaciones Institucionales",
+      "pct": 17.0
+    },
+    {
+      "area": "Client Solutions",
+      "pct": 13.0
+    },
+    {
+      "area": "Engineering & Data",
+      "pct": 8.0
+    },
+    {
+      "area": "Country Manager Office (Gabinete Presidencia)",
+      "pct": 7.0
+    },
+    {
+      "area": "Red Comercial",
+      "pct": 3.0
+    },
+    {
+      "area": "Banca Minorista",
+      "pct": 3.0
+    },
+    {
+      "area": "Internal Control & Compliance",
+      "pct": 3.0
+    },
+    {
+      "area": "Finanzas",
+      "pct": 1.0
+    },
+    {
+      "area": "Banca Empresas",
+      "pct": 1.0
+    }
+  ],
+  "warnings": [],
+  "period": "quarter_2026_Q1",
+  "scope": "argentina",
+  "scope_label": "Argentina"
+}
