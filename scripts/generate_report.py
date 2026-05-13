@@ -15,6 +15,7 @@ from analyzer import (
 )
 from config import DATA_DIR, INBOX_PDF_DIR, MANUAL_CONTEXT_DIR, REPORTS_DIR, ensure_dir
 from history_manager import apply_historical_comparison, persist_calculated_totals
+from dashboard_crops import build_dashboard_crops
 from period_pdf_processor import resolve_period_scope_pdfs, summarize_period_scope
 from period_scopes import required_scopes_from_env
 from pptx_renderer import create_pptx
@@ -190,7 +191,7 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False, pdf
     period = get_period_definition(period_slug)
     allow_partial = (os.environ.get("ALLOW_PARTIAL_PERIOD") or "false").lower() == "true"
     required_scopes = required_scopes_from_env(os.environ.get("REPORT_REQUIRED_SCOPES"))
-    resolve_period_scope_pdfs(period_slug, scopes=required_scopes, pdf_dir=pdf_dir, allow_partial=allow_partial)
+    scope_pdf_paths = resolve_period_scope_pdfs(period_slug, scopes=required_scopes, pdf_dir=pdf_dir, allow_partial=allow_partial)
 
     period_summaries_raw: dict[str, dict[str, Any]] = {}
     warnings: list[str] = []
@@ -232,6 +233,13 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False, pdf
         "modules": [],
     }
 
+    report_assets_dir = REPORTS_DIR / period_slug
+    dashboard_crops = build_dashboard_crops(
+        period_slug=period_slug,
+        scope_pdf_paths=scope_pdf_paths,
+        output_dir=report_assets_dir,
+    )
+
     report = validate_report_json(
         {
             **deepcopy(BASE_STRUCTURE),
@@ -243,6 +251,7 @@ def generate_period_report(period_slug: str, force_regenerate: bool = False, pdf
             "narrative": narrative,
             "quality_flags": kpis_calculados.get("quality_flags", {}),
             "render_plan": render_plan,
+            "dashboard_crops": dashboard_crops,
         }
     )
 

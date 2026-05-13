@@ -103,6 +103,24 @@ function periodLabel() {
 function scopeData(scope) {
   return report?.kpis?.scopes?.[scope] || {};
 }
+function cropPath(scope, moduleName, cropName) {
+  const crops = report?.dashboard_crops || {};
+  const scopeCrops = crops[scope] || {};
+  const moduleCrops = scopeCrops[moduleName] || {};
+  const candidate = moduleCrops[cropName];
+  if (!candidate) return null;
+  const absolute = path.isAbsolute(candidate) ? candidate : path.resolve(process.cwd(), candidate);
+  return fs.existsSync(absolute) ? absolute : null;
+}
+function addCropOrPlaceholder(slide, imagePath, x, y, w, h, label = 'Gráfico no disponible') {
+  if (imagePath && fs.existsSync(imagePath)) {
+    slide.addShape(pptx.ShapeType.roundRect, { x, y, w, h, rectRadius: 0.04, fill: { color: COLORS.white }, line: { color: COLORS.grey1, width: 0.7 } });
+    slide.addImage({ path: imagePath, x: x + 0.05, y: y + 0.05, w: w - 0.10, h: h - 0.10, sizing: { type: 'contain', x: x + 0.05, y: y + 0.05, w: w - 0.10, h: h - 0.10 } });
+    return;
+  }
+  slide.addShape(pptx.ShapeType.roundRect, { x, y, w, h, rectRadius: 0.04, fill: { color: COLORS.white }, line: { color: COLORS.grey1, width: 0.7 } });
+  slide.addText(label, { x: x + 0.16, y: y + h / 2 - 0.09, w: w - 0.32, h: 0.18, fontFace: 'Arial', fontSize: 8, color: COLORS.muted, align: 'center', margin: 0, fit: 'shrink' });
+}
 function ensureScopes() {
   const scopes = report?.kpis?.scopes || {};
   for (const s of ['argentina', 'holding', 'combined']) {
@@ -235,26 +253,9 @@ function scopedKpiRow(slide, x, y, scope, label, accent) {
   kpiCard(slide, x + 4.50, y, 1.78, 0.64, 'Interacción enviados', fmtPct(scope.mail_interaction_rate), { fill: COLORS.blue, valueSize: 12, labelSize: 5.6 });
   kpiCard(slide, x + 6.43, y, 1.78, 0.64, 'Interacción abiertos', fmtPct(scope.mail_interaction_rate_over_opened), { fill: COLORS.blue, valueSize: 12, labelSize: 5.6 });
 }
-function simpleTrend(slide, x, y, w, h, scope, title = 'Tendencia mensual de envíos y aperturas') {
+function trendCrop(slide, x, y, w, h, scopeName, title = 'Tendencia mensual de envíos y aperturas') {
   panel(slide, x, y, w, h, title);
-  const trend = Array.isArray(scope.monthly_trend) ? scope.monthly_trend : [];
-  const fallback = [
-    { label: 'ene', mails: num(scope.mail_total) / 3, open: num(scope.mail_open_rate) },
-    { label: 'feb', mails: num(scope.mail_total) / 3, open: num(scope.mail_open_rate) },
-    { label: 'mar', mails: num(scope.mail_total) / 3, open: num(scope.mail_open_rate) },
-  ];
-  const data = trend.length ? trend : fallback;
-  const maxMails = Math.max(...data.map((d) => num(d.mails ?? d.mail_total ?? d.sent ?? d.value)), 1);
-  const gx = x + 0.35, gy = y + 0.55, gw = w - 0.70, gh = h - 0.95;
-  data.slice(0, 6).forEach((d, i) => {
-    const n = num(d.mails ?? d.mail_total ?? d.sent ?? d.value);
-    const barH = Math.max(0.02, gh * (n / maxMails));
-    const bw = Math.min(0.34, gw / data.length * 0.45);
-    const bx = gx + i * (gw / Math.max(data.length, 1)) + 0.08;
-    slide.addShape(pptx.ShapeType.rect, { x: bx, y: gy + gh - barH, w: bw, h: barH, fill: { color: COLORS.orange }, line: { color: COLORS.orange } });
-    slide.addText(truncate(d.label || d.month || '-', 8), { x: bx - 0.08, y: gy + gh + 0.08, w: bw + 0.16, h: 0.10, fontFace: 'Arial', fontSize: 5.6, color: COLORS.ink, align: 'center', margin: 0, fit: 'shrink' });
-  });
-  slide.addText(`Apertura: ${fmtPct(scope.mail_open_rate)}`, { x: x + 0.30, y: y + h - 0.24, w: w - 0.60, h: 0.10, fontFace: 'Arial', fontSize: 6.1, bold: true, color: COLORS.blue, margin: 0, fit: 'shrink' });
+  addCropOrPlaceholder(slide, cropPath(scopeName, 'mailing', 'monthly_trend'), x + 0.10, y + 0.34, w - 0.20, h - 0.46, 'Tendencia mensual no disponible');
 }
 function renderCover() {
   const slide = pptx.addSlide();
@@ -270,76 +271,85 @@ function renderPlanningComparison() {
   const arg = scopeData('argentina');
   const hol = scopeData('holding');
   const slide = slideBase(`Gestión CI - ${periodLabel()}`, 'Planificación | Argentina vs Holding');
-  kpiCard(slide, 1.45, 1.16, 3.10, 0.72, 'ARGENTINA · Acciones de Comunicación', fmtNum(arg.plan_total), { fill: COLORS.blue, valueSize: 20 });
-  kpiCard(slide, 8.55, 1.16, 3.10, 0.72, 'HOLDING · Acciones de Comunicación', fmtNum(hol.plan_total), { fill: COLORS.muted, valueSize: 20 });
-  barChart(slide, 0.55, 2.08, 3.35, 1.55, arg.strategic_axes, { title: 'Argentina · Eje estratégico', limit: 6, labelMax: 10 });
-  donutLegend(slide, 4.08, 2.08, 2.65, 1.55, arg.channel_mix, { title: 'Argentina · Canales', limit: 5 });
-  barChart(slide, 0.55, 3.82, 6.18, 1.35, arg.internal_clients, { title: 'Argentina · Área solicitante', limit: 7, labelMax: 11 });
-  barChart(slide, 7.03, 2.08, 2.82, 1.55, hol.strategic_axes, { title: 'Holding · Eje estratégico', limit: 6, labelMax: 10 });
-  donutLegend(slide, 10.03, 2.08, 2.78, 1.55, hol.channel_mix, { title: 'Holding · Canales', limit: 5 });
-  barChart(slide, 7.03, 3.82, 5.78, 1.35, hol.internal_clients, { title: 'Holding · Área solicitante', limit: 7, labelMax: 11 });
-  observationBox(slide, 0.55, 5.52, 12.26, 1.18);
+  kpiCard(slide, 1.45, 1.12, 3.10, 0.68, 'ARGENTINA · Acciones de Comunicación', fmtNum(arg.plan_total), { fill: COLORS.blue, valueSize: 19 });
+  kpiCard(slide, 8.55, 1.12, 3.10, 0.68, 'HOLDING · Acciones de Comunicación', fmtNum(hol.plan_total), { fill: COLORS.muted, valueSize: 19 });
+  slide.addText('Distribución por Eje Estratégico', { x: 0.58, y: 1.92, w: 3.8, h: 0.16, fontFace: 'Arial', fontSize: 8, bold: true, color: COLORS.blue, margin: 0 });
+  slide.addText('Distribución por Canales', { x: 4.45, y: 1.92, w: 2.4, h: 0.16, fontFace: 'Arial', fontSize: 8, bold: true, color: COLORS.blue, margin: 0 });
+  slide.addText('Distribución por Eje Estratégico', { x: 7.08, y: 1.92, w: 3.8, h: 0.16, fontFace: 'Arial', fontSize: 8, bold: true, color: COLORS.blue, margin: 0 });
+  slide.addText('Distribución por Canales', { x: 10.75, y: 1.92, w: 2.1, h: 0.16, fontFace: 'Arial', fontSize: 8, bold: true, color: COLORS.blue, margin: 0 });
+  addCropOrPlaceholder(slide, cropPath('argentina', 'planning', 'strategic_axes'), 0.55, 2.12, 3.55, 1.48, 'Eje estratégico no disponible');
+  addCropOrPlaceholder(slide, cropPath('argentina', 'planning', 'channel_mix'), 4.28, 2.12, 2.52, 1.48, 'Canales no disponibles');
+  addCropOrPlaceholder(slide, cropPath('holding', 'planning', 'strategic_axes'), 7.02, 2.12, 3.55, 1.48, 'Eje estratégico no disponible');
+  addCropOrPlaceholder(slide, cropPath('holding', 'planning', 'channel_mix'), 10.73, 2.12, 2.18, 1.48, 'Canales no disponibles');
+  slide.addText('Área solicitante · Argentina', { x: 0.58, y: 3.78, w: 3.6, h: 0.16, fontFace: 'Arial', fontSize: 8, bold: true, color: COLORS.blue, margin: 0 });
+  slide.addText('Área solicitante · Holding', { x: 7.08, y: 3.78, w: 3.6, h: 0.16, fontFace: 'Arial', fontSize: 8, bold: true, color: COLORS.blue, margin: 0 });
+  addCropOrPlaceholder(slide, cropPath('argentina', 'planning', 'internal_clients'), 0.55, 3.98, 6.25, 1.20, 'Área solicitante no disponible');
+  addCropOrPlaceholder(slide, cropPath('holding', 'planning', 'internal_clients'), 7.02, 3.98, 5.89, 1.20, 'Área solicitante no disponible');
+  observationBox(slide, 0.55, 5.52, 12.36, 1.18);
 }
 function renderPlanningCombined() {
   const c = scopeData('combined');
   const slide = slideBase(`Gestión CI - ${periodLabel()}`, 'Planificación | Argentina + Holding');
-  kpiCard(slide, 4.70, 1.14, 3.90, 0.76, 'Acciones de Comunicación', fmtNum(c.plan_total), { fill: COLORS.blue, valueSize: 22 });
-  barChart(slide, 0.62, 2.16, 3.75, 2.08, c.strategic_axes, { title: 'Distribución por Eje Estratégico', limit: 7, labelMax: 12 });
-  donutLegend(slide, 4.68, 2.16, 3.40, 2.08, c.channel_mix, { title: 'Distribución por Canales', limit: 7 });
-  barChart(slide, 8.38, 2.16, 4.32, 2.08, c.internal_clients, { title: 'Área solicitante', limit: 8, labelMax: 12 });
-  observationBox(slide, 0.62, 4.72, 12.08, 1.72);
+  kpiCard(slide, 4.70, 1.10, 3.90, 0.72, 'Acciones de Comunicación', fmtNum(c.plan_total), { fill: COLORS.blue, valueSize: 22 });
+  slide.addText('Distribución por Eje Estratégico', { x: 0.65, y: 2.04, w: 3.6, h: 0.16, fontFace: 'Arial', fontSize: 8.4, bold: true, color: COLORS.blue, margin: 0 });
+  slide.addText('Distribución por Canales', { x: 4.74, y: 2.04, w: 3.2, h: 0.16, fontFace: 'Arial', fontSize: 8.4, bold: true, color: COLORS.blue, margin: 0 });
+  slide.addText('Área solicitante', { x: 8.44, y: 2.04, w: 3.2, h: 0.16, fontFace: 'Arial', fontSize: 8.4, bold: true, color: COLORS.blue, margin: 0 });
+  addCropOrPlaceholder(slide, cropPath('combined', 'planning', 'strategic_axes'), 0.62, 2.28, 3.75, 2.08, 'Eje estratégico no disponible');
+  addCropOrPlaceholder(slide, cropPath('combined', 'planning', 'channel_mix'), 4.68, 2.28, 3.40, 2.08, 'Canales no disponibles');
+  addCropOrPlaceholder(slide, cropPath('combined', 'planning', 'internal_clients'), 8.38, 2.28, 4.32, 2.08, 'Área solicitante no disponible');
+  observationBox(slide, 0.62, 4.82, 12.08, 1.62);
 }
 function renderMailComparison() {
   const arg = scopeData('argentina');
   const hol = scopeData('holding');
   const slide = slideBase(`Gestión CI - ${periodLabel()}`, 'Canal Mail | Argentina vs Holding');
-  scopedKpiRow(slide, 0.72, 1.20, arg, 'Argentina', COLORS.blue);
-  scopedKpiRow(slide, 0.72, 1.96, hol, 'Holding', COLORS.muted);
-  simpleTrend(slide, 0.70, 2.95, 3.10, 1.40, arg, 'Argentina · Tendencia mensual');
-  simpleTrend(slide, 0.70, 4.55, 3.10, 1.40, hol, 'Holding · Tendencia mensual');
-  topTable(slide, 4.08, 2.78, 4.10, 1.62, 'Top five - Mayor Tasa de Apertura · Argentina', arg.top_push_by_open_rate, ['open_rate', 'rate', 'value'], { valueLabel: 'Apertura', headerColor: COLORS.lime });
-  topTable(slide, 8.48, 2.78, 4.10, 1.62, 'Top five - Mayor Tasa de Apertura · Holding', hol.top_push_by_open_rate, ['open_rate', 'rate', 'value'], { valueLabel: 'Apertura', headerColor: COLORS.lime });
-  topTable(slide, 4.08, 4.60, 4.10, 1.62, 'Top five - Mayor Tasa de Interacción · Argentina', arg.top_push_by_interaction, ['interaction', 'interaction_rate', 'ctr', 'value'], { valueLabel: 'Interacción', headerColor: COLORS.sky });
-  topTable(slide, 8.48, 4.60, 4.10, 1.62, 'Top five - Mayor Tasa de Interacción · Holding', hol.top_push_by_interaction, ['interaction', 'interaction_rate', 'ctr', 'value'], { valueLabel: 'Interacción', headerColor: COLORS.sky });
-  observationBox(slide, 0.70, 6.28, 11.88, 0.78);
+  scopedKpiRow(slide, 0.72, 1.12, arg, 'Argentina', COLORS.blue);
+  scopedKpiRow(slide, 0.72, 1.82, hol, 'Holding', COLORS.muted);
+  trendCrop(slide, 0.70, 2.62, 5.65, 1.15, 'argentina', 'Tendencia mensual · Argentina');
+  trendCrop(slide, 6.65, 2.62, 5.65, 1.15, 'holding', 'Tendencia mensual · Holding');
+  topTable(slide, 0.70, 4.02, 5.65, 0.95, 'Top five - Mayor Tasa de Apertura · Argentina', arg.top_push_by_open_rate, ['open_rate', 'rate', 'value'], { valueLabel: 'Apertura', headerColor: COLORS.lime, fontSize: 5.2, titleMax: 42, limit: 5 });
+  topTable(slide, 6.65, 4.02, 5.65, 0.95, 'Top five - Mayor Tasa de Interacción · Argentina', arg.top_push_by_interaction, ['interaction', 'interaction_rate', 'ctr', 'value'], { valueLabel: 'Interacción', headerColor: COLORS.sky, fontSize: 5.2, titleMax: 42, limit: 5 });
+  topTable(slide, 0.70, 5.10, 5.65, 0.95, 'Top five - Mayor Tasa de Apertura · Holding', hol.top_push_by_open_rate, ['open_rate', 'rate', 'value'], { valueLabel: 'Apertura', headerColor: COLORS.lime, fontSize: 5.2, titleMax: 42, limit: 5 });
+  topTable(slide, 6.65, 5.10, 5.65, 0.95, 'Top five - Mayor Tasa de Interacción · Holding', hol.top_push_by_interaction, ['interaction', 'interaction_rate', 'ctr', 'value'], { valueLabel: 'Interacción', headerColor: COLORS.sky, fontSize: 5.2, titleMax: 42, limit: 5 });
+  observationBox(slide, 0.70, 6.22, 11.60, 0.58);
 }
 function renderMailCombined() {
   const c = scopeData('combined');
   const slide = slideBase(`Gestión CI - ${periodLabel()}`, 'Canal Mail | Argentina + Holding');
-  kpiCard(slide, 0.82, 1.18, 2.55, 0.72, 'Mails', mailVolume(c), { fill: COLORS.blue, valueSize: 12 });
-  kpiCard(slide, 3.62, 1.18, 2.35, 0.72, 'Tasa de apertura promedio', fmtPct(c.mail_open_rate), { fill: COLORS.blue, valueSize: 16 });
-  kpiCard(slide, 6.22, 1.18, 2.70, 0.72, 'Interacción sobre enviados', fmtPct(c.mail_interaction_rate), { fill: COLORS.blue, valueSize: 16 });
-  kpiCard(slide, 9.17, 1.18, 2.70, 0.72, 'Interacción sobre abiertos', fmtPct(c.mail_interaction_rate_over_opened), { fill: COLORS.blue, valueSize: 16 });
-  simpleTrend(slide, 0.72, 2.28, 4.15, 2.02, c);
-  topTable(slide, 5.18, 2.28, 3.65, 2.02, 'Top five - Mayor Tasa de Apertura', c.top_push_by_open_rate, ['open_rate', 'rate', 'value'], { valueLabel: 'Apertura', headerColor: COLORS.lime });
-  topTable(slide, 9.12, 2.28, 3.65, 2.02, 'Top five - Mayor Tasa de Interacción', c.top_push_by_interaction, ['interaction', 'interaction_rate', 'ctr', 'value'], { valueLabel: 'Interacción', headerColor: COLORS.sky });
-  observationBox(slide, 0.72, 4.68, 12.05, 1.56);
+  kpiCard(slide, 0.82, 1.12, 2.55, 0.68, 'Mails', mailVolume(c), { fill: COLORS.blue, valueSize: 12 });
+  kpiCard(slide, 3.62, 1.12, 2.35, 0.68, 'Tasa de apertura promedio', fmtPct(c.mail_open_rate), { fill: COLORS.blue, valueSize: 16 });
+  kpiCard(slide, 6.22, 1.12, 2.70, 0.68, 'Interacción sobre enviados', fmtPct(c.mail_interaction_rate), { fill: COLORS.blue, valueSize: 16 });
+  kpiCard(slide, 9.17, 1.12, 2.70, 0.68, 'Interacción sobre abiertos', fmtPct(c.mail_interaction_rate_over_opened), { fill: COLORS.blue, valueSize: 16 });
+  trendCrop(slide, 0.82, 2.14, 11.05, 1.42, 'combined');
+  topTable(slide, 0.82, 3.86, 5.35, 1.40, 'Top five - Mayor Tasa de Apertura', c.top_push_by_open_rate, ['open_rate', 'rate', 'value'], { valueLabel: 'Apertura', headerColor: COLORS.lime, fontSize: 5.7, titleMax: 46 });
+  topTable(slide, 6.52, 3.86, 5.35, 1.40, 'Top five - Mayor Tasa de Interacción', c.top_push_by_interaction, ['interaction', 'interaction_rate', 'ctr', 'value'], { valueLabel: 'Interacción', headerColor: COLORS.sky, fontSize: 5.7, titleMax: 46 });
+  observationBox(slide, 0.82, 5.58, 11.05, 0.88);
 }
 function renderContentComparison() {
   const arg = scopeData('argentina');
   const hol = scopeData('holding');
   const slide = slideBase(`Gestión CI - ${periodLabel()}`, 'Canal Intranet / Contenidos | Argentina vs Holding');
-  kpiCard(slide, 1.50, 1.16, 1.75, 0.62, 'Noticias Publicadas · ARG', fmtNum(arg.site_notes_total), { fill: COLORS.blue, valueSize: 16, labelSize: 5.8 });
-  kpiCard(slide, 3.44, 1.16, 1.95, 0.62, 'Total Páginas Vistas · ARG', fmtNum(arg.site_total_views), { fill: COLORS.blue, valueSize: 14, labelSize: 5.8 });
-  kpiCard(slide, 5.58, 1.16, 1.75, 0.62, 'Promedio Vistas · ARG', fmtNum(arg.site_average_views), { fill: COLORS.blue, valueSize: 14, labelSize: 5.8 });
-  kpiCard(slide, 7.72, 1.16, 1.75, 0.62, 'Noticias Publicadas · HOL', fmtNum(hol.site_notes_total), { fill: COLORS.muted, valueSize: 16, labelSize: 5.8 });
-  kpiCard(slide, 9.66, 1.16, 1.95, 0.62, 'Total Páginas Vistas · HOL', fmtNum(hol.site_total_views), { fill: COLORS.muted, valueSize: 14, labelSize: 5.8 });
-  kpiCard(slide, 11.80, 1.16, 1.35, 0.62, 'Promedio · HOL', fmtNum(hol.site_average_views), { fill: COLORS.muted, valueSize: 14, labelSize: 5.8 });
-  contentTable(slide, 0.52, 2.10, 6.10, 1.52, 'Top five - Notas más leídas (uu) · Argentina', arg.top_pull_notes, { headerColor: COLORS.sky });
-  contentTable(slide, 6.85, 2.10, 6.10, 1.52, 'Top five - Notas más leídas (uu) · Holding', hol.top_pull_notes, { headerColor: COLORS.sky });
-  contentTable(slide, 0.52, 3.88, 6.10, 1.52, 'Top five - Notas más leídas (colectivo TGM) · Argentina', arg.top_pull_notes_tgm || arg.top_pull_notes, { headerColor: COLORS.yellow });
-  contentTable(slide, 6.85, 3.88, 6.10, 1.52, 'Top five - Notas más leídas (colectivo TGM) · Holding', hol.top_pull_notes_tgm || hol.top_pull_notes, { headerColor: COLORS.yellow });
-  observationBox(slide, 0.52, 5.78, 12.43, 0.86);
+  kpiCard(slide, 1.50, 1.08, 1.75, 0.58, 'Noticias Publicadas · ARG', fmtNum(arg.site_notes_total), { fill: COLORS.blue, valueSize: 15, labelSize: 5.6 });
+  kpiCard(slide, 3.44, 1.08, 1.95, 0.58, 'Total Páginas Vistas · ARG', fmtNum(arg.site_total_views), { fill: COLORS.blue, valueSize: 13, labelSize: 5.6 });
+  kpiCard(slide, 5.58, 1.08, 1.75, 0.58, 'Promedio Vistas · ARG', fmtNum(arg.site_average_views), { fill: COLORS.blue, valueSize: 13, labelSize: 5.6 });
+  kpiCard(slide, 7.72, 1.08, 1.75, 0.58, 'Noticias Publicadas · HOL', fmtNum(hol.site_notes_total), { fill: COLORS.muted, valueSize: 15, labelSize: 5.6 });
+  kpiCard(slide, 9.66, 1.08, 1.95, 0.58, 'Total Páginas Vistas · HOL', fmtNum(hol.site_total_views), { fill: COLORS.muted, valueSize: 13, labelSize: 5.6 });
+  kpiCard(slide, 11.80, 1.08, 1.35, 0.58, 'Promedio · HOL', fmtNum(hol.site_average_views), { fill: COLORS.muted, valueSize: 13, labelSize: 5.6 });
+  contentTable(slide, 0.52, 1.96, 6.10, 1.45, 'Top five - Notas más leídas (uu) · Argentina', arg.top_pull_notes, { headerColor: COLORS.sky, fontSize: 5.1, titleMax: 48 });
+  contentTable(slide, 6.85, 1.96, 6.10, 1.45, 'Top five - Notas más leídas (TGM) · Argentina', arg.top_pull_notes_tgm || arg.top_pull_notes, { headerColor: COLORS.yellow, fontSize: 5.1, titleMax: 48 });
+  contentTable(slide, 0.52, 3.66, 6.10, 1.45, 'Top five - Notas más leídas (uu) · Holding', hol.top_pull_notes, { headerColor: COLORS.sky, fontSize: 5.1, titleMax: 48 });
+  contentTable(slide, 6.85, 3.66, 6.10, 1.45, 'Top five - Notas más leídas (TGM) · Holding', hol.top_pull_notes_tgm || hol.top_pull_notes, { headerColor: COLORS.yellow, fontSize: 5.1, titleMax: 48 });
+  observationBox(slide, 0.52, 5.45, 12.43, 0.86);
 }
 function renderContentCombined() {
   const c = scopeData('combined');
   const slide = slideBase(`Gestión CI - ${periodLabel()}`, 'Canal Intranet / Contenidos | Argentina + Holding');
-  kpiCard(slide, 2.20, 1.16, 2.20, 0.70, 'Noticias Publicadas', fmtNum(c.site_notes_total), { fill: COLORS.blue, valueSize: 18 });
-  kpiCard(slide, 5.40, 1.16, 2.45, 0.70, 'Total Páginas Vistas', fmtNum(c.site_total_views), { fill: COLORS.blue, valueSize: 18 });
-  kpiCard(slide, 8.85, 1.16, 2.20, 0.70, 'Promedio Vistas', fmtNum(c.site_average_views), { fill: COLORS.blue, valueSize: 18 });
-  contentTable(slide, 0.80, 2.24, 11.74, 1.62, 'Top five - Notas más leídas (uu)', c.top_pull_notes, { headerColor: COLORS.sky, titleMax: 78 });
-  contentTable(slide, 0.80, 4.16, 11.74, 1.62, 'Top five - Notas más leídas (colectivo TGM)', c.top_pull_notes_tgm || c.top_pull_notes, { headerColor: COLORS.yellow, titleMax: 78 });
-  observationBox(slide, 0.80, 6.05, 11.74, 0.80);
+  kpiCard(slide, 2.20, 1.10, 2.20, 0.66, 'Noticias Publicadas', fmtNum(c.site_notes_total), { fill: COLORS.blue, valueSize: 17 });
+  kpiCard(slide, 5.40, 1.10, 2.45, 0.66, 'Total Páginas Vistas', fmtNum(c.site_total_views), { fill: COLORS.blue, valueSize: 17 });
+  kpiCard(slide, 8.85, 1.10, 2.20, 0.66, 'Promedio Vistas', fmtNum(c.site_average_views), { fill: COLORS.blue, valueSize: 17 });
+  contentTable(slide, 0.80, 2.12, 5.60, 2.05, 'Top five - Notas más leídas (uu)', c.top_pull_notes, { headerColor: COLORS.sky, titleMax: 52 });
+  contentTable(slide, 6.70, 2.12, 5.60, 2.05, 'Top five - Notas más leídas (TGM)', c.top_pull_notes_tgm || c.top_pull_notes, { headerColor: COLORS.yellow, titleMax: 52 });
+  observationBox(slide, 0.80, 4.60, 11.50, 1.24);
 }
 function renderClosing() {
   const slide = pptx.addSlide();

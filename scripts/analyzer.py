@@ -43,6 +43,7 @@ BASE_STRUCTURE: dict[str, Any] = {
     "narrative": {},
     "quality_flags": {},
     "render_plan": {"modules": []},
+    "dashboard_crops": {},
 }
  
 PLAN_MAIL_ABS_DELTA_THRESHOLD = 5
