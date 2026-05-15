@@ -12,6 +12,11 @@ from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
 from pptx.enum.text import PP_ALIGN, MSO_VERTICAL_ANCHOR
 from pptx.util import Inches, Pt
 
+try:
+    from PIL import Image
+except Exception:  # pragma: no cover
+    Image = None
+
 from analyzer import validate_report_json
 from config import ASSETS_DIR
 
@@ -34,6 +39,34 @@ COLORS = {
 COVER_PATH = ASSETS_DIR / "reference" / "boceto_cover.png"
 BBVA_LOGO_BLUE = ASSETS_DIR / "brand" / "bbva_logo_blue.png"
 BBVA_LOGO_WHITE = ASSETS_DIR / "brand" / "bbva_logo_white.png"
+BBVA_LOGO_WHITE_CLEAN = ASSETS_DIR / "brand" / "bbva_logo_white_clean.png"
+
+
+def _clean_white_logo_path() -> Path | None:
+    """Return a clean white BBVA logo without the shadow/pixelated asset issue.
+
+    The repository white PNG has a grey glow/shadow. For the blue closing slide,
+    derive a pure-white transparent PNG from the blue corporate logo at runtime.
+    """
+    if BBVA_LOGO_WHITE_CLEAN.exists():
+        return BBVA_LOGO_WHITE_CLEAN
+    if Image is None or not BBVA_LOGO_BLUE.exists():
+        return BBVA_LOGO_WHITE if BBVA_LOGO_WHITE.exists() else None
+    try:
+        img = Image.open(BBVA_LOGO_BLUE).convert("RGBA")
+        pixels = []
+        for r, g, b, a in img.getdata():
+            # Keep transparent/white background transparent; recolor actual blue logo to white.
+            if a < 10 or (r > 245 and g > 245 and b > 245):
+                pixels.append((255, 255, 255, 0))
+            else:
+                pixels.append((255, 255, 255, a))
+        img.putdata(pixels)
+        BBVA_LOGO_WHITE_CLEAN.parent.mkdir(parents=True, exist_ok=True)
+        img.save(BBVA_LOGO_WHITE_CLEAN)
+        return BBVA_LOGO_WHITE_CLEAN
+    except Exception:
+        return BBVA_LOGO_WHITE if BBVA_LOGO_WHITE.exists() else None
 
 
 def _in(v: float):
@@ -179,8 +212,8 @@ def _add_rect(slide, x, y, w, h, fill, line=None, radius=False):
 
 
 def _add_logo(slide, white=False):
-    path = BBVA_LOGO_WHITE if white else BBVA_LOGO_BLUE
-    if path.exists():
+    path = _clean_white_logo_path() if white else BBVA_LOGO_BLUE
+    if path and path.exists():
         slide.shapes.add_picture(str(path), _in(11.92), _in(0.18), width=_in(0.95))
     else:
         _add_text(slide, 11.8, 0.16, 1.1, 0.35, "BBVA", size=16, color=COLORS["white"] if white else COLORS["bbva_blue"], bold=True, align=PP_ALIGN.RIGHT)
@@ -306,7 +339,6 @@ def _planning_compare(slide, scopes, report):
     _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "internal_clients"), 0.55, 3.58, 5.90, 1.34)
     _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "internal_clients"), 6.85, 3.58, 5.90, 1.34)
 
-    _obs_box(slide, 0.55, 5.28, 12.20, 0.97)
 
 
 def _planning_combined(slide, scopes, report):
@@ -320,7 +352,6 @@ def _planning_combined(slide, scopes, report):
     _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "strategic_axes"), 0.55, 2.04, 3.35, 1.70)
     _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "channel_mix"), 4.10, 2.04, 3.25, 1.70)
     _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "internal_clients"), 7.55, 2.04, 5.20, 1.70)
-    _obs_box(slide, 0.55, 4.72, 12.20, 1.38)
 
 
 def _add_scope_label(slide, x, y, w, text):
@@ -365,42 +396,29 @@ def _mail_compare(slide, scopes, report):
     _add_scope_label(slide, left_x, 1.04, col_w, "Argentina")
     _add_scope_label(slide, right_x, 1.04, col_w, "Holding")
 
-    _add_mail_kpi_crops(slide, report, "argentina", left_x, 1.32, col_w)
-    _add_mail_kpi_crops(slide, report, "holding", right_x, 1.32, col_w)
+    _add_mail_kpi_crops(slide, report, "argentina", left_x, 1.30, col_w)
+    _add_mail_kpi_crops(slide, report, "holding", right_x, 1.30, col_w)
 
-    _add_crop_title(slide, left_x, 2.02, col_w, "Tendencia mensual de envíos y aperturas")
-    _add_crop_title(slide, right_x, 2.02, col_w, "Tendencia mensual de envíos y aperturas")
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "monthly_trend"), left_x, 2.20, col_w, 1.48)
-    _image_or_placeholder(slide, _assets_crop(report, "holding", "mailing", "monthly_trend"), right_x, 2.20, col_w, 1.48)
+    # Los recortes del dashboard ya incluyen el título interno, por eso no agregamos
+    # títulos externos que duplican texto y consumen espacio.
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "monthly_trend"), left_x, 1.95, col_w, 1.58)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "mailing", "monthly_trend"), right_x, 1.95, col_w, 1.58)
 
-    _add_crop_title(slide, left_x, 3.90, 2.85, "Top five - Mayor Tasa de Apertura")
-    _add_crop_title(slide, left_x + 3.04, 3.90, 2.85, "Top five - Mayor Tasa de Interacción")
-    _add_crop_title(slide, right_x, 3.90, 2.85, "Top five - Mayor Tasa de Apertura")
-    _add_crop_title(slide, right_x + 3.04, 3.90, 2.85, "Top five - Mayor Tasa de Interacción")
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_open_rate"), left_x, 4.08, 2.85, 1.10)
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_interaction"), left_x + 3.04, 4.08, 2.85, 1.10)
-    _image_or_placeholder(slide, _assets_crop(report, "holding", "mailing", "top_open_rate"), right_x, 4.08, 2.85, 1.10)
-    _image_or_placeholder(slide, _assets_crop(report, "holding", "mailing", "top_interaction"), right_x + 3.04, 4.08, 2.85, 1.10)
-
-    _obs_box(slide, 0.55, 5.55, 12.20, 0.72)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_open_rate"), left_x, 3.80, 2.92, 1.32)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_interaction"), left_x + 3.03, 3.80, 2.92, 1.32)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "mailing", "top_open_rate"), right_x, 3.80, 2.92, 1.32)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "mailing", "top_interaction"), right_x + 3.03, 3.80, 2.92, 1.32)
 
 
 def _mail_combined(slide, scopes, report):
     _solid_bg(slide)
     _add_section_header(slide, "Canal Mail | Argentina + Holding")
 
-    _add_mail_kpi_crops(slide, report, "combined", 1.00, 1.18, 11.35)
+    _add_mail_kpi_crops(slide, report, "combined", 1.00, 1.16, 11.35)
 
-    _add_crop_title(slide, 0.75, 2.03, 5.9, "Tendencia mensual de envíos y aperturas")
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "monthly_trend"), 0.75, 2.22, 7.05, 2.10)
-
-    _add_crop_title(slide, 8.10, 2.03, 4.35, "Top five - Mayor Tasa de Apertura")
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "top_open_rate"), 8.10, 2.22, 4.35, 1.40)
-
-    _add_crop_title(slide, 8.10, 3.92, 4.35, "Top five - Mayor Tasa de Interacción")
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "top_interaction"), 8.10, 4.11, 4.35, 1.40)
-
-    _obs_box(slide, 0.55, 5.95, 12.20, 0.82)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "monthly_trend"), 0.75, 1.95, 7.10, 2.35)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "top_open_rate"), 8.10, 1.95, 4.35, 1.55)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "top_interaction"), 8.10, 3.82, 4.35, 1.55)
 
 
 def _content_compare(slide, scopes, report):
@@ -412,43 +430,34 @@ def _content_compare(slide, scopes, report):
     _add_scope_label(slide, left_x, 1.04, col_w, "Argentina")
     _add_scope_label(slide, right_x, 1.04, col_w, "Holding")
 
-    _add_content_kpi_crops(slide, report, "argentina", left_x + 0.25, 1.32, col_w - 0.50)
-    _add_content_kpi_crops(slide, report, "holding", right_x + 0.25, 1.32, col_w - 0.50)
+    _add_content_kpi_crops(slide, report, "argentina", left_x + 0.25, 1.28, col_w - 0.50)
+    _add_content_kpi_crops(slide, report, "holding", right_x + 0.25, 1.28, col_w - 0.50)
 
-    _add_crop_title(slide, left_x, 2.15, col_w, "Top five - Notas más leídas (uu)")
-    _add_crop_title(slide, right_x, 2.15, col_w, "Top five - Notas más leídas (uu)")
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_uu"), left_x, 2.34, col_w, 1.10)
-    _image_or_placeholder(slide, _assets_crop(report, "holding", "contents", "top_notes_uu"), right_x, 2.34, col_w, 1.10)
+    # Los Top Five ya traen encabezado dentro del recorte del dashboard.
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_uu"), left_x, 2.05, col_w, 1.45)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "contents", "top_notes_uu"), right_x, 2.05, col_w, 1.45)
 
-    _add_crop_title(slide, left_x, 3.75, col_w, "Top five - Notas más leídas (colectivo TGM)")
-    _add_crop_title(slide, right_x, 3.75, col_w, "Top five - Notas más leídas (colectivo TGM)")
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_tgm"), left_x, 3.94, col_w, 1.10)
-    _image_or_placeholder(slide, _assets_crop(report, "holding", "contents", "top_notes_tgm"), right_x, 3.94, col_w, 1.10)
-
-    _obs_box(slide, 0.55, 5.55, 12.20, 0.72)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_tgm"), left_x, 3.85, col_w, 1.45)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "contents", "top_notes_tgm"), right_x, 3.85, col_w, 1.45)
 
 
 def _content_combined(slide, scopes, report):
     _solid_bg(slide)
     _add_section_header(slide, "Canal Intranet / Contenidos | Argentina + Holding")
 
-    _add_content_kpi_crops(slide, report, "combined", 2.00, 1.18, 9.35)
+    _add_content_kpi_crops(slide, report, "combined", 2.00, 1.14, 9.35)
 
-    _add_crop_title(slide, 0.75, 2.10, 11.80, "Top five - Notas más leídas (uu)")
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "contents", "top_notes_uu"), 0.75, 2.30, 11.80, 1.45)
-
-    _add_crop_title(slide, 0.75, 4.05, 11.80, "Top five - Notas más leídas (colectivo TGM)")
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "contents", "top_notes_tgm"), 0.75, 4.25, 11.80, 1.45)
-
-    _obs_box(slide, 0.55, 6.05, 12.20, 0.82)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "contents", "top_notes_uu"), 0.75, 2.02, 11.80, 1.65)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "contents", "top_notes_tgm"), 0.75, 4.02, 11.80, 1.65)
 
 
 def _closing(slide):
-    _solid_bg(slide, COLORS['bbva_blue'])
-    if BBVA_LOGO_WHITE.exists():
-        slide.shapes.add_picture(str(BBVA_LOGO_WHITE), _in(5.35), _in(3.28), width=_in(2.65))
+    _solid_bg(slide, COLORS["bbva_blue"])
+    logo = _clean_white_logo_path()
+    if logo and logo.exists():
+        slide.shapes.add_picture(str(logo), _in(5.25), _in(3.25), width=_in(2.85))
     else:
-        _add_text(slide, 5.35, 3.22, 2.65, 0.55, 'BBVA', size=30, color=COLORS['white'], bold=True, align=PP_ALIGN.CENTER)
+        _add_text(slide, 5.25, 3.18, 2.85, 0.62, "BBVA", size=34, color=COLORS["white"], bold=True, align=PP_ALIGN.CENTER)
 
 
 report_context: dict[str, Any] = {}
