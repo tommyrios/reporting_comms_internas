@@ -86,15 +86,14 @@ def _read_cached_summary(period_slug: str, scope: str):
     return None, None
 
 
-def _persist_summary(summary: dict, period_slug: str, scope: str, source_pdf: Path | None = None) -> None:
+def _persist_summary(summary: dict, period_slug: str, scope: str, pdf_path: Path | None = None) -> None:
     summary_copy = deepcopy(summary)
     summary_copy["period"] = period_slug
     summary_copy["month"] = period_slug  # compat con analyzer existente
     summary_copy["scope"] = scope
     summary_copy["scope_label"] = SCOPE_LABELS.get(scope, scope)
-    if source_pdf is not None:
-        summary_copy["source_pdf"] = str(Path(source_pdf).resolve())
-        summary_copy["source_pdf_name"] = Path(source_pdf).name
+    if pdf_path is not None:
+        summary_copy["source_pdf"] = {"path": str(pdf_path), "filename": pdf_path.name}
     filename = f"{period_slug}_{scope}.json"
     canonical_path = ensure_dir(CANONICAL_PERIOD_DIR) / filename
     canonical_path.write_text(json.dumps(summary_copy, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -164,22 +163,30 @@ def summarize_period_scope(
     pdf_path = resolve_period_scope_pdf_path(period_slug, scope, active_pdf_dir)
 
     cached_summary, cached_path = _read_cached_summary(period_slug, scope)
-    expected_source = str(pdf_path.resolve())
-    cached_source = str(cached_summary.get("source_pdf", "")) if isinstance(cached_summary, dict) else ""
-    cached_name = str(cached_summary.get("source_pdf_name", "")) if isinstance(cached_summary, dict) else ""
-    cache_matches_pdf = cached_source == expected_source or (not cached_source and cached_name == pdf_path.name)
-    if cached_summary and not force_regenerate and cache_matches_pdf:
-        logger.info("event=period_summary_cache_hit period=%s scope=%s path=%s source_pdf=%s", period_slug, scope, cached_path, pdf_path.name)
-        return cached_summary
-    if cached_summary and not force_regenerate and not cache_matches_pdf:
+    if cached_summary and not force_regenerate:
+        cached_pdf = (
+            (cached_summary.get("source_pdf") or {}).get("filename")
+            if isinstance(cached_summary.get("source_pdf"), dict)
+            else None
+        )
+        if cached_pdf == pdf_path.name:
+            logger.info(
+                "event=period_summary_cache_hit period=%s scope=%s path=%s pdf=%s",
+                period_slug,
+                scope,
+                cached_path,
+                pdf_path.name,
+            )
+            return cached_summary
         logger.warning(
-            "event=period_summary_cache_ignored period=%s scope=%s path=%s cached_source=%s expected_source=%s",
+            "event=period_summary_cache_ignored period=%s scope=%s cache_path=%s cached_pdf=%s current_pdf=%s",
             period_slug,
             scope,
             cached_path,
-            cached_source or cached_name or "<missing>",
-            expected_source,
+            cached_pdf,
+            pdf_path.name,
         )
+
     extraction_key = f"{period_slug}_{scope}"
 
     logger.info(
@@ -216,10 +223,10 @@ def summarize_period_scope(
 
         # Persistimos artefactos crudos con key period_scope para no mezclar scopes.
         persist_monthly_artifacts(extraction_key, raw_extracted, canonical, validation)
-        _persist_summary(canonical, period_slug, scope, source_pdf=pdf_path)
+        _persist_summary(canonical, period_slug, scope, pdf_path=pdf_path)
         return canonical
     except Exception as exc:
-        if cached_summary and cache_matches_pdf:
+        if cached_summary:
             logger.warning(
                 "event=period_summary_fallback_to_cache period=%s scope=%s reason=%s cache_path=%s",
                 period_slug,
@@ -234,5 +241,5 @@ def summarize_period_scope(
             scope,
             f"No se pudo generar resumen determinístico. Se usó modo local_fallback. Error: {str(exc)}",
         )
-        _persist_summary(fallback_summary, period_slug, scope, source_pdf=pdf_path)
+        _persist_summary(fallback_summary, period_slug, scope, pdf_path=pdf_path if "pdf_path" in locals() else None)
         return fallback_summary
