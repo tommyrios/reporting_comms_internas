@@ -229,7 +229,7 @@ def _top_pull_rows(scope_data: dict[str, Any], key: str, scope_label: str, max_r
     out = []
     for row in _rows(scope_data.get(key))[:max_rows]:
         title = _clip(row.get("title") or row.get("name"), 52)
-        views = row.get("views") or row.get("page_views") or row.get("reads") or row.get("total_views")
+        views = row.get("total_reads") or row.get("views") or row.get("page_views") or row.get("reads") or row.get("total_views") or row.get("unique_reads")
         out.append([scope_label, title, _fmt_int(views)])
     return out
 

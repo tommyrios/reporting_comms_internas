@@ -1,35 +1,52 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import fitz
 
-PAGE_ANCHORS = {
-    "planning": ["Herramienta de planificación", "Nº total de comunicaciones", "Acciones de comunicación"],
-    "mailing": ["Herramienta de mailing", "Mails enviados", "Tasa de apertura promedio"],
-    "contents": ["Contenidos publicados en site", "Noticias publicadas", "Top five - Notas más leídas"],
+# Los dashboards trimestrales exportados desde Looker/Data Studio tienen layout fijo:
+#   página 0 = planificación
+#   página 1 = contenidos/site
+#   página 2 = mailing
+# Por eso evitamos detectar páginas por texto: esa heurística mezclaba módulos cuando
+# los textos aparecían concatenados o repetidos.
+MODULE_PAGES = {
+    "planning": 0,
+    "contents": 1,
+    "mailing": 2,
 }
 
-# crops más quirúrgicos que la versión anterior: solo asset visual, no tablas completas
+# Coordenadas relativas a cada página del PDF: x, y, w, h en rango 0..1.
+# Mantener acá el contrato visual dashboard -> PPTX. Si cambia el layout del dashboard,
+# solo se ajustan estos boxes.
 CROP_CONFIG = {
     "planning": {
-        "strategic_axes": {"x": 0.03, "y": 0.67, "w": 0.30, "h": 0.16},
-        "channel_mix": {"x": 0.60, "y": 0.35, "w": 0.22, "h": 0.18},
-        "internal_clients": {"x": 0.02, "y": 0.06, "w": 0.58, "h": 0.09},
+        # Gráfico inferior: Distribución por eje estratégico.
+        "strategic_axes": {"x": 0.02, "y": 0.705, "w": 0.62, "h": 0.245},
+        # Donut de canales.
+        "channel_mix": {"x": 0.58, "y": 0.295, "w": 0.36, "h": 0.265},
+        # Barras horizontales de áreas solicitantes.
+        "internal_clients": {"x": 0.02, "y": 0.055, "w": 0.78, "h": 0.175},
+    },
+    "contents": {
+        # Tráfico generado por noticias sobre cada prioridad.
+        "priority_traffic": {"x": 0.47, "y": 0.245, "w": 0.47, "h": 0.175},
+        # Volumen de contenidos publicados por prioridad.
+        "priority_volume": {"x": 0.02, "y": 0.565, "w": 0.56, "h": 0.155},
+        # Top five - Notas más leídas (uu).
+        "top_notes_uu": {"x": 0.02, "y": 0.720, "w": 0.90, "h": 0.115},
+        # Top five - Notas más leídas (colectivo TGM).
+        "top_notes_tgm": {"x": 0.02, "y": 0.845, "w": 0.90, "h": 0.115},
     },
     "mailing": {
-        "monthly_trend": {"x": 0.04, "y": 0.55, "w": 0.48, "h": 0.18},
+        # Tendencia mensual de envíos y aperturas.
+        "monthly_trend": {"x": 0.04, "y": 0.545, "w": 0.54, "h": 0.185},
+        # Ranking de apertura.
+        "top_open_rate": {"x": 0.60, "y": 0.565, "w": 0.36, "h": 0.135},
+        # Ranking de interacción.
+        "top_interaction": {"x": 0.60, "y": 0.735, "w": 0.36, "h": 0.135},
     },
 }
-
-
-def find_page(doc: fitz.Document, anchors: list[str]) -> int | None:
-    for i, page in enumerate(doc):
-        text = " ".join((page.get_text("text") or "").split()).lower()
-        if any(anchor.lower() in text for anchor in anchors):
-            return i
-    return None
 
 
 def pct_rect(page: fitz.Page, box: dict[str, float]) -> fitz.Rect:
@@ -48,23 +65,29 @@ def render_crop(page: fitz.Page, crop_box: dict[str, float], out_path: Path, zoo
     return str(out_path)
 
 
-def build_dashboard_crops(period_slug: str, scope_pdf_paths: dict[str, Path], output_dir: Path) -> dict[str, dict[str, dict[str, str]]]:
+def build_dashboard_crops(
+    period_slug: str,
+    scope_pdf_paths: dict[str, Path],
+    output_dir: Path,
+) -> dict[str, dict[str, dict[str, str]]]:
     root = output_dir / "dashboard_crops" / period_slug
     result: dict[str, dict[str, dict[str, str]]] = {}
+
     for scope, pdf in scope_pdf_paths.items():
         scope_result: dict[str, dict[str, str]] = {}
         with fitz.open(str(pdf)) as doc:
             for module, crops in CROP_CONFIG.items():
-                idx = find_page(doc, PAGE_ANCHORS[module])
+                page_idx = MODULE_PAGES[module]
                 scope_result[module] = {}
-                if idx is None:
+                if page_idx >= len(doc):
                     continue
-                page = doc[idx]
+                page = doc[page_idx]
                 for name, box in crops.items():
+                    out = root / scope / module / f"{name}.png"
                     try:
-                        out = root / scope / module / f"{name}.png"
                         scope_result[module][name] = render_crop(page, box, out)
                     except Exception:
                         scope_result[module][name] = ""
         result[scope] = scope_result
+
     return result
