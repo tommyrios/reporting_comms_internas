@@ -296,17 +296,17 @@ def _planning_compare(slide, scopes, report):
     _add_text(slide, 6.85, 1.92, 2.6, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
     _add_text(slide, 10.22, 1.92, 2.6, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
 
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "strategic_axes"), 0.55, 2.08, 3.0, 1.18)
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "channel_mix"), 3.92, 2.08, 2.55, 1.18)
-    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "strategic_axes"), 6.85, 2.08, 3.0, 1.18)
-    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "channel_mix"), 10.22, 2.08, 2.55, 1.18)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "strategic_axes"), 0.55, 2.04, 3.15, 1.32)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "channel_mix"), 3.80, 2.04, 2.75, 1.32)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "strategic_axes"), 6.85, 2.04, 3.15, 1.32)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "channel_mix"), 10.05, 2.04, 2.75, 1.32)
 
     _add_text(slide, 0.55, 3.42, 2.3, 0.16, "Área solicitante · Argentina", size=7, color=COLORS["bbva_blue"], bold=True)
     _add_text(slide, 6.85, 3.42, 2.3, 0.16, "Área solicitante · Holding", size=7, color=COLORS["bbva_blue"], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "internal_clients"), 0.55, 3.58, 5.90, 1.12)
-    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "internal_clients"), 6.85, 3.58, 5.90, 1.12)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "internal_clients"), 0.55, 3.58, 5.90, 1.34)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "internal_clients"), 6.85, 3.58, 5.90, 1.34)
 
-    _obs_box(slide, 0.55, 5.10, 12.20, 1.15)
+    _obs_box(slide, 0.55, 5.28, 12.20, 0.97)
 
 
 def _planning_combined(slide, scopes, report):
@@ -317,10 +317,10 @@ def _planning_combined(slide, scopes, report):
     _add_text(slide, 0.55, 1.95, 2.8, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
     _add_text(slide, 4.18, 1.95, 2.3, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
     _add_text(slide, 8.02, 1.95, 2.0, 0.16, "Área solicitante", size=7, color=COLORS["bbva_blue"], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "strategic_axes"), 0.55, 2.08, 3.10, 1.45)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "channel_mix"), 4.18, 2.08, 3.10, 1.45)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "internal_clients"), 8.02, 2.08, 4.73, 1.45)
-    _obs_box(slide, 0.55, 4.55, 12.20, 1.55)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "strategic_axes"), 0.55, 2.04, 3.35, 1.70)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "channel_mix"), 4.10, 2.04, 3.25, 1.70)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "internal_clients"), 7.55, 2.04, 5.20, 1.70)
+    _obs_box(slide, 0.55, 4.72, 12.20, 1.38)
 
 
 def _mail_compare(slide, scopes, report):
@@ -334,8 +334,8 @@ def _mail_compare(slide, scopes, report):
     ]
     _add_table(slide, 0.55, 1.15, 12.20, 0.88, "", headers, rows, col_widths=[1.0, 3.0, 1.2, 1.6, 1.6])
     _add_text(slide, 0.55, 2.18, 2.4, 0.16, "Tendencia mensual", size=7, color=COLORS['bbva_blue'], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, 'argentina', 'mailing', 'monthly_trend'), 0.55, 2.32, 5.55, 1.55)
-    _image_or_placeholder(slide, _assets_crop(report, 'holding', 'mailing', 'monthly_trend'), 0.55, 3.98, 5.55, 1.55)
+    _image_or_placeholder(slide, _assets_crop(report, 'argentina', 'mailing', 'monthly_trend'), 0.55, 2.27, 5.75, 1.75)
+    _image_or_placeholder(slide, _assets_crop(report, 'holding', 'mailing', 'monthly_trend'), 0.55, 4.02, 5.75, 1.75)
     open_rows = _top_mail_rows(arg, 'top_push_by_open_rate', 'Argentina') + _top_mail_rows(hol, 'top_push_by_open_rate', 'Holding')
     int_rows = _top_mail_rows(arg, 'top_push_by_interaction', 'Argentina') + _top_mail_rows(hol, 'top_push_by_interaction', 'Holding')
     _add_table(slide, 6.45, 2.32, 6.30, 1.50, 'Top five - Mayor Tasa de Apertura', ['Scope', 'Título', 'Tasa'], open_rows, col_widths=[1.0, 4.3, 1.0], max_rows=4)
@@ -351,7 +351,7 @@ def _mail_combined(slide, scopes, report):
     rows = [[f"{_fmt_int(cmb.get('mail_unique_total') or cmb.get('mail_total'))} / {_fmt_int(cmb.get('mail_send_total') or cmb.get('mail_total'))}", _fmt_pct(cmb.get('mail_open_rate')), _fmt_pct(cmb.get('mail_interaction_rate')), _fmt_pct(cmb.get('mail_interaction_rate_over_opened'))]]
     _add_table(slide, 1.55, 1.20, 10.25, 0.72, '', headers, rows, col_widths=[3.1, 1.7, 2.1, 2.1])
     _add_text(slide, 0.55, 2.16, 2.4, 0.16, 'Tendencia mensual', size=7, color=COLORS['bbva_blue'], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, 'combined', 'mailing', 'monthly_trend'), 0.55, 2.30, 6.0, 2.0)
+    _image_or_placeholder(slide, _assets_crop(report, 'combined', 'mailing', 'monthly_trend'), 0.55, 2.25, 6.45, 2.20)
     open_rows = _top_mail_rows(cmb, 'top_push_by_open_rate', 'Combined', max_rows=3)
     int_rows = _top_mail_rows(cmb, 'top_push_by_interaction', 'Combined', max_rows=3)
     _add_table(slide, 6.80, 2.30, 5.95, 1.65, 'Top five - Mayor Tasa de Apertura', ['Scope', 'Título', 'Tasa'], open_rows, col_widths=[1.0, 3.9, 1.0], max_rows=3)
