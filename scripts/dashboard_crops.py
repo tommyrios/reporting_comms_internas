@@ -106,10 +106,10 @@ def abs_rect(page: fitz.Page, box: dict[str, float]) -> fitz.Rect:
     return rect
 
 
-def render_crop(page: fitz.Page, crop_box: dict[str, float], out_path: Path, zoom: float = 5.0) -> str:
+def render_crop(page: fitz.Page, crop_box: dict[str, float], out_path: Path, zoom: float = 8.0) -> str:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), clip=abs_rect(page, crop_box), alpha=False)
-    pix.set_dpi(300, 300)
+    pix.set_dpi(450, 450)
     pix.save(str(out_path))
     return str(out_path)
 
