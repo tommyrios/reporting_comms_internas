@@ -71,7 +71,7 @@ class PptxRendererManagementDeckTests(unittest.TestCase):
             self.assertIn("Planificación | Argentina vs Holding", all_text)
             self.assertIn("Canal Mail | Argentina vs Holding", all_text)
             self.assertIn("Canal Intranet / Contenidos | Argentina vs Holding", all_text)
-            self.assertNotIn("Observaciones del manager", all_text)
+            self.assertIn("Observaciones del manager", all_text)
             self.assertNotIn("Agregar análisis", all_text)
 
     def test_renderer_does_not_include_legacy_executive_language(self):
