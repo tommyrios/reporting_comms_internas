@@ -383,7 +383,7 @@ def _planning_compare(slide, scopes, report):
 
     # Caja visual para agrupar resultado + gráficos de Holding sin sombra.
     # Se agrega antes de los elementos internos para que funcione como fondo.
-    _add_rect(slide, 6.64, 1.00, 6.26, 4.95, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True, corner_radius=0.06)
+    _add_rect(slide, 6.80, 1.00, 6.26, 4.95, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True, corner_radius=0.06)
 
     # Centramos cada tarjeta respecto del bloque de gráficos correspondiente.
     _kpi_card(slide, 2.02, 1.07, 3.05, 0.62, "ARGENTINA · Acciones de Comunicación", _fmt_int(arg.get("plan_total")), dark=True)
@@ -518,11 +518,6 @@ def _mail_compare(slide, scopes, report):
     _add_mail_kpi_cards(slide, arg, 0.70, 1.24, 5.80)
     _add_mail_kpi_cards(slide, hol, 6.85, 1.24, 5.80)
 
-    # Solo Argentina: tendencia + top five. Holding se elimina para priorizar lectura.
-    _add_text(slide, 0.70, 2.10, 4.2, 0.16, "Argentina · Tendencia mensual de envíos y aperturas", size=7, color=COLORS["bbva_blue"], bold=True)
-    _add_text(slide, 8.10, 2.10, 3.2, 0.16, "Argentina · Top five apertura", size=7, color=COLORS["bbva_blue"], bold=True)
-    _add_text(slide, 8.10, 4.22, 3.2, 0.16, "Argentina · Top five interacción", size=7, color=COLORS["bbva_blue"], bold=True)
-
     _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "monthly_trend"), 0.70, 2.32, 7.05, 2.68)
     _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_open_rate"), 8.10, 2.32, 4.45, 1.66)
     _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_interaction"), 8.10, 4.44, 4.45, 1.66)
@@ -536,8 +531,6 @@ def _mail_combined(slide, scopes, report):
 
     _add_mail_kpi_cards(slide, cmb, 1.00, 1.10, 11.35)
 
-    # Tendencia arriba; los dos top five abajo, más largos y sin títulos duplicados.
-    _add_text(slide, 0.75, 1.96, 4.6, 0.16, "Tendencia mensual de envíos y aperturas", size=7, color=COLORS["bbva_blue"], bold=True)
     _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "monthly_trend"), 0.75, 2.18, 11.80, 2.20)
 
     _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "top_open_rate"), 0.75, 4.64, 5.78, 1.98)
