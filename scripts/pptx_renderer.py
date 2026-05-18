@@ -383,7 +383,7 @@ def _planning_compare(slide, scopes, report):
 
     # Caja visual para agrupar resultado + gráficos de Holding sin sombra.
     # Se agrega antes de los elementos internos para que funcione como fondo.
-    _add_rect(slide, 6.80, 1.00, 6.26, 4.95, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True, corner_radius=0.06)
+    _add_rect(slide, 6.72, 1.00, 6.26, 4.95, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True, corner_radius=0.06)
 
     # Centramos cada tarjeta respecto del bloque de gráficos correspondiente.
     _kpi_card(slide, 2.02, 1.07, 3.05, 0.62, "ARGENTINA · Acciones de Comunicación", _fmt_int(arg.get("plan_total")), dark=True)
