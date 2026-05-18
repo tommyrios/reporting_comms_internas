@@ -52,9 +52,9 @@ CROP_CONFIG: dict[str, dict[str, dict[str, float]]] = {
     },
     "planning": {
         "plan_total_card": {"x": 690, "y": 300, "w": 150, "h": 50},
-        "strategic_axes": {"x": 15, "y": 770, "w": 400, "h": 320},
-        "internal_clients": {"x": 15, "y": 1110, "w": 875, "h": 240},
-        "channel_mix": {"x": 15, "y": 1375, "w": 400, "h": 365},
+        "strategic_axes": {"x": 15, "y": 865, "w": 400, "h": 260},
+        "internal_clients": {"x": 65, "y": 1170, "w": 815, "h": 210},
+        "channel_mix": {"x": 25, "y": 1485, "w": 375, "h": 230},
     },
 }
 
