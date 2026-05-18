@@ -34,6 +34,7 @@ COLORS = {
     "border": RGBColor(224, 228, 235),
     "placeholder": RGBColor(238, 240, 244),
     "obs": RGBColor(234, 236, 241),
+    "purple_light_3": RGBColor(203, 195, 227),
 }
 
 COVER_PATH = ASSETS_DIR / "reference" / "boceto_cover.png"
@@ -223,7 +224,7 @@ def _add_section_header(slide, subtitle: str):
     _add_text(slide, 0.48, 0.18, 8.0, 0.35, _period_title(report_context), size=19, color=COLORS["bbva_dark"], bold=True, font="Georgia")
     _add_logo(slide, white=False)
     _add_text(slide, 0.48, 0.58, 5.5, 0.22, subtitle, size=8, color=COLORS["muted"], bold=False)
-    line = slide.shapes.add_shape(MSO_AUTO_SHAPE_TYPE.RECTANGLE, _in(0.48), _in(0.92), _in(12.35), _in(0.02))
+    line = slide.shapes.add_shape(MSO_AUTO_SHAPE_TYPE.RECTANGLE, _in(0.48), _in(0.88), _in(12.35), _in(0.02))
     line.fill.solid(); line.fill.fore_color.rgb = COLORS["border"]; line.line.color.rgb = COLORS["border"]
 
 
@@ -280,7 +281,7 @@ def _kpi_card(
 
 
 def _obs_box(slide, x, y, w, h):
-    _add_rect(slide, x, y, w, h, COLORS["obs"], line=COLORS["obs"])
+    _add_rect(slide, x, y, w, h, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
 
 
 def _rows(rows: Any) -> list[dict[str, Any]]:
@@ -360,44 +361,45 @@ def _planning_compare(slide, scopes, report):
     _add_section_header(slide, "Planificación | Argentina vs Holding")
     arg = scopes["argentina"]; hol = scopes["holding"]
 
-    # Bajamos apenas las tarjetas para que respiren respecto de la línea divisoria.
-    _kpi_card(slide, 1.30, 1.05, 3.05, 0.62, "ARGENTINA · Acciones de Comunicación", _fmt_int(arg.get("plan_total")), dark=True)
-    _kpi_card(slide, 7.20, 1.05, 3.05, 0.62, "HOLDING · Acciones de Comunicación", _fmt_int(hol.get("plan_total")), dark=False)
+    _kpi_card(slide, 1.30, 1.07, 3.05, 0.62, "ARGENTINA · Acciones de Comunicación", _fmt_int(arg.get("plan_total")), dark=True)
+    _kpi_card(slide, 7.20, 1.07, 3.05, 0.62, "HOLDING · Acciones de Comunicación", _fmt_int(hol.get("plan_total")), dark=False)
 
-    _add_text(slide, 0.55, 1.78, 2.6, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
-    _add_text(slide, 3.92, 1.78, 2.6, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
-    _add_text(slide, 6.85, 1.78, 2.6, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
-    _add_text(slide, 10.22, 1.78, 2.6, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
+    # Caja visual para agrupar los gráficos de Holding sin sombra.
+    _add_rect(slide, 6.64, 1.82, 6.26, 4.02, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
 
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "strategic_axes"), 0.55, 1.98, 3.15, 1.70)
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "channel_mix"), 3.80, 1.98, 2.90, 1.70)
-    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "strategic_axes"), 6.85, 1.98, 3.15, 1.70)
-    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "channel_mix"), 10.05, 1.98, 2.90, 1.70)
+    # Bajamos ligeramente todos los gráficos para despegar el bloque de la línea separadora.
+    _add_text(slide, 0.55, 1.88, 2.6, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
+    _add_text(slide, 3.92, 1.88, 2.6, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
+    _add_text(slide, 6.85, 1.88, 2.6, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
+    _add_text(slide, 10.22, 1.88, 2.6, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
 
-    _add_text(slide, 0.55, 3.82, 2.3, 0.16, "Área solicitante · Argentina", size=7, color=COLORS["bbva_blue"], bold=True)
-    _add_text(slide, 6.85, 3.82, 2.3, 0.16, "Área solicitante · Holding", size=7, color=COLORS["bbva_blue"], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "internal_clients"), 0.55, 4.02, 5.98, 1.72)
-    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "internal_clients"), 6.85, 4.02, 5.98, 1.72)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "strategic_axes"), 0.55, 2.08, 3.15, 1.64)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "channel_mix"), 3.80, 2.08, 2.90, 1.64)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "strategic_axes"), 6.85, 2.08, 3.15, 1.64)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "channel_mix"), 10.05, 2.08, 2.90, 1.64)
 
-    _add_text(slide, 0.65, 6.08, 2.6, 0.18, "Observaciones del manager", size=7.5, color=COLORS["muted"], bold=True)
-    _obs_box(slide, 0.55, 6.30, 12.30, 0.72)
+    _add_text(slide, 0.55, 3.88, 2.3, 0.16, "Área solicitante · Argentina", size=7, color=COLORS["bbva_blue"], bold=True)
+    _add_text(slide, 6.85, 3.88, 2.3, 0.16, "Área solicitante · Holding", size=7, color=COLORS["bbva_blue"], bold=True)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "internal_clients"), 0.55, 4.08, 5.98, 1.64)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "internal_clients"), 6.85, 4.08, 5.98, 1.64)
+
+    _obs_box(slide, 0.55, 6.28, 12.30, 0.74)
 
 def _planning_combined(slide, scopes, report):
     _solid_bg(slide)
     _add_section_header(slide, "Planificación | Argentina + Holding")
     cmb = scopes["combined"]
 
-    # Bajamos la tarjeta para evitar roce visual con la línea separadora.
-    _kpi_card(slide, 4.62, 1.05, 4.05, 0.64, "Acciones de Comunicación", _fmt_int(cmb.get("plan_total")), dark=True)
+    _kpi_card(slide, 4.62, 1.07, 4.05, 0.64, "Acciones de Comunicación", _fmt_int(cmb.get("plan_total")), dark=True)
 
-    # Eje estratégico y canales en una misma línea; áreas solicitantes abajo.
-    _add_text(slide, 0.75, 1.84, 3.0, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
-    _add_text(slide, 6.90, 1.84, 2.6, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "strategic_axes"), 0.75, 2.06, 5.60, 2.15)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "channel_mix"), 6.80, 2.06, 5.60, 2.15)
+    # Ampliamos los gráficos para aprovechar mejor la slide.
+    _add_text(slide, 0.58, 1.82, 3.0, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
+    _add_text(slide, 6.78, 1.82, 2.6, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "strategic_axes"), 0.58, 2.02, 5.95, 2.42)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "channel_mix"), 6.72, 2.02, 5.95, 2.42)
 
-    _add_text(slide, 0.75, 4.58, 2.4, 0.16, "Área solicitante", size=7, color=COLORS["bbva_blue"], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "internal_clients"), 0.75, 4.80, 11.80, 1.78)
+    _add_text(slide, 0.58, 4.70, 2.4, 0.16, "Área solicitante", size=7, color=COLORS["bbva_blue"], bold=True)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "internal_clients"), 0.58, 4.90, 12.08, 1.84)
 
 def _add_scope_label(slide, x, y, w, text):
     _add_text(slide, x, y, w, 0.22, text, size=9, color=COLORS["bbva_dark"], bold=True, align=PP_ALIGN.CENTER)
@@ -489,6 +491,7 @@ def _mail_compare(slide, scopes, report):
 
     # Mantener resultados para ambos scopes; el volumen de mails se deriva de Planificación.
     _add_scope_label(slide, 0.70, 1.00, 5.80, "Argentina")
+    _add_rect(slide, 6.70, 0.94, 6.08, 1.04, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
     _add_scope_label(slide, 6.85, 1.00, 5.80, "Holding")
     _add_mail_kpi_cards(slide, arg, 0.70, 1.24, 5.80)
     _add_mail_kpi_cards(slide, hol, 6.85, 1.24, 5.80)
@@ -502,8 +505,7 @@ def _mail_compare(slide, scopes, report):
     _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_open_rate"), 8.10, 2.32, 4.45, 1.66)
     _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_interaction"), 8.10, 4.44, 4.45, 1.66)
 
-    _add_text(slide, 0.80, 6.28, 2.6, 0.18, "Observaciones del manager", size=7.5, color=COLORS["muted"], bold=True)
-    _obs_box(slide, 0.70, 6.48, 11.85, 0.55)
+    _obs_box(slide, 0.70, 6.45, 11.85, 0.58)
 
 def _mail_combined(slide, scopes, report):
     _solid_bg(slide)
@@ -512,14 +514,12 @@ def _mail_combined(slide, scopes, report):
 
     _add_mail_kpi_cards(slide, cmb, 1.00, 1.10, 11.35)
 
-    # Tendencia arriba; los dos top five abajo, al mismo nivel.
+    # Tendencia arriba; los dos top five abajo, más largos y sin títulos duplicados.
     _add_text(slide, 0.75, 1.96, 4.6, 0.16, "Tendencia mensual de envíos y aperturas", size=7, color=COLORS["bbva_blue"], bold=True)
     _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "monthly_trend"), 0.75, 2.18, 11.80, 2.20)
 
-    _add_text(slide, 0.75, 4.70, 3.4, 0.16, "Top five · Mayor tasa de apertura", size=7, color=COLORS["bbva_blue"], bold=True)
-    _add_text(slide, 6.80, 4.70, 3.6, 0.16, "Top five · Mayor tasa de interacción", size=7, color=COLORS["bbva_blue"], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "top_open_rate"), 0.75, 4.92, 5.65, 1.68)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "top_interaction"), 6.80, 4.92, 5.65, 1.68)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "top_open_rate"), 0.75, 4.64, 5.78, 1.98)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "top_interaction"), 6.80, 4.64, 5.78, 1.98)
 
 def _content_compare(slide, scopes, report):
     _solid_bg(slide)
@@ -527,18 +527,16 @@ def _content_compare(slide, scopes, report):
 
     arg = scopes["argentina"]; hol = scopes["holding"]
     _add_scope_label(slide, 0.55, 1.00, 5.95, "Argentina")
+    _add_rect(slide, 6.72, 0.94, 5.95, 1.04, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
     _add_scope_label(slide, 6.72, 1.00, 5.95, "Holding")
 
     # Mantener resultados comparativos tal como venían funcionando bien.
     _add_content_kpi_cards(slide, arg, 0.80, 1.24, 5.45)
     _add_content_kpi_cards(slide, hol, 6.97, 1.24, 5.45)
 
-    # Solo Argentina para los top five; Holding se elimina y se aprovecha el ancho completo.
-    _add_text(slide, 0.75, 2.20, 4.4, 0.16, "Argentina · Top five notas más leídas (usuarios únicos)", size=7, color=COLORS["bbva_blue"], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_uu"), 0.75, 2.42, 11.80, 1.72)
-
-    _add_text(slide, 0.75, 4.58, 4.7, 0.16, "Argentina · Top five notas más leídas (colectivo TGM)", size=7, color=COLORS["bbva_blue"], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_tgm"), 0.75, 4.80, 11.80, 1.72)
+    # Solo Argentina para los top five; sin títulos duplicados porque ya vienen en el gráfico.
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_uu"), 0.75, 2.25, 11.80, 1.92)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_tgm"), 0.75, 4.58, 11.80, 1.92)
 
 def _content_combined(slide, scopes, report):
     _solid_bg(slide)
@@ -552,19 +550,17 @@ def _content_combined(slide, scopes, report):
 
 
 def _closing(slide):
-    _solid_bg(slide, COLORS["bbva_blue"])
-    # Contraportada solicitada: fondo azul + logo corporativo blanco,
-    # más chico y perfectamente centrado. Usamos el asset blanco provisto,
-    # no el logo derivado desde el azul.
+    _solid_bg(slide, RGBColor(6, 14, 70))
+    # Contraportada solicitada: azul corporativo #060e46 + logo BBVA centrado 0.86 x 0.26 in.
     logo = BBVA_LOGO_WHITE if BBVA_LOGO_WHITE.exists() else _clean_white_logo_path()
-    logo_w = 1.95
-    logo_h = 0.55
+    logo_w = 0.86
+    logo_h = 0.26
     x = (SLIDE_W - logo_w) / 2
     y = (SLIDE_H - logo_h) / 2
     if logo and logo.exists():
-        slide.shapes.add_picture(str(logo), _in(x), _in(y), width=_in(logo_w))
+        slide.shapes.add_picture(str(logo), _in(x), _in(y), width=_in(logo_w), height=_in(logo_h))
     else:
-        _add_text(slide, x, y, logo_w, logo_h, "BBVA", size=26, color=COLORS["white"], bold=True, align=PP_ALIGN.CENTER)
+        _add_text(slide, x, y, logo_w, logo_h, "BBVA", size=14, color=COLORS["white"], bold=True, align=PP_ALIGN.CENTER)
 
 
 report_context: dict[str, Any] = {}
