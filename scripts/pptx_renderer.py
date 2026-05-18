@@ -7,12 +7,15 @@ from pathlib import Path
 from typing import Any
 
 from pptx import Presentation
-from pptx.chart.data import ChartData
 from pptx.dml.color import RGBColor
-from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_LABEL_POSITION, XL_TICK_MARK
 from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
 from pptx.enum.text import PP_ALIGN, MSO_VERTICAL_ANCHOR
 from pptx.util import Inches, Pt
+
+try:
+    from PIL import Image
+except Exception:  # pragma: no cover
+    Image = None
 
 from analyzer import validate_report_json
 from config import ASSETS_DIR
@@ -36,6 +39,34 @@ COLORS = {
 COVER_PATH = ASSETS_DIR / "reference" / "boceto_cover.png"
 BBVA_LOGO_BLUE = ASSETS_DIR / "brand" / "bbva_logo_blue.png"
 BBVA_LOGO_WHITE = ASSETS_DIR / "brand" / "bbva_logo_white.png"
+BBVA_LOGO_WHITE_CLEAN = ASSETS_DIR / "brand" / "bbva_logo_white_clean.png"
+
+
+def _clean_white_logo_path() -> Path | None:
+    """Return a clean white BBVA logo without the shadow/pixelated asset issue.
+
+    The repository white PNG has a grey glow/shadow. For the blue closing slide,
+    derive a pure-white transparent PNG from the blue corporate logo at runtime.
+    """
+    if BBVA_LOGO_WHITE_CLEAN.exists():
+        return BBVA_LOGO_WHITE_CLEAN
+    if Image is None or not BBVA_LOGO_BLUE.exists():
+        return BBVA_LOGO_WHITE if BBVA_LOGO_WHITE.exists() else None
+    try:
+        img = Image.open(BBVA_LOGO_BLUE).convert("RGBA")
+        pixels = []
+        for r, g, b, a in img.getdata():
+            # Keep transparent/white background transparent; recolor actual blue logo to white.
+            if a < 10 or (r > 245 and g > 245 and b > 245):
+                pixels.append((255, 255, 255, 0))
+            else:
+                pixels.append((255, 255, 255, a))
+        img.putdata(pixels)
+        BBVA_LOGO_WHITE_CLEAN.parent.mkdir(parents=True, exist_ok=True)
+        img.save(BBVA_LOGO_WHITE_CLEAN)
+        return BBVA_LOGO_WHITE_CLEAN
+    except Exception:
+        return BBVA_LOGO_WHITE if BBVA_LOGO_WHITE.exists() else None
 
 
 def _in(v: float):
@@ -181,8 +212,8 @@ def _add_rect(slide, x, y, w, h, fill, line=None, radius=False):
 
 
 def _add_logo(slide, white=False):
-    path = BBVA_LOGO_WHITE if white else BBVA_LOGO_BLUE
-    if path.exists():
+    path = _clean_white_logo_path() if white else BBVA_LOGO_BLUE
+    if path and path.exists():
         slide.shapes.add_picture(str(path), _in(11.92), _in(0.18), width=_in(0.95))
     else:
         _add_text(slide, 11.8, 0.16, 1.1, 0.35, "BBVA", size=16, color=COLORS["white"] if white else COLORS["bbva_blue"], bold=True, align=PP_ALIGN.RIGHT)
@@ -286,380 +317,151 @@ def _cover(slide):
         _add_text(slide, 1.0, 4.0, 2.0, 0.5, "Gestión Q1", size=18, color=COLORS["white"], font="Georgia")
 
 
-def _add_image_card(slide, path: Path | None, x: float, y: float, w: float, h: float, pad: float = 0.03):
-    """White card wrapper used for dashboard crops.
-
-    The crop itself keeps the original Looker/Data Studio chart, but the wrapper
-    gives the slide a cleaner, symmetric dashboard look.
-    """
-    _add_rect(slide, x, y, w, h, COLORS["white"], line=COLORS["white"], radius=True)
-    _image_or_placeholder(slide, path, x + pad, y + pad, w - (pad * 2), h - (pad * 2))
-
-
-
-def _light_card(slide, x: float, y: float, w: float, h: float):
-    shp = slide.shapes.add_shape(
-        MSO_AUTO_SHAPE_TYPE.ROUNDED_RECTANGLE,
-        _in(x),
-        _in(y),
-        _in(w),
-        _in(h),
-    )
-    shp.fill.solid()
-    shp.fill.fore_color.rgb = COLORS["white"]
-    shp.line.color.rgb = COLORS["white"]
-    shp.line.transparency = 100000
-    return shp
-
-
-def _chart_title(slide, x: float, y: float, w: float, title: str, subtitle: str | None = None):
-    _add_text(slide, x, y, w, 0.18, title, size=8.5, color=COLORS["bbva_blue"], bold=True)
-    if subtitle:
-        _add_text(slide, x, y + 0.17, w, 0.16, subtitle, size=7.0, color=COLORS["text"])
-
-
-def _series_items(data: Any, limit: int | None = None) -> list[tuple[str, float]]:
-    rows = data if isinstance(data, list) else []
-    out: list[tuple[str, float]] = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        label = _safe_text(row.get("label") or row.get("name") or row.get("title"), "-")
-        value = _parse_num(row.get("value") or row.get("pct") or row.get("percentage") or row.get("total") or 0)
-        if value <= 0:
-            continue
-        out.append((label, value))
-    return out[:limit] if limit else out
-
-
-def _short_label(label: str, max_len: int = 18) -> str:
-    label = _safe_text(label, "-")
-    # Manual breaks for common BBVA area labels. Keeps native charts readable.
-    label = label.replace("Relaciones Institucionales", "Relaciones\nInstitucionales")
-    label = label.replace("Talento y Cultura", "Talento y\nCultura")
-    label = label.replace("Client Solutions", "Client\nSolutions")
-    label = label.replace("Engineering & Data", "Engineering\n& Data")
-    label = label.replace("Country Manager Office", "Country\nManager\nOffice")
-    label = label.replace("Internal Control & Compliance", "Internal Control\n& Compliance")
-    label = label.replace("Banca Minorista", "Banca\nMinorista")
-    label = label.replace("Banca Empresas", "Banca\nEmpresas")
-    if "\n" in label:
-        return label
-    return _clip(label, max_len)
-
-
-BBVA_CHART_COLORS = [
-    RGBColor(0, 45, 156),
-    RGBColor(25, 115, 232),
-    RGBColor(91, 177, 255),
-    RGBColor(83, 102, 141),
-    RGBColor(142, 152, 171),
-    RGBColor(191, 198, 211),
-    RGBColor(218, 222, 231),
-]
-
-
-def _format_chart_text(chart, size: int = 6):
-    try:
-        chart.category_axis.tick_labels.font.size = Pt(size)
-        chart.category_axis.tick_labels.font.color.rgb = COLORS["bbva_dark"]
-    except Exception:
-        pass
-    try:
-        chart.value_axis.tick_labels.font.size = Pt(size)
-        chart.value_axis.tick_labels.font.color.rgb = COLORS["bbva_dark"]
-    except Exception:
-        pass
-
-
-def _native_vertical_bars(slide, items: list[tuple[str, float]], x: float, y: float, w: float, h: float):
-    """Vector column chart with one series per item, so each bar can use a BBVA color."""
-    chart_data = ChartData()
-    chart_data.categories = ["Impactos"]
-    for label, value in items:
-        chart_data.add_series(_clip(label, 22), (value,))
-    graphic = slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, _in(x), _in(y), _in(w), _in(h), chart_data)
-    chart = graphic.chart
-    chart.has_title = False
-    chart.has_legend = True
-    chart.legend.position = XL_LEGEND_POSITION.RIGHT
-    chart.legend.include_in_layout = False
-    chart.legend.font.size = Pt(5.2)
-    chart.legend.font.color.rgb = COLORS["bbva_dark"]
-    chart.plots[0].vary_by_categories = False
-    try:
-        chart.value_axis.has_major_gridlines = False
-        chart.value_axis.tick_labels.font.size = Pt(6)
-        chart.category_axis.tick_labels.font.size = Pt(6)
-        chart.value_axis.minimum_scale = 0
-        chart.category_axis.major_tick_mark = XL_TICK_MARK.NONE
-        chart.value_axis.major_tick_mark = XL_TICK_MARK.NONE
-    except Exception:
-        pass
-    for idx, series in enumerate(chart.series):
-        series.format.fill.solid()
-        series.format.fill.fore_color.rgb = BBVA_CHART_COLORS[idx % len(BBVA_CHART_COLORS)]
-        series.has_data_labels = True
-        series.data_labels.position = XL_LABEL_POSITION.OUTSIDE_END
-        series.data_labels.font.size = Pt(6)
-        series.data_labels.font.color.rgb = COLORS["bbva_dark"]
-    return chart
-
-
-def _native_doughnut(slide, items: list[tuple[str, float]], x: float, y: float, w: float, h: float):
-    chart_data = ChartData()
-    chart_data.categories = [_clip(label, 24) for label, _ in items]
-    chart_data.add_series("Canal", [value for _, value in items])
-    graphic = slide.shapes.add_chart(XL_CHART_TYPE.DOUGHNUT, _in(x), _in(y), _in(w), _in(h), chart_data)
-    chart = graphic.chart
-    chart.has_title = False
-    chart.has_legend = True
-    chart.legend.position = XL_LEGEND_POSITION.RIGHT
-    chart.legend.include_in_layout = False
-    chart.legend.font.size = Pt(5.4)
-    chart.legend.font.color.rgb = COLORS["bbva_dark"]
-    plot = chart.plots[0]
-    plot.has_data_labels = True
-    plot.data_labels.show_percentage = True
-    plot.data_labels.show_value = False
-    plot.data_labels.show_category_name = False
-    plot.data_labels.position = XL_LABEL_POSITION.BEST_FIT
-    plot.data_labels.font.size = Pt(6)
-    plot.data_labels.font.color.rgb = COLORS["bbva_dark"]
-    try:
-        plot.doughnut_hole_size = 68
-    except Exception:
-        pass
-    series = chart.series[0]
-    for idx, point in enumerate(series.points):
-        point.format.fill.solid()
-        point.format.fill.fore_color.rgb = BBVA_CHART_COLORS[idx % len(BBVA_CHART_COLORS)]
-        point.format.line.color.rgb = COLORS["white"]
-    return chart
-
-
-def _native_horizontal_bars(slide, items: list[tuple[str, float]], x: float, y: float, w: float, h: float):
-    # Top 10 keeps the slide clean and avoids microscopic labels.
-    items = sorted(items, key=lambda kv: kv[1], reverse=True)[:10]
-    # Reverse for PowerPoint bar order: first category tends to appear at bottom.
-    items_for_chart = list(reversed(items))
-    chart_data = ChartData()
-    chart_data.categories = [_short_label(label) for label, _ in items_for_chart]
-    chart_data.add_series("%", [value for _, value in items_for_chart])
-    graphic = slide.shapes.add_chart(XL_CHART_TYPE.BAR_CLUSTERED, _in(x), _in(y), _in(w), _in(h), chart_data)
-    chart = graphic.chart
-    chart.has_title = False
-    chart.has_legend = False
-    try:
-        chart.value_axis.has_major_gridlines = False
-        chart.value_axis.tick_labels.font.size = Pt(5.5)
-        chart.category_axis.tick_labels.font.size = Pt(5.8)
-        chart.category_axis.major_tick_mark = XL_TICK_MARK.NONE
-        chart.value_axis.major_tick_mark = XL_TICK_MARK.NONE
-        chart.value_axis.minimum_scale = 0
-    except Exception:
-        pass
-    series = chart.series[0]
-    series.format.fill.solid()
-    series.format.fill.fore_color.rgb = RGBColor(25, 115, 232)
-    series.has_data_labels = True
-    series.data_labels.position = XL_LABEL_POSITION.OUTSIDE_END
-    series.data_labels.font.size = Pt(6)
-    series.data_labels.font.color.rgb = COLORS["bbva_blue"]
-    return chart
-
-
-def _metric_pill(slide, x: float, y: float, w: float, h: float, title: str, value: Any, dark: bool = True):
-    fill = COLORS["bbva_blue"] if dark else COLORS["bbva_mid"]
-    _add_rect(slide, x, y, w, h, fill, line=fill, radius=True)
-    _add_text(slide, x + 0.12, y + 0.11, w - 0.24, 0.16, title, size=8.5, color=COLORS["white"], bold=True, align=PP_ALIGN.CENTER)
-    _add_text(slide, x + 0.12, y + 0.43, w - 0.24, 0.34, _fmt_int(value), size=22, color=COLORS["white"], bold=True, align=PP_ALIGN.CENTER)
-
-
 def _planning_compare(slide, scopes, report):
-    """Slide 2 · versión vectorial/nativa para probar nitidez.
-
-    No usa recortes para los gráficos de esta slide: reconstruye barras/donas
-    con gráficos nativos de PowerPoint usando los datos ya extraídos del PDF.
-    Esto elimina el pixelado propio de los screenshots del dashboard.
-    """
     _solid_bg(slide)
     _add_section_header(slide, "Planificación | Argentina vs Holding")
+    arg = scopes["argentina"]; hol = scopes["holding"]
+    _kpi_card(slide, 1.30, 0.98, 3.05, 0.62, "ARGENTINA · Acciones de Comunicación", _fmt_int(arg.get("plan_total")), dark=True)
+    _kpi_card(slide, 7.20, 0.98, 3.05, 0.62, "HOLDING · Acciones de Comunicación", _fmt_int(hol.get("plan_total")), dark=False)
 
-    arg = scopes["argentina"]
-    hol = scopes["holding"]
+    # Layout más grande: usamos casi todo el alto disponible y eliminamos aire muerto.
+    _add_text(slide, 0.55, 1.76, 2.6, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
+    _add_text(slide, 3.92, 1.76, 2.6, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
+    _add_text(slide, 6.85, 1.76, 2.6, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
+    _add_text(slide, 10.22, 1.76, 2.6, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
 
-    left_x = 0.36
-    gap = 0.59  # 1,5 cm aprox.
-    block_w = (SLIDE_W - (left_x * 2) - gap) / 2
-    right_x = left_x + block_w + gap
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "strategic_axes"), 0.55, 1.90, 3.15, 1.58)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "channel_mix"), 3.80, 1.90, 2.90, 1.58)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "strategic_axes"), 6.85, 1.90, 3.15, 1.58)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "channel_mix"), 10.05, 1.90, 2.90, 1.58)
 
-    # KPI cards superiores.
-    kpi_w = 4.95
-    kpi_h = 0.88
-    kpi_y = 1.08
-    _metric_pill(slide, left_x + (block_w - kpi_w) / 2, kpi_y, kpi_w, kpi_h,
-                 "ARGENTINA · Acciones de Comunicación", arg.get("plan_total"), dark=True)
-    _metric_pill(slide, right_x + (block_w - kpi_w) / 2, kpi_y, kpi_w, kpi_h,
-                 "HOLDING · Acciones de Comunicación", hol.get("plan_total"), dark=False)
+    _add_text(slide, 0.55, 3.58, 2.3, 0.16, "Área solicitante · Argentina", size=7, color=COLORS["bbva_blue"], bold=True)
+    _add_text(slide, 6.85, 3.58, 2.3, 0.16, "Área solicitante · Holding", size=7, color=COLORS["bbva_blue"], bold=True)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "planning", "internal_clients"), 0.55, 3.74, 5.98, 2.06)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "planning", "internal_clients"), 6.85, 3.74, 5.98, 2.06)
 
-    # Tarjetas de gráficos superiores.
-    upper_y = 2.08
-    upper_h = 2.65
-    chart_gap = 0.08
-    chart_w = (block_w - chart_gap) / 2
-
-    for base_x, data, scope_name in [
-        (left_x, arg, "Argentina"),
-        (right_x, hol, "Holding"),
-    ]:
-        # Eje estratégico
-        _light_card(slide, base_x, upper_y, chart_w, upper_h)
-        _chart_title(slide, base_x + 0.12, upper_y + 0.12, chart_w - 0.24,
-                     "Distribución por Eje Estratégico", "¿Sobre qué temáticas han comunicado?")
-        _native_vertical_bars(
-            slide,
-            _series_items(data.get("strategic_axes"), limit=7),
-            base_x + 0.16,
-            upper_y + 0.48,
-            chart_w - 0.28,
-            upper_h - 0.62,
-        )
-
-        # Canales
-        donut_x = base_x + chart_w + chart_gap
-        _light_card(slide, donut_x, upper_y, chart_w, upper_h)
-        _chart_title(slide, donut_x + 0.12, upper_y + 0.12, chart_w - 0.24,
-                     "Distribución por Canales", "¿Qué canales y formatos se han utilizado?")
-        _native_doughnut(
-            slide,
-            _series_items(data.get("channel_mix"), limit=7),
-            donut_x + 0.12,
-            upper_y + 0.46,
-            chart_w - 0.18,
-            upper_h - 0.62,
-        )
-
-        # Área solicitante, barras horizontales.
-        area_y = 4.86
-        area_h = 2.15
-        _light_card(slide, base_x, area_y, block_w, area_h)
-        _chart_title(slide, base_x + 0.12, area_y + 0.12, block_w - 0.24,
-                     f"Área solicitante · {scope_name}", "¿Qué áreas las han solicitado?")
-        _native_horizontal_bars(
-            slide,
-            _series_items(data.get("internal_clients"), limit=12),
-            base_x + 0.20,
-            area_y + 0.46,
-            block_w - 0.36,
-            area_h - 0.58,
-        )
 
 def _planning_combined(slide, scopes, report):
     _solid_bg(slide)
     _add_section_header(slide, "Planificación | Argentina + Holding")
     cmb = scopes["combined"]
-    _kpi_card(slide, 4.62, 1.03, 4.05, 0.64, "Acciones de Comunicación", _fmt_int(cmb.get("plan_total")), dark=True)
-    _add_text(slide, 0.55, 1.95, 2.8, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
-    _add_text(slide, 4.18, 1.95, 2.3, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
-    _add_text(slide, 8.02, 1.95, 2.0, 0.16, "Área solicitante", size=7, color=COLORS["bbva_blue"], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "strategic_axes"), 0.55, 2.04, 3.35, 1.70)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "channel_mix"), 4.10, 2.04, 3.25, 1.70)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "internal_clients"), 7.55, 2.04, 5.20, 1.70)
-    _obs_box(slide, 0.55, 4.72, 12.20, 1.38)
+    _kpi_card(slide, 4.62, 0.98, 4.05, 0.64, "Acciones de Comunicación", _fmt_int(cmb.get("plan_total")), dark=True)
+    _add_text(slide, 0.55, 1.80, 2.8, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
+    _add_text(slide, 4.18, 1.80, 2.3, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
+    _add_text(slide, 8.02, 1.80, 2.0, 0.16, "Área solicitante", size=7, color=COLORS["bbva_blue"], bold=True)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "strategic_axes"), 0.55, 1.96, 3.35, 2.05)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "channel_mix"), 4.10, 1.96, 3.25, 2.05)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "internal_clients"), 7.55, 1.96, 5.20, 2.05)
+
+
+def _add_scope_label(slide, x, y, w, text):
+    _add_text(slide, x, y, w, 0.22, text, size=9, color=COLORS["bbva_dark"], bold=True, align=PP_ALIGN.CENTER)
+
+
+def _add_crop_title(slide, x, y, w, title):
+    _add_text(slide, x, y, w, 0.16, title, size=7, color=COLORS["bbva_blue"], bold=True)
+
+
+def _add_mail_kpi_crops(slide, report, scope: str, x: float, y: float, w: float):
+    # Proporciones aproximadas según ancho original de cada tarjeta del dashboard.
+    gap = 0.06
+    widths = [0.78, 1.23, 1.41, 1.41]
+    scale = (w - gap * 3) / sum(widths)
+    names = [
+        "mail_total_card",
+        "mail_open_rate_card",
+        "mail_interaction_sent_card",
+        "mail_interaction_opened_card",
+    ]
+    cx = x
+    for name, base_w in zip(names, widths):
+        cw = base_w * scale
+        _image_or_placeholder(slide, _assets_crop(report, scope, "mailing", name), cx, y, cw, 0.52)
+        cx += cw + gap
+
+
+def _add_content_kpi_crops(slide, report, scope: str, x: float, y: float, w: float):
+    gap = 0.08
+    cw = (w - gap * 2) / 3
+    for idx, name in enumerate(["site_notes_total_card", "site_total_views_card", "site_average_views_card"]):
+        _image_or_placeholder(slide, _assets_crop(report, scope, "contents", name), x + idx * (cw + gap), y, cw, 0.58)
 
 
 def _mail_compare(slide, scopes, report):
     _solid_bg(slide)
     _add_section_header(slide, "Canal Mail | Argentina vs Holding")
-    arg = scopes["argentina"]; hol = scopes["holding"]
-    headers = ["Scope", "Mail únicos / envíos", "Apertura", "Interacción s/enviados", "Interacción s/abiertos"]
-    rows = [
-        ["Argentina", f"{_fmt_int(arg.get('mail_unique_total') or arg.get('mail_total'))} / {_fmt_int(arg.get('mail_send_total') or arg.get('mail_total'))}", _fmt_pct(arg.get('mail_open_rate')), _fmt_pct(arg.get('mail_interaction_rate')), _fmt_pct(arg.get('mail_interaction_rate_over_opened'))],
-        ["Holding", f"{_fmt_int(hol.get('mail_unique_total') or hol.get('mail_total'))} / {_fmt_int(hol.get('mail_send_total') or hol.get('mail_total'))}", _fmt_pct(hol.get('mail_open_rate')), _fmt_pct(hol.get('mail_interaction_rate')), _fmt_pct(hol.get('mail_interaction_rate_over_opened'))],
-    ]
-    _add_table(slide, 0.55, 1.15, 12.20, 0.88, "", headers, rows, col_widths=[1.0, 3.0, 1.2, 1.6, 1.6])
-    _add_text(slide, 0.55, 2.18, 2.4, 0.16, "Tendencia mensual", size=7, color=COLORS['bbva_blue'], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, 'argentina', 'mailing', 'monthly_trend'), 0.55, 2.27, 5.75, 1.75)
-    _image_or_placeholder(slide, _assets_crop(report, 'holding', 'mailing', 'monthly_trend'), 0.55, 4.02, 5.75, 1.75)
-    open_rows = _top_mail_rows(arg, 'top_push_by_open_rate', 'Argentina') + _top_mail_rows(hol, 'top_push_by_open_rate', 'Holding')
-    int_rows = _top_mail_rows(arg, 'top_push_by_interaction', 'Argentina') + _top_mail_rows(hol, 'top_push_by_interaction', 'Holding')
-    _add_table(slide, 6.45, 2.32, 6.30, 1.50, 'Top five - Mayor Tasa de Apertura', ['Scope', 'Título', 'Tasa'], open_rows, col_widths=[1.0, 4.3, 1.0], max_rows=4)
-    _add_table(slide, 6.45, 4.02, 6.30, 1.50, 'Top five - Mayor Tasa de Interacción', ['Scope', 'Título', 'Tasa'], int_rows, col_widths=[1.0, 4.3, 1.0], max_rows=4)
-    _obs_box(slide, 0.55, 5.95, 12.20, 0.92)
+
+    left_x, right_x = 0.55, 6.72
+    col_w = 5.95
+    _add_scope_label(slide, left_x, 1.00, col_w, "Argentina")
+    _add_scope_label(slide, right_x, 1.00, col_w, "Holding")
+
+    _add_mail_kpi_crops(slide, report, "argentina", left_x, 1.24, col_w)
+    _add_mail_kpi_crops(slide, report, "holding", right_x, 1.24, col_w)
+
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "monthly_trend"), left_x, 1.88, col_w, 1.86)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "mailing", "monthly_trend"), right_x, 1.88, col_w, 1.86)
+
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_open_rate"), left_x, 4.03, 2.92, 1.58)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_interaction"), left_x + 3.03, 4.03, 2.92, 1.58)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "mailing", "top_open_rate"), right_x, 4.03, 2.92, 1.58)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "mailing", "top_interaction"), right_x + 3.03, 4.03, 2.92, 1.58)
 
 
 def _mail_combined(slide, scopes, report):
     _solid_bg(slide)
     _add_section_header(slide, "Canal Mail | Argentina + Holding")
-    cmb = scopes['combined']
-    headers = ['Mails únicos / envíos', 'Apertura', 'Interacción s/enviados', 'Interacción s/abiertos']
-    rows = [[f"{_fmt_int(cmb.get('mail_unique_total') or cmb.get('mail_total'))} / {_fmt_int(cmb.get('mail_send_total') or cmb.get('mail_total'))}", _fmt_pct(cmb.get('mail_open_rate')), _fmt_pct(cmb.get('mail_interaction_rate')), _fmt_pct(cmb.get('mail_interaction_rate_over_opened'))]]
-    _add_table(slide, 1.55, 1.20, 10.25, 0.72, '', headers, rows, col_widths=[3.1, 1.7, 2.1, 2.1])
-    _add_text(slide, 0.55, 2.16, 2.4, 0.16, 'Tendencia mensual', size=7, color=COLORS['bbva_blue'], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, 'combined', 'mailing', 'monthly_trend'), 0.55, 2.25, 6.45, 2.20)
-    open_rows = _top_mail_rows(cmb, 'top_push_by_open_rate', 'Combined', max_rows=3)
-    int_rows = _top_mail_rows(cmb, 'top_push_by_interaction', 'Combined', max_rows=3)
-    _add_table(slide, 6.80, 2.30, 5.95, 1.65, 'Top five - Mayor Tasa de Apertura', ['Scope', 'Título', 'Tasa'], open_rows, col_widths=[1.0, 3.9, 1.0], max_rows=3)
-    _add_table(slide, 6.80, 4.20, 5.95, 1.65, 'Top five - Mayor Tasa de Interacción', ['Scope', 'Título', 'Tasa'], int_rows, col_widths=[1.0, 3.9, 1.0], max_rows=3)
-    _obs_box(slide, 0.55, 6.05, 12.20, 0.82)
+
+    _add_mail_kpi_crops(slide, report, "combined", 1.00, 1.14, 11.35)
+
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "monthly_trend"), 0.72, 1.88, 7.20, 2.75)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "top_open_rate"), 8.12, 1.88, 4.42, 1.82)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "mailing", "top_interaction"), 8.12, 4.02, 4.42, 1.82)
 
 
-def _content_compare(slide, scopes):
+def _content_compare(slide, scopes, report):
     _solid_bg(slide)
-    _add_section_header(slide, 'Canal Intranet / Contenidos | Argentina vs Holding')
-    arg = scopes['argentina']; hol = scopes['holding']
-    headers = ['Scope', 'Noticias publicadas', 'Total páginas vistas', 'Promedio vistas']
-    rows = [
-        ['Argentina', _fmt_int(arg.get('site_notes_total')), _fmt_int(arg.get('site_total_views')), _fmt_int(arg.get('site_average_views'))],
-        ['Holding', _fmt_int(hol.get('site_notes_total')), _fmt_int(hol.get('site_total_views')), _fmt_int(hol.get('site_average_views'))],
-    ]
-    _add_table(slide, 0.95, 1.18, 11.40, 0.86, '', headers, rows, col_widths=[1.2, 2.2, 2.3, 2.0])
-    uu_rows = _top_pull_rows(arg, 'top_pull_notes', 'Argentina') + _top_pull_rows(hol, 'top_pull_notes', 'Holding')
-    tgm_rows = _top_pull_rows(arg, 'top_pull_notes_tgm', 'Argentina') + _top_pull_rows(hol, 'top_pull_notes_tgm', 'Holding')
-    _add_table(slide, 0.55, 2.45, 12.20, 1.45, 'Top five - Notas más leídas (uu)', ['Scope', 'Titular', 'Vistas'], uu_rows, col_widths=[1.0, 9.6, 1.2], max_rows=4)
-    _add_table(slide, 0.55, 4.20, 12.20, 1.45, 'Top five - Notas más leídas (TGM)', ['Scope', 'Titular', 'Vistas'], tgm_rows, col_widths=[1.0, 9.6, 1.2], max_rows=4)
-    _obs_box(slide, 0.55, 6.05, 12.20, 0.82)
+    _add_section_header(slide, "Canal Intranet / Contenidos | Argentina vs Holding")
+
+    left_x, right_x = 0.55, 6.72
+    col_w = 5.95
+    _add_scope_label(slide, left_x, 1.00, col_w, "Argentina")
+    _add_scope_label(slide, right_x, 1.00, col_w, "Holding")
+
+    _add_content_kpi_crops(slide, report, "argentina", left_x + 0.25, 1.24, col_w - 0.50)
+    _add_content_kpi_crops(slide, report, "holding", right_x + 0.25, 1.24, col_w - 0.50)
+
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_uu"), left_x, 2.02, col_w, 1.72)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "contents", "top_notes_uu"), right_x, 2.02, col_w, 1.72)
+
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_tgm"), left_x, 4.02, col_w, 1.72)
+    _image_or_placeholder(slide, _assets_crop(report, "holding", "contents", "top_notes_tgm"), right_x, 4.02, col_w, 1.72)
 
 
-def _content_combined(slide, scopes):
+def _content_combined(slide, scopes, report):
     _solid_bg(slide)
-    _add_section_header(slide, 'Canal Intranet / Contenidos | Argentina + Holding')
-    cmb = scopes['combined']
-    headers = ['Noticias publicadas', 'Total páginas vistas', 'Promedio vistas']
-    rows = [[_fmt_int(cmb.get('site_notes_total')), _fmt_int(cmb.get('site_total_views')), _fmt_int(cmb.get('site_average_views'))]]
-    _add_table(slide, 2.05, 1.18, 9.20, 0.74, '', headers, rows, col_widths=[2.4, 2.6, 2.2])
-    uu_rows = _top_pull_rows(cmb, 'top_pull_notes', 'Combined', max_rows=3)
-    tgm_rows = _top_pull_rows(cmb, 'top_pull_notes_tgm', 'Combined', max_rows=3)
-    _add_table(slide, 0.55, 2.35, 12.20, 1.55, 'Top five - Notas más leídas (uu)', ['Scope', 'Titular', 'Vistas'], uu_rows, col_widths=[1.0, 9.6, 1.2], max_rows=3)
-    _add_table(slide, 0.55, 4.18, 12.20, 1.55, 'Top five - Notas más leídas (TGM)', ['Scope', 'Titular', 'Vistas'], tgm_rows, col_widths=[1.0, 9.6, 1.2], max_rows=3)
-    _obs_box(slide, 0.55, 6.08, 12.20, 0.80)
+    _add_section_header(slide, "Canal Intranet / Contenidos | Argentina + Holding")
+
+    _add_content_kpi_crops(slide, report, "combined", 2.00, 1.12, 9.35)
+
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "contents", "top_notes_uu"), 0.75, 1.92, 11.80, 1.86)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "contents", "top_notes_tgm"), 0.75, 4.08, 11.80, 1.86)
 
 
 def _closing(slide):
-    _solid_bg(slide, COLORS['bbva_blue'])
-    # Contraportada minimal: logo corporativo BBVA white, 1 x 0,3 in, centrado.
-    if BBVA_LOGO_WHITE.exists():
-        slide.shapes.add_picture(
-            str(BBVA_LOGO_WHITE),
-            _in((SLIDE_W - 1.0) / 2),
-            _in((SLIDE_H - 0.3) / 2),
-            width=_in(1.0),
-            height=_in(0.3),
-        )
+    _solid_bg(slide, COLORS["bbva_blue"])
+    # Contraportada solicitada: fondo azul + logo corporativo blanco,
+    # más chico y perfectamente centrado. Usamos el asset blanco provisto,
+    # no el logo derivado desde el azul.
+    logo = BBVA_LOGO_WHITE if BBVA_LOGO_WHITE.exists() else _clean_white_logo_path()
+    logo_w = 1.95
+    logo_h = 0.55
+    x = (SLIDE_W - logo_w) / 2
+    y = (SLIDE_H - logo_h) / 2
+    if logo and logo.exists():
+        slide.shapes.add_picture(str(logo), _in(x), _in(y), width=_in(logo_w))
     else:
-        _add_text(
-            slide,
-            (SLIDE_W - 1.0) / 2,
-            (SLIDE_H - 0.3) / 2,
-            1.0,
-            0.3,
-            'BBVA',
-            size=18,
-            color=COLORS['white'],
-            bold=True,
-            align=PP_ALIGN.CENTER,
-        )
+        _add_text(slide, x, y, logo_w, logo_h, "BBVA", size=26, color=COLORS["white"], bold=True, align=PP_ALIGN.CENTER)
 
 
 report_context: dict[str, Any] = {}
@@ -679,8 +481,8 @@ def render_management_deck(report: dict[str, Any], output_path: Path) -> None:
         lambda s: _planning_combined(s, scopes, report),
         lambda s: _mail_compare(s, scopes, report),
         lambda s: _mail_combined(s, scopes, report),
-        lambda s: _content_compare(s, scopes),
-        lambda s: _content_combined(s, scopes),
+        lambda s: _content_compare(s, scopes, report),
+        lambda s: _content_combined(s, scopes, report),
         _closing,
     ]
     blank = prs.slide_layouts[6]
