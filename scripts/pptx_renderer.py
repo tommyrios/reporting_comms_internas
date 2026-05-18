@@ -207,12 +207,27 @@ def _add_text(slide, x, y, w, h, text, size=12, color=None, bold=False, font="Ar
     return tb
 
 
-def _add_rect(slide, x, y, w, h, fill, line=None, radius=False):
-    shp = slide.shapes.add_shape(MSO_AUTO_SHAPE_TYPE.ROUNDED_RECTANGLE if radius else MSO_AUTO_SHAPE_TYPE.RECTANGLE, _in(x), _in(y), _in(w), _in(h))
+def _add_rect(slide, x, y, w, h, fill, line=None, radius=False, corner_radius=None):
+    shp = slide.shapes.add_shape(
+        MSO_AUTO_SHAPE_TYPE.ROUNDED_RECTANGLE if radius else MSO_AUTO_SHAPE_TYPE.RECTANGLE,
+        _in(x),
+        _in(y),
+        _in(w),
+        _in(h),
+    )
     shp.fill.solid()
     shp.fill.fore_color.rgb = fill
     shp.line.color.rgb = line or fill
     shp.line.width = Pt(0.6)
+
+    # En rectángulos redondeados, python-pptx permite ajustar el radio.
+    # Valores más bajos dejan las esquinas menos redondeadas.
+    if radius and corner_radius is not None:
+        try:
+            shp.adjustments[0] = corner_radius
+        except (AttributeError, IndexError, TypeError):
+            pass
+
     return shp
 
 
@@ -368,7 +383,7 @@ def _planning_compare(slide, scopes, report):
 
     # Caja visual para agrupar resultado + gráficos de Holding sin sombra.
     # Se agrega antes de los elementos internos para que funcione como fondo.
-    _add_rect(slide, 6.64, 1.00, 6.26, 4.95, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
+    _add_rect(slide, 6.64, 1.00, 6.26, 4.95, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True, corner_radius=0.06)
 
     # Centramos cada tarjeta respecto del bloque de gráficos correspondiente.
     _kpi_card(slide, 2.02, 1.07, 3.05, 0.62, "ARGENTINA · Acciones de Comunicación", _fmt_int(arg.get("plan_total")), dark=True)
@@ -498,7 +513,7 @@ def _mail_compare(slide, scopes, report):
 
     # Mantener resultados para ambos scopes; el volumen de mails se deriva de Planificación.
     _add_scope_label(slide, 0.70, 1.00, 5.80, "Argentina")
-    _add_rect(slide, 6.70, 1.02, 6.08, 0.96, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
+    _add_rect(slide, 6.70, 1.02, 6.08, 0.96, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True, corner_radius=0.06)
     _add_scope_label(slide, 6.85, 1.06, 5.80, "Holding")
     _add_mail_kpi_cards(slide, arg, 0.70, 1.24, 5.80)
     _add_mail_kpi_cards(slide, hol, 6.85, 1.24, 5.80)
@@ -534,7 +549,7 @@ def _content_compare(slide, scopes, report):
 
     arg = scopes["argentina"]; hol = scopes["holding"]
     _add_scope_label(slide, 0.55, 1.00, 5.95, "Argentina")
-    _add_rect(slide, 6.72, 1.02, 5.95, 0.96, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
+    _add_rect(slide, 6.72, 1.02, 5.95, 0.96, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True, corner_radius=0.06)
     _add_scope_label(slide, 6.72, 1.06, 5.95, "Holding")
 
     # Mantener resultados comparativos tal como venían funcionando bien.
