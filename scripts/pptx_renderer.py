@@ -33,7 +33,7 @@ COLORS = {
     "muted": RGBColor(107, 116, 131),
     "border": RGBColor(224, 228, 235),
     "placeholder": RGBColor(238, 240, 244),
-    "obs": RGBColor(234, 236, 241),
+    "obs": RGBColor(238, 238, 238),
     "purple_light_3": RGBColor(203, 195, 227),
 }
 
@@ -156,7 +156,11 @@ def _period_label(report: dict[str, Any]) -> str:
 
 
 def _period_title(report: dict[str, Any]) -> str:
-    return f"Gestión CI - {_period_label(report)}"
+    label = _period_label(report)
+    # En títulos de slide no mostramos el rango de meses: "Q1 2026", no "Q1 2026 (ene-mar)".
+    if "(" in label:
+        label = label.split("(", 1)[0].strip()
+    return f"Gestión CI - {label}"
 
 
 def _assets_crop(report: dict[str, Any], scope: str, module: str, name: str) -> Path | None:
@@ -281,7 +285,8 @@ def _kpi_card(
 
 
 def _obs_box(slide, x, y, w, h):
-    _add_rect(slide, x, y, w, h, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
+    _add_text(slide, x, y - 0.24, 2.0, 0.18, "Observaciones", size=8, color=COLORS["bbva_dark"], bold=True)
+    _add_rect(slide, x, y, w, h, COLORS["obs"], line=COLORS["obs"], radius=True)
 
 
 def _rows(rows: Any) -> list[dict[str, Any]]:
@@ -361,11 +366,13 @@ def _planning_compare(slide, scopes, report):
     _add_section_header(slide, "Planificación | Argentina vs Holding")
     arg = scopes["argentina"]; hol = scopes["holding"]
 
-    _kpi_card(slide, 1.30, 1.07, 3.05, 0.62, "ARGENTINA · Acciones de Comunicación", _fmt_int(arg.get("plan_total")), dark=True)
-    _kpi_card(slide, 7.20, 1.07, 3.05, 0.62, "HOLDING · Acciones de Comunicación", _fmt_int(hol.get("plan_total")), dark=False)
+    # Caja visual para agrupar resultado + gráficos de Holding sin sombra.
+    # Se agrega antes de los elementos internos para que funcione como fondo.
+    _add_rect(slide, 6.64, 1.00, 6.26, 4.95, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
 
-    # Caja visual para agrupar los gráficos de Holding sin sombra.
-    _add_rect(slide, 6.64, 1.82, 6.26, 4.02, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
+    # Centramos cada tarjeta respecto del bloque de gráficos correspondiente.
+    _kpi_card(slide, 2.02, 1.07, 3.05, 0.62, "ARGENTINA · Acciones de Comunicación", _fmt_int(arg.get("plan_total")), dark=True)
+    _kpi_card(slide, 8.25, 1.07, 3.05, 0.62, "HOLDING · Acciones de Comunicación", _fmt_int(hol.get("plan_total")), dark=False)
 
     # Bajamos ligeramente todos los gráficos para despegar el bloque de la línea separadora.
     _add_text(slide, 0.55, 1.88, 2.6, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
@@ -491,8 +498,8 @@ def _mail_compare(slide, scopes, report):
 
     # Mantener resultados para ambos scopes; el volumen de mails se deriva de Planificación.
     _add_scope_label(slide, 0.70, 1.00, 5.80, "Argentina")
-    _add_rect(slide, 6.70, 0.94, 6.08, 1.04, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
-    _add_scope_label(slide, 6.85, 1.00, 5.80, "Holding")
+    _add_rect(slide, 6.70, 1.02, 6.08, 0.96, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
+    _add_scope_label(slide, 6.85, 1.06, 5.80, "Holding")
     _add_mail_kpi_cards(slide, arg, 0.70, 1.24, 5.80)
     _add_mail_kpi_cards(slide, hol, 6.85, 1.24, 5.80)
 
@@ -527,8 +534,8 @@ def _content_compare(slide, scopes, report):
 
     arg = scopes["argentina"]; hol = scopes["holding"]
     _add_scope_label(slide, 0.55, 1.00, 5.95, "Argentina")
-    _add_rect(slide, 6.72, 0.94, 5.95, 1.04, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
-    _add_scope_label(slide, 6.72, 1.00, 5.95, "Holding")
+    _add_rect(slide, 6.72, 1.02, 5.95, 0.96, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True)
+    _add_scope_label(slide, 6.72, 1.06, 5.95, "Holding")
 
     # Mantener resultados comparativos tal como venían funcionando bien.
     _add_content_kpi_cards(slide, arg, 0.80, 1.24, 5.45)
