@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from metric_utils import CANON_TITLE_MAX_LENGTH, to_float_locale
+
 REQUIRED_CANONICAL_FIELDS = {
     "month",
     "plan_total",
@@ -36,25 +38,7 @@ MAIL_SEND_TO_UNIQUE_MAX_RATIO = 10
 
 
 def to_float(value: Any, default: float = 0.0) -> float:
-    if value in (None, "", "-"):
-        return default
-    if isinstance(value, bool):
-        return float(value)
-    if isinstance(value, (int, float)):
-        return float(value)
-    text = str(value).strip().replace("%", "")
-    if "," in text and "." in text:
-        if text.rfind(",") > text.rfind("."):
-            text = text.replace(".", "").replace(",", ".")
-        else:
-            text = text.replace(",", "")
-    elif "," in text:
-        text = text.replace(",", ".")
-    text = re.sub(r"[^0-9.\-]", "", text)
-    try:
-        return float(text)
-    except Exception:
-        return default
+    return to_float_locale(value, default)
 
 
 def to_int(value: Any, default: int = 0) -> int:
@@ -68,7 +52,7 @@ def normalize_percentage(value: Any) -> float:
     return round(number, 2)
 
 
-def clean_text(value: Any, max_len: int = 180) -> str:
+def clean_text(value: Any, max_len: int = CANON_TITLE_MAX_LENGTH) -> str:
     text = str(value or "").replace("_", " ").replace("|", " ").strip()
     text = re.sub(r"\s+", " ", text).replace("...", "…")
     text = text.rstrip("…").strip(" -")
@@ -83,7 +67,7 @@ def normalize_push_row(row: dict[str, Any]) -> dict[str, Any]:
     open_rate = normalize_percentage(row.get("open_rate", row.get("opens", 0)))
     clicks = to_int(row.get("clicks", 0))
     normalized = {
-        "name": clean_text(row.get("name") or row.get("title") or "Sin título", 120),
+        "name": clean_text(row.get("name") or row.get("title") or "Sin título", CANON_TITLE_MAX_LENGTH),
         "clicks": clicks,
         "open_rate": open_rate,
         "interaction": interaction,
@@ -155,7 +139,7 @@ def validate_canonical_quality(canonical: dict[str, Any]) -> dict[str, Any]:
 
     missing = sorted(REQUIRED_CANONICAL_FIELDS - set(canonical.keys()))
     if missing:
-        errors.append("Faltan campos del contrato mensual: " + ", ".join(missing))
+        errors.append("Faltan campos del contrato canónico: " + ", ".join(missing))
 
     month = clean_text(canonical.get("month"), 32)
     if not month or month == "-":
@@ -207,7 +191,7 @@ def validate_canonical_quality(canonical: dict[str, Any]) -> dict[str, Any]:
     for row in canonical.get("top_pull_notes", []) or []:
         if not isinstance(row, dict):
             continue
-        title = clean_text(row.get("title") or row.get("name") or "sin título", 96)
+        title = clean_text(row.get("title") or row.get("name") or "sin título", CANON_TITLE_MAX_LENGTH)
         unique = to_int(row.get("unique_reads", row.get("users", 0)))
         total = to_int(row.get("total_reads", row.get("views", 0)))
         if unique < 0 or total < 0:
@@ -228,8 +212,6 @@ def validate_report_quality(report: dict[str, Any]) -> dict[str, Any]:
         errors.append("Faltan campos del reporte: " + ", ".join(missing))
     render_plan = report.get("render_plan") if isinstance(report.get("render_plan"), dict) else {}
     modules = render_plan.get("modules") if isinstance(render_plan.get("modules"), list) else []
-    if not modules:
-        errors.append("render_plan.modules vacío")
     seen = set()
     for module in modules:
         if not isinstance(module, dict):
@@ -257,7 +239,7 @@ def _result(is_valid: bool, errors: list[str], warnings: list[str]) -> dict[str,
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Valida artefactos JSON del pipeline de Comunicaciones Internas.")
-    parser.add_argument("input", type=Path, help="Ruta al JSON canonical_monthly o report.json")
+    parser.add_argument("input", type=Path, help="Ruta al JSON canónico de período o report.json")
     parser.add_argument("--kind", choices=("canonical", "report"), default="canonical")
     parser.add_argument("--warn-only", action="store_true", help="Devuelve exit code 0 aunque haya errores")
     args = parser.parse_args()

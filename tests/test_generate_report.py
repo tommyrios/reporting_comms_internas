@@ -119,7 +119,7 @@ class GenerateReportTests(unittest.TestCase):
                 patch("generate_report.summarize_period_scope", return_value=invalid_summary):
             with self.assertRaises(ValueError) as ctx:
                 generate_period_report("quarter_2026_Q1")
-        self.assertIn("Contrato mensual incompleto", str(ctx.exception))
+        self.assertIn("Contrato canónico incompleto", str(ctx.exception))
 
     def test_generate_period_report_does_not_continue_invalid_scope_validation(self):
         period = {

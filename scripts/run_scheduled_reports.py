@@ -33,18 +33,11 @@ def _load_fetch_payload(fetch_result):
         except json.JSONDecodeError:
             pass
 
-    candidates = [
-        DATA_DIR / "fetch_result.json",
-        DATA_DIR / "selected_periods.json",
-    ]
+    path = DATA_DIR / "fetch_result.json"
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
 
-    for path in candidates:
-        if path.exists():
-            return json.loads(path.read_text(encoding="utf-8"))
-
-    raise RuntimeError(
-        "fetch_dashboard_pdfs no devolvió resultado y no existe ni data/fetch_result.json ni data/selected_periods.json"
-    )
+    raise RuntimeError("fetch_dashboard_pdfs no devolvió resultado y no existe data/fetch_result.json")
 
 
 def main() -> None:

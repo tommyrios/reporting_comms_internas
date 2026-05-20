@@ -87,30 +87,6 @@ def _quarter_label(year: int, quarter: int) -> str:
     return f"Q{quarter} {year} ({month_span})"
 
 
-def build_month_period(year: int, month: int) -> ReportingPeriod:
-    start_date = date(year, month, 1)
-    if month == 12:
-        end_date_exclusive = date(year + 1, 1, 1)
-    else:
-        end_date_exclusive = date(year, month + 1, 1)
-
-    month_name = SPANISH_MONTH_SHORT[month]
-    slug_month = month_name
-    return ReportingPeriod(
-        kind="month",
-        year=year,
-        quarter=None,
-        months=[_month_slug(year, month)],
-        start_date=start_date.isoformat(),
-        end_date_exclusive=end_date_exclusive.isoformat(),
-        label=f"{month_name.capitalize()} {year}",
-        slug=f"month_{year}_{month:02d}",
-        email_subject=f"Informe mensual CI | {month_name.capitalize()} {year}",
-        title=f"Informe mensual de Comunicaciones Internas - {month_name.capitalize()} {year}",
-        subtitle=f"Período {month_name} {year}",
-    )
-
-
 def build_quarter_period(year: int, quarter: int) -> ReportingPeriod:
     months = QUARTER_TO_MONTHS[quarter]
     month_slugs = [_month_slug(year, month) for month in months]

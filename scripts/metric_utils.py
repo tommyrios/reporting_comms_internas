@@ -1,7 +1,18 @@
+from __future__ import annotations
+
+import re
 from typing import Any
 
 
+CANON_TITLE_MAX_LENGTH = 180
+
+
 def to_float_locale(value: Any, default: float = 0.0) -> float:
+    """Parsea números exportados por Looker en formato ES/EN.
+
+    Soporta miles con punto o coma (`11.785`, `5,580`) y decimales con
+    coma o punto (`80,75%`, `80.75%`).
+    """
     if value in (None, "", "-"):
         return default
     if isinstance(value, bool):
@@ -10,25 +21,47 @@ def to_float_locale(value: Any, default: float = 0.0) -> float:
         return float(value)
 
     text = str(value).strip().replace("%", "")
-    if "," in text and "." in text:
+    text = re.sub(r"[^\d,.\-]", "", text)
+    if not text:
+        return default
+
+    if "." in text and "," in text:
         if text.rfind(",") > text.rfind("."):
             text = text.replace(".", "").replace(",", ".")
         else:
             text = text.replace(",", "")
     elif "," in text:
-        text = text.replace(",", ".")
+        parts = text.split(",")
+        if len(parts) > 1 and all(len(part) == 3 for part in parts[1:]):
+            text = text.replace(",", "")
+        else:
+            text = text.replace(",", ".")
+    elif "." in text:
+        parts = text.split(".")
+        if len(parts) > 1 and all(len(part) == 3 for part in parts[1:]):
+            text = text.replace(".", "")
 
     try:
         return float(text)
     except Exception:
-        filtered = "".join(ch for ch in str(value) if ch.isdigit() or ch in ".,-")
-        if not filtered:
-            return default
-        filtered = filtered.replace(",", ".")
-        try:
-            return float(filtered)
-        except Exception:
-            return default
+        return default
+
+
+def parse_integer_value(value: Any) -> int | None:
+    if value in (None, "", "-"):
+        return None
+    return int(round(to_float_locale(value, 0.0)))
+
+
+def parse_percent_value(value: Any) -> float | None:
+    if value in (None, "", "-"):
+        return None
+
+    text = str(value).strip()
+    number = to_float_locale(text, 0.0)
+    if "%" not in text and 0 < number <= 1:
+        number *= 100
+    return round(number, 2)
 
 
 def normalize_percentage(value: Any) -> float:

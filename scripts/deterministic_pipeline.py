@@ -11,6 +11,7 @@ from typing import Any
 
 from pypdf import PdfReader
 from data_quality import validate_canonical_quality
+from metric_utils import parse_integer_value, parse_percent_value, to_float_locale
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ NUMBER_PATTERN = re.compile(r"-?\d+(?:[.,]\d{3})*(?:[.,]\d+)?%?")
 MAX_MAIL_TO_PLAN_RATIO = 10
 MIN_SITE_VIEWS_PER_NOTE = 10
 MIN_MAIL_TO_PLAN_RELATION = 0.2
-MIN_MAIL_ABSOLUTE = 10
+MIN_PUSH_RANKING_SENT = 1000
 MIN_RATE_DIFFERENCE = 0.01
 
 # Con 2 números toleramos casos "label + valor + referencia", y evitamos filas de tablas más densas.
@@ -139,63 +140,6 @@ OPTIONAL_METRIC_KEYS = {
 }
 
 
-# -------------------------
-# Utils reemplazo metric_utils.py
-# TODO: consolidar estos helpers en metric_utils.py y reutilizarlos desde analyzer.py.
-# -------------------------
-
-def to_float_locale(raw: str | None, default: float = 0.0) -> float:
-    if raw is None:
-        return default
-
-    text = str(raw).strip()
-    text = text.replace("%", "")
-    text = re.sub(r"[^\d,.\-]", "", text)
-
-    if not text:
-        return default
-
-    if "." in text and "," in text:
-        if text.rfind(",") > text.rfind("."):
-            text = text.replace(".", "").replace(",", ".")
-        else:
-            text = text.replace(",", "")
-    elif "," in text:
-        parts = text.split(",")
-        if len(parts) > 1 and all(len(p) == 3 for p in parts[1:]):
-            text = text.replace(",", "")
-        else:
-            text = text.replace(",", ".")
-    elif "." in text:
-        parts = text.split(".")
-        if len(parts) > 1 and all(len(p) == 3 for p in parts[1:]):
-            text = text.replace(".", "")
-
-    try:
-        return float(text)
-    except Exception:
-        return default
-
-
-def parse_integer_value(raw: str | None) -> int | None:
-    if raw in (None, "", "-"):
-        return None
-
-    value = to_float_locale(raw, 0.0)
-    return int(round(value))
-
-
-def parse_percent_value(raw: str | None) -> float | None:
-    if raw in (None, "", "-"):
-        return None
-
-    text = str(raw).strip()
-    value = to_float_locale(text, 0.0)
-
-    if "%" not in text and 0 < value <= 1:
-        value *= 100
-
-    return round(value, 2)
 
 
 # -------------------------
@@ -333,8 +277,7 @@ def _label_regex_matches(line: str, label: str) -> list[re.Match[str]]:
 def _line_contains_label(line: str, label: str) -> bool:
     """Detecta si una línea contiene un label, sin descartar líneas ruidosas.
 
-    A diferencia de _line_matches_label, esta función no rechaza la línea por tener
-    muchos números. Esto es importante para casos reales de pypdf como:
+    No rechaza líneas por tener muchos números. Esto es importante para casos reales de pypdf como:
     "ARGENTINA 30 40Total Páginas Vistas".
 
     La especificidad evita que "N total de comunicaciones" matchee contra
@@ -361,27 +304,6 @@ def _line_contains_label(line: str, label: str) -> bool:
     # Fallback tolerante: labels recortados, ej. "mails envia…" / "mails abiert…".
     return bool(_label_regex_matches(line, label))
 
-
-def _line_matches_label(line: str, label: str) -> bool:
-    """Match estricto de label para casos no ruidosos.
-
-    Se conserva para usos auxiliares. La extracción principal usa _line_contains_label
-    para poder detectar anchors pegadas al final de filas/tablas.
-    """
-    if not _line_contains_label(line, label):
-        return False
-
-    line_norm = _normalize_text(line)
-    label_norm = _normalize_text(label)
-
-    if line_norm == label_norm:
-        return True
-
-    if _compact_text(line) == _compact_text(label):
-        return True
-
-    numbers = NUMBER_PATTERN.findall(_normalize_number_spacing(line))
-    return len(numbers) <= MAX_NUMBERS_IN_LABEL_LINE
 
 
 def _line_contains_any_known_anchor(line: str, current_labels: list[str]) -> bool:
@@ -694,7 +616,7 @@ def _build_push_rankings(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any
         r for r in rows
         if r.get("open_rate") is not None
         and r.get("ctr") is not None
-        and (r.get("sent") or 0) >= 1000
+        and (r.get("sent") or 0) >= MIN_PUSH_RANKING_SENT
     ]
 
     top_open = sorted(clean_rows, key=lambda x: x["open_rate"], reverse=True)[:5]
@@ -1736,7 +1658,7 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
     # scripts/validate_report.py and validate_canonical_quality().
     dq = validate_canonical_quality(canonical)
     for error in dq.get("errors", []):
-        if str(error).startswith("Faltan campos del contrato mensual:"):
+        if str(error).startswith(("Faltan campos del contrato mensual:", "Faltan campos del contrato canónico:")):
             if error not in warnings:
                 warnings.append(error)
             continue

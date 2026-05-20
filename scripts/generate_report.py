@@ -25,9 +25,12 @@ logger = logging.getLogger(__name__)
 
 def get_period_definition(period_slug: str) -> dict[str, Any]:
     schedule_path = DATA_DIR / "reporting_periods.json"
-    legacy_path = DATA_DIR / "selected_periods.json"
-    source_path = schedule_path if schedule_path.exists() else legacy_path
-    payload = json.loads(source_path.read_text(encoding="utf-8"))
+    if schedule_path.exists():
+        payload = json.loads(schedule_path.read_text(encoding="utf-8"))
+    else:
+        from reporting_periods import load_schedule
+        payload = load_schedule().to_dict()
+
     for period in payload.get("periods", []):
         if period.get("slug") == period_slug:
             return period
@@ -56,61 +59,6 @@ def load_manual_context(period_slug: str) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _build_fallback_narrative(kpis: dict[str, Any]) -> dict[str, Any]:
-    totals = kpis.get("calculated_totals", {})
-    flags = kpis.get("quality_flags", {})
-    historical_note = (
-        "No comparable por alcance de fuente"
-        if not flags.get("historical_comparison_allowed", True)
-        else "Comparación histórica habilitada para el mismo alcance de fuentes."
-    )
-    return {
-        "executive_summary": historical_note,
-        "executive_takeaways": [
-            f"{totals.get('plan_total', 0)} comunicaciones planificadas en el período.",
-            f"{totals.get('site_notes_total', 0)} noticias publicadas con {totals.get('site_total_views', 0)} páginas vistas.",
-            f"Apertura promedio {totals.get('mail_open_rate', 0)}% e interacción {totals.get('mail_interaction_rate', 0)}%.",
-        ],
-        "channel_management": "El desempeño de canales se consolidó con métricas verificables y sin inferencias.",
-        "mix_thematic_clients": "El mix temático y de áreas solicitantes resume la demanda efectiva del período.",
-        "ranking_push": "El ranking push se construyó solo con datos observables en la fuente.",
-        "ranking_pull": "El ranking pull prioriza lecturas reales y evita proyecciones no sustentadas.",
-        "milestones": "Los hitos incluidos reflejan actividades detectadas en el mes.",
-        "recommendations_summary": "Próximos pasos construidos a partir de KPIs y rankings disponibles.",
-        "recommendations": [
-            "Sostener los contenidos con beneficio concreto y llamado a la acción visible.",
-            "Usar el ranking SITE/Intranet para alimentar envíos segmentados de profundización.",
-            "Revisar ejes y áreas subrepresentadas antes de cerrar la planificación del próximo mes.",
-        ],
-        "experiments": [
-            "Test A/B de asunto en mails con alto potencial de interacción.",
-            "Publicar refuerzo en SITE para los temas con mejor lectura orgánica.",
-            "Medir variación por horario y segmento en las piezas principales.",
-        ],
-        "action_plan": [
-            "Definir foco editorial del próximo período.",
-            "Priorizar tres piezas con KPI objetivo antes de producir.",
-            "Cerrar lectura de resultados con recomendaciones para el mes siguiente.",
-        ],
-        "events": "La sección de eventos se muestra únicamente cuando existe detalle suficiente.",
-    }
-
-
-def _sanitize_narrative(raw: Any) -> dict[str, Any]:
-    if not isinstance(raw, dict):
-        return {}
-    clean: dict[str, Any] = {}
-    for key, value in raw.items():
-        if isinstance(value, str):
-            text = " ".join(value.replace("_", " ").split())
-            if "slide_" in text.lower():
-                text = text.replace("slide_", "")
-            clean[key] = text
-        elif isinstance(value, list):
-            clean[key] = [" ".join(str(item).replace("_", " ").split()) for item in value if str(item).strip()][:4]
-    return clean
-
-
 def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_extra: dict[str, Any] | None = None) -> str:
     report_dir = ensure_dir(REPORTS_DIR / period_slug)
     period_label = report.get("period", {}).get("label", "-")
@@ -136,23 +84,6 @@ def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_ex
     )
     (report_dir / "report.html").write_text(html_content, encoding="utf-8")
     return str(report_dir)
-
-
-def _request_narrative(period: dict[str, Any], kpis: dict[str, Any], period_summaries: dict[str, dict[str, Any]]) -> tuple[dict[str, Any], str, str | None]:
-    try:
-        from llm_client import build_genai_client, call_gemini_for_json, load_prompt
-        client = build_genai_client()
-        prompt_base = load_prompt("period_report.txt")
-        prompt_final = (
-            f"{prompt_base}\n\n"
-            f"INPUT (PERIODO):\n{json.dumps(period, ensure_ascii=False)}\n\n"
-            f"INPUT (KPI_CALCULADOS):\n{json.dumps(kpis, ensure_ascii=False)}\n\n"
-            f"INPUT (RESUMENES_POR_SCOPE):\n{json.dumps(period_summaries, ensure_ascii=False)}"
-        )
-        narrative_raw = call_gemini_for_json(client, [prompt_final])
-        return _sanitize_narrative(narrative_raw), "llm", None
-    except Exception as exc:
-        return _build_fallback_narrative(kpis), "fallback", f"Se generó narrativa fallback: {str(exc)}"
 
 
 def _build_scope_comparison(period_summaries: dict[str, dict[str, Any]]) -> dict[str, Any]:

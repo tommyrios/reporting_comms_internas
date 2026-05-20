@@ -4,7 +4,7 @@ from collections import defaultdict
 from copy import deepcopy
 from typing import Any
  
-from metric_utils import normalize_percentage, to_float_locale
+from metric_utils import CANON_TITLE_MAX_LENGTH, normalize_percentage, to_float_locale
 from data_quality import normalize_push_row, validate_report_quality
  
  
@@ -78,7 +78,7 @@ def _to_float(value: Any, default: float = 0.0) -> float:
     return to_float_locale(value, default)
  
  
-def _clean_title(value: Any, max_len: int = 90) -> str:
+def _clean_title(value: Any, max_len: int = CANON_TITLE_MAX_LENGTH) -> str:
     text = str(value or "").replace("_", " ").replace("|", " ").strip()
     text = text.replace("...", "…")
     text = " ".join(text.split())
@@ -145,7 +145,7 @@ def _infer_quality_flags(summary: dict[str, Any]) -> dict[str, Any]:
  
 def normalize_monthly_summary(summary: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(summary, dict):
-        raise ValueError("monthly summary debe ser objeto JSON")
+        raise ValueError("summary canónico debe ser objeto JSON")
  
     data = summary.get("data") if isinstance(summary.get("data"), dict) else {}
     insights = summary.get("insights") if isinstance(summary.get("insights"), dict) else {}
@@ -182,12 +182,12 @@ def validate_monthly_summary_contract(summary: dict[str, Any]) -> dict[str, Any]
     has_legacy_contract = isinstance(summary.get("data"), dict) and isinstance(summary.get("insights"), dict)
     if not has_full_contract and not has_legacy_contract:
         missing = sorted(REQUIRED_MONTHLY_FIELDS - source_keys)
-        raise ValueError(f"Contrato mensual incompleto, faltan campos: {', '.join(missing)}")
+        raise ValueError(f"Contrato canónico incompleto, faltan campos: {', '.join(missing)}")
  
     normalized = normalize_monthly_summary(summary)
  
     if not normalized.get("month") or normalized["month"] == "-":
-        raise ValueError("Contrato mensual inválido: falta campo month")
+        raise ValueError("Contrato canónico inválido: falta campo month")
  
     quality_flags = normalized.get("quality_flags", {})
     missing_flags = [key for key in REQUIRED_QUALITY_FLAGS if key not in quality_flags]
@@ -280,7 +280,7 @@ def _top_push(summary_rows: list[dict[str, Any]], source_key: str, value_key: st
         for item in row.get(source_key, []) or []:
             if not isinstance(item, dict):
                 continue
-            name = _clean_title(item.get("name") or item.get("title"), 90)
+            name = _clean_title(item.get("name") or item.get("title"), CANON_TITLE_MAX_LENGTH)
             if not name:
                 continue
             normalized_item = normalize_push_row({
@@ -305,7 +305,7 @@ def _top_pull(summary_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             if not isinstance(item, dict):
                 continue
             rows.append({
-                "title": _clean_title(item.get("title") or item.get("name"), 96),
+                "title": _clean_title(item.get("title") or item.get("name"), CANON_TITLE_MAX_LENGTH),
                 "unique_reads": _to_int(item.get("unique_reads", item.get("reads", 0))),
                 "total_reads": _to_int(item.get("total_reads", item.get("views", 0))),
                 "month": row.get("month"),
@@ -455,7 +455,7 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
                 f"Ranking push con interacción mayor a apertura: {row.get('name', 'sin título')}"
             )
     if strategic_axes_is_distribution or internal_clients_is_distribution or channel_mix_is_distribution or format_mix_is_distribution:
-        validation_warnings.append("Mixes consolidados como promedio de distribución mensual (no suma directa)")
+        validation_warnings.append("Mixes consolidados como promedio de distribución por período (no suma directa)")
  
     return {
         "monthly_contract": normalized_rows,
@@ -521,143 +521,6 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
                 "format_mix": "distribution_average" if format_mix_is_distribution else "weighted_sum",
             },
         },
-    }
- 
- 
-def build_render_plan(period: dict[str, Any], kpis: dict[str, Any], narrative: dict[str, Any]) -> dict[str, Any]:
-    totals = kpis.get("calculated_totals", {})
-    mixes = kpis.get("mixes", {})
-    rankings = kpis.get("consolidated_rankings", {})
-    flags = kpis.get("quality_flags", {})
-    hitos = kpis.get("hitos", [])
-    events = kpis.get("events", [])
- 
-    ranking_push_rows = rankings.get("top_push_by_interaction") if isinstance(rankings.get("top_push_by_interaction"), list) else []
-    valid_ranking_push_rows = [row for row in ranking_push_rows if isinstance(row, dict) and row.get("data_complete", True)]
-    best_push = (valid_ranking_push_rows or ranking_push_rows or [{}])[0] if isinstance(ranking_push_rows, list) else {}
-
-    overview_module = {
-        "key": "executive_summary",
-        "title": "Resumen ejecutivo del período",
-        "payload": {
-            "headline": narrative.get("executive_headline") or narrative.get("executive_summary") or "Resumen ejecutivo del período",
-            "executive_headline": narrative.get("executive_headline", ""),
-            "plan_total": totals.get("plan_total", 0),
-            "site_notes_total": totals.get("site_notes_total", 0),
-            "site_total_views": totals.get("site_total_views", 0),
-            "mail_total": totals.get("mail_total", 0),
-            "mail_open_rate": totals.get("mail_open_rate", 0),
-            "mail_interaction_rate": totals.get("mail_interaction_rate", 0),
-            "top_campaign_title": best_push.get("name") or best_push.get("title") or "Campaña líder",
-            "top_campaign_interaction": best_push.get("interaction") or best_push.get("ctr") or 0,
-            "top_campaign_open_rate": best_push.get("open_rate") or 0,
-            "top_campaign_clicks": best_push.get("clicks") or 0,
-            "historical_note": narrative.get("executive_summary")
-            or ("No comparable por alcance de fuente" if not flags.get("historical_comparison_allowed", True) else "Comparación histórica disponible para el alcance actual."),
-            "takeaways": (narrative.get("executive_takeaways") if isinstance(narrative.get("executive_takeaways"), list) else [])[:3],
-        },
-    }
- 
-    modules = [
-        overview_module,
-        {
-            "key": "channel_management",
-            "title": "Gestión de canales",
-            "payload": {
-                "mail_total": totals.get("mail_total", 0),
-                "mail_open_rate": totals.get("mail_open_rate", 0),
-                "mail_interaction_rate": totals.get("mail_interaction_rate", 0),
-                "site_notes_total": totals.get("site_notes_total", 0),
-                "site_total_views": totals.get("site_total_views", 0),
-                "channel_mix": mixes.get("channel_mix", []),
-                "timeline_mail": kpis.get("timelines", {}).get("mail_total", []),
-                "timeline_site": kpis.get("timelines", {}).get("site_notes_total", []),
-                "message": narrative.get("channel_management", "Gestión consolidada de canales del período."),
-                "site_has_no_data_sections": flags.get("site_has_no_data_sections", False),
-            },
-        },
-        {
-            "key": "mix_thematic_clients",
-            "title": "Mix temático y áreas solicitantes",
-            "payload": {
-                "strategic_axes": mixes.get("strategic_axes", []),
-                "internal_clients": mixes.get("internal_clients", []),
-                "format_mix": mixes.get("format_mix", []),
-                "message": narrative.get("mix_thematic_clients", "La agenda combina ejes estratégicos y demanda interna."),
-            },
-        },
-        {
-            "key": "ranking_push",
-            "title": "Ranking push",
-            "payload": {
-                "by_interaction": rankings.get("top_push_by_interaction", []),
-                "by_open_rate": rankings.get("top_push_by_open_rate", []),
-                "available": flags.get("push_ranking_available", False),
-                "message": narrative.get("ranking_push", "El ranking push resume piezas con mejor respuesta."),
-                "average_interaction_rate": totals.get("mail_interaction_rate", 0),
-            },
-        },
-        {
-            "key": "ranking_pull",
-            "title": "Ranking pull",
-            "payload": {
-                "top_pull_notes": rankings.get("top_pull_notes", []),
-                "available": flags.get("pull_ranking_available", False),
-                "average_reads_per_note": totals.get("average_reads_per_note", 0),
-                "site_total_views": totals.get("site_total_views", 0),
-                "message": narrative.get("ranking_pull", "El ranking pull identifica contenidos con mayor lectura."),
-            },
-        },
-        {
-            "key": "recommendations",
-            "title": "Conclusiones y próximos pasos",
-            "payload": {
-                "summary": narrative.get("recommendations_summary")
-                or narrative.get("next_steps_summary")
-                or "Próximos pasos construidos a partir de KPIs y rankings disponibles.",
-                "recommendations": (narrative.get("recommendations") if isinstance(narrative.get("recommendations"), list) else [])[:4],
-                "experiments": (narrative.get("experiments") if isinstance(narrative.get("experiments"), list) else [])[:3],
-                "action_plan": (narrative.get("action_plan") if isinstance(narrative.get("action_plan"), list) else [])[:4],
-                "owner_note": narrative.get("owner_note", "Seguimiento sugerido: apertura, interacción, vistas por nota y balance temático del próximo cierre."),
-            },
-        },
-    ]
- 
-    if flags.get("events_summary_available") and events:
-        modules.append(
-            {
-                "key": "events",
-                "title": "Eventos del mes",
-                "payload": {
-                    "events": events,
-                    "total_events": totals.get("total_events", len(events)),
-                    "total_participants": totals.get("total_event_participants", 0),
-                    "message": narrative.get("events", "Los eventos del período tuvieron alcance medible."),
-                },
-            }
-        )
- 
-
-    if hitos:
-        modules.insert(-1, {
-            "key": "milestones",
-            "title": "Hitos del mes",
-            "payload": {
-                "items": hitos,
-                "message": narrative.get("milestones", "Hitos relevantes de gestión del período."),
-            },
-        })
-
-    modules = [module for module in modules if isinstance(module, dict) and module.get("payload") is not None]
- 
-    return {
-        "template_mode": "frame",
-        "period": {
-            "slug": period.get("slug"),
-            "label": period.get("label"),
-        },
-        "quality_flags": flags,
-        "modules": modules,
     }
  
  

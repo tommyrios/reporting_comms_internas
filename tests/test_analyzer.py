@@ -7,7 +7,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.append(str(SCRIPTS_DIR))
 
 from analyzer import (
-    build_render_plan,
     compute_kpis,
     validate_monthly_summary_contract,
 )
@@ -235,31 +234,10 @@ class AnalyzerTests(unittest.TestCase):
         self.assertEqual(mix[0]["value"], 60.0)
         self.assertEqual(kpis["validation"]["mix_aggregation"]["strategic_axes"], "distribution_average")
 
-    def test_build_render_plan_omits_events_when_not_available(self):
-        kpis = {
-            "calculated_totals": {"plan_total": 10, "site_notes_total": 2, "site_total_views": 200, "mail_total": 5, "mail_open_rate": 40, "mail_interaction_rate": 5},
-            "mixes": {"strategic_axes": [], "internal_clients": [], "channel_mix": [], "format_mix": []},
-            "consolidated_rankings": {"top_push_by_interaction": [], "top_push_by_open_rate": [], "top_pull_notes": []},
-            "timelines": {"mail_total": [], "site_notes_total": []},
-            "hitos": [],
-            "events": [],
-            "quality_flags": {
-                "events_summary_available": False,
-                "push_ranking_available": False,
-                "pull_ranking_available": False,
-                "historical_comparison_allowed": False,
-                "site_has_no_data_sections": True,
-            },
-        }
-        plan = build_render_plan({"slug": "month_2026_03", "label": "Marzo 2026"}, kpis, {})
-        keys = [m["key"] for m in plan["modules"]]
-        self.assertNotIn("events", keys)
-        self.assertEqual(keys[0], "executive_summary")
-
     def test_validate_contract_error_mentions_missing_fields(self):
         with self.assertRaises(ValueError) as ctx:
             validate_monthly_summary_contract({"month": "2026-03"})
-        self.assertIn("Contrato mensual incompleto", str(ctx.exception))
+        self.assertIn("Contrato canónico incompleto", str(ctx.exception))
         self.assertIn("plan_total", str(ctx.exception))
 
 

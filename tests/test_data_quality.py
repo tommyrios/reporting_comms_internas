@@ -45,10 +45,15 @@ class DataQualityTests(unittest.TestCase):
         self.assertTrue(result["is_valid"])
         self.assertIn("usuarios únicos mayores", " | ".join(result["warnings"]))
 
-    def test_validate_report_quality_requires_modules(self):
+    def test_validate_report_quality_allows_empty_render_plan_for_python_renderer(self):
         result = validate_report_quality({"period": {}, "kpis": {}, "narrative": {}, "quality_flags": {}, "render_plan": {"modules": []}})
+        self.assertTrue(result["is_valid"])
+        self.assertEqual(result["errors"], [])
+
+    def test_validate_report_quality_rejects_invalid_render_plan_module(self):
+        result = validate_report_quality({"period": {}, "kpis": {}, "narrative": {}, "quality_flags": {}, "render_plan": {"modules": ["bad"]}})
         self.assertFalse(result["is_valid"])
-        self.assertIn("render_plan.modules vacío", result["errors"])
+        self.assertIn("render_plan.modules contiene un elemento no objeto", result["errors"])
 
 
 if __name__ == "__main__":

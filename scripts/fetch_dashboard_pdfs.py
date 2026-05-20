@@ -326,7 +326,6 @@ def run_ingestion(pdf_dir: Path | None = None, manifest_path: Path | None = None
     ensure_dir(DATA_DIR)
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     (DATA_DIR / "fetch_result.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    (DATA_DIR / "selected_periods.json").write_text(json.dumps({"periods": manifest["periods"]}, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print(json.dumps(manifest, ensure_ascii=False, indent=2))
 
