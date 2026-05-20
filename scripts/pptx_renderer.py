@@ -576,7 +576,10 @@ def _add_table(slide, x, y, w, h, title, headers, rows, col_widths=None, title_f
 
 def _cover(slide):
     _require_cover_font_assets()
-    _solid_bg(slide, COVER_BG)
+
+    # Full-slide editable background shape.
+    # Do not use COVER_PATH/boceto_cover.png or any full-slide raster image here.
+    _add_rect(slide, 0, 0, SLIDE_W, SLIDE_H, COVER_BG, line=COVER_BG)
 
     logo = BBVA_LOGO_WHITE if BBVA_LOGO_WHITE.exists() else _clean_white_logo_path()
     if not logo or not logo.exists():
