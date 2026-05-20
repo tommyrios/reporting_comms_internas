@@ -74,7 +74,7 @@ def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_ex
 
     (report_dir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     (report_dir / "report_raw.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    create_pptx(report, report_dir / "report.pptx", template_mode="full")
+    create_pptx(report, report_dir / f"Informe CI - {period_label}.pptx", template_mode="full")
     html_content = (
         "<html><body>"
         f"<h2>{metadata['title']}</h2>"
