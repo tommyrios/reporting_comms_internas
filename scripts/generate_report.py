@@ -6,6 +6,7 @@ import os
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
+import shutil
 from typing import Any
 
 from analyzer import (
@@ -60,10 +61,16 @@ def load_manual_context(period_slug: str) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_extra: dict[str, Any] | None = None) -> str:
+def write_report_artifacts(
+    period_slug: str,
+    report: dict[str, Any],
+    metadata_extra: dict[str, Any] | None = None,
+) -> str:
+
     report_dir = ensure_dir(REPORTS_DIR / period_slug)
-    period_info = report.get("period", {})
-    period_label = str(period_info.get("label", "")).strip()
+
+    period_label = report.get("period", {}).get("label", "-")
+
     metadata = {
         "title": "Comunicaciones Internas",
         "subtitle": "Informe de gestión",
@@ -71,22 +78,48 @@ def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_ex
         "period_slug": period_slug,
         "generated_at": datetime.utcnow().isoformat() + "Z",
     }
+
     if metadata_extra:
         metadata.update(metadata_extra)
 
-    if label:
-        pptx_filename = f"Informe de Gestión CI - {label}.pptx"
+
+    clean_label = str(period_label).split("(")[0].strip()
+
+    if clean_label:
+        pptx_filename = f"Informe de Gestión CI - {clean_label}.pptx"
     else:
         pptx_filename = f"Informe de Gestión CI - {period_slug}.pptx"
 
+    pptx_path = report_dir / pptx_filename
+
+    legacy_pptx_path = report_dir / "report.pptx"
+
     metadata_path = report_dir / "metadata.json"
     raw_path = report_dir / "report_raw.json"
-    pptx_path = report_dir / pptx_filename
     html_path = report_dir / "report.html"
 
-    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    raw_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    create_pptx(report, pptx_path, template_mode="full")
+
+    metadata_path.write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    raw_path.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    create_pptx(
+        report,
+        pptx_path,
+        template_mode="full",
+    )
+
+    shutil.copy2(
+        pptx_path,
+        legacy_pptx_path,
+    )
+
 
     html_content = (
         "<html><body>"
@@ -95,16 +128,41 @@ def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_ex
         "<p>El reporte fue generado en formato PowerPoint (.pptx).</p>"
         "</body></html>"
     )
-    html_path.write_text(html_content, encoding="utf-8")
 
-    required = [metadata_path, html_path, pptx_path]
-    missing = [str(path) for path in required if not path.exists()]
+    html_path.write_text(
+        html_content,
+        encoding="utf-8",
+    )
+
+    required = [
+        metadata_path,
+        html_path,
+        legacy_pptx_path,
+    ]
+
+    missing = [
+        str(path)
+        for path in required
+        if not path.exists()
+    ]
+
     if missing:
-        existing = sorted(path.name for path in report_dir.glob("*"))
+
+        existing = sorted(
+            path.name
+            for path in report_dir.glob("*")
+        )
+
         raise RuntimeError(
             "La generación terminó sin artefactos requeridos. "
-            f"Faltantes: {missing}. Archivos existentes en {report_dir}: {existing}"
+            f"Faltantes: {missing}. "
+            f"Archivos existentes en {report_dir}: {existing}"
         )
+
+    print(
+        "ARTIFACTS:",
+        sorted(p.name for p in report_dir.glob("*"))
+    )
 
     return str(report_dir)
 
