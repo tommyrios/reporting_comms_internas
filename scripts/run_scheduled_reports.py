@@ -16,12 +16,23 @@ REPORTS_DIR = BASE_DIR / "output" / "reports"
 
 def report_exists(period_slug: str, report_dir: str | Path | None = None) -> bool:
     period_dir = Path(report_dir) if report_dir else REPORTS_DIR / period_slug
+
+    pptx_files = list(period_dir.glob("*.pptx"))
+
+    print(
+        "REPORT_EXISTS DEBUG",
+        {
+            "metadata": (period_dir / "metadata.json").exists(),
+            "html": (period_dir / "report.html").exists(),
+            "pptx_files": [p.name for p in pptx_files],
+        },
+    )
+
     return (
         (period_dir / "metadata.json").exists()
         and (period_dir / "report.html").exists()
-        and (period_dir / "report.pptx").exists()
+        and len(pptx_files) > 0
     )
-
 
 def _load_fetch_payload(fetch_result):
     if isinstance(fetch_result, dict):
