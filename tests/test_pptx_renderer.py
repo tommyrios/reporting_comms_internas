@@ -59,7 +59,7 @@ class PptxRendererManagementDeckTests(unittest.TestCase):
             "render_plan": {"period": {"slug": "quarter_2026_Q1", "label": "Q1 2026 (ene-mar)"}, "modules": []},
         }
 
-    def test_renderer_generates_management_deck_with_eight_slides(self):
+    def test_renderer_generates_management_deck_with_six_slides(self):
         with tempfile.TemporaryDirectory() as tmp:
             output_path = Path(tmp) / "report.pptx"
             create_pptx(self._sample_report(), output_path)
@@ -67,10 +67,12 @@ class PptxRendererManagementDeckTests(unittest.TestCase):
             rendered = Presentation(str(output_path))
             all_text = "\n".join(_slide_texts(slide) for slide in rendered.slides)
 
-            self.assertEqual(len(rendered.slides), 8)
+            self.assertEqual(len(rendered.slides), 6)
+            self.assertIn("Planificación | Argentina + Holding", all_text)
             self.assertIn("Planificación | Argentina vs Holding", all_text)
-            self.assertIn("Canal Mail | Argentina vs Holding", all_text)
-            self.assertIn("Canal Intranet / Contenidos | Argentina vs Holding", all_text)
+            self.assertIn("Canal Mail", all_text)
+            self.assertIn("Canal Intranet", all_text)
+            self.assertNotIn("Interacción / enviados", all_text)
             self.assertNotIn("Observaciones del manager", all_text)
             self.assertNotIn("Agregar análisis", all_text)
 

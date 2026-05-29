@@ -14,8 +14,8 @@ DATA_DIR = BASE_DIR / "data"
 REPORTS_DIR = BASE_DIR / "output" / "reports"
 
 
-def report_exists(period_slug: str) -> bool:
-    period_dir = REPORTS_DIR / period_slug
+def report_exists(period_slug: str, report_dir: str | Path | None = None) -> bool:
+    period_dir = Path(report_dir) if report_dir else REPORTS_DIR / period_slug
     return (
         (period_dir / "metadata.json").exists()
         and (period_dir / "report.html").exists()
@@ -78,7 +78,7 @@ def main() -> None:
             )
             continue
 
-        if not report_exists(slug):
+        if not report_exists(slug, generation.get("report_dir")):
             print(
                 f"Reporte no generado para {slug}: faltan metadata.json, report.html o report.pptx. Se omite envío.",
                 file=sys.stderr,

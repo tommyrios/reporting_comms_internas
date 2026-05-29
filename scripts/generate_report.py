@@ -72,9 +72,15 @@ def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_ex
     if metadata_extra:
         metadata.update(metadata_extra)
 
-    (report_dir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    (report_dir / "report_raw.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    create_pptx(report, report_dir / f"Informe CI - {period_label}.pptx", template_mode="full")
+    metadata_path = report_dir / "metadata.json"
+    raw_path = report_dir / "report_raw.json"
+    pptx_path = report_dir / "report.pptx"
+    html_path = report_dir / "report.html"
+
+    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+    raw_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    create_pptx(report, pptx_path, template_mode="full")
+
     html_content = (
         "<html><body>"
         f"<h2>{metadata['title']}</h2>"
@@ -82,7 +88,17 @@ def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_ex
         "<p>El reporte fue generado en formato PowerPoint (.pptx).</p>"
         "</body></html>"
     )
-    (report_dir / "report.html").write_text(html_content, encoding="utf-8")
+    html_path.write_text(html_content, encoding="utf-8")
+
+    required = [metadata_path, html_path, pptx_path]
+    missing = [str(path) for path in required if not path.exists()]
+    if missing:
+        existing = sorted(path.name for path in report_dir.glob("*"))
+        raise RuntimeError(
+            "La generación terminó sin artefactos requeridos. "
+            f"Faltantes: {missing}. Archivos existentes en {report_dir}: {existing}"
+        )
+
     return str(report_dir)
 
 
