@@ -77,14 +77,35 @@ def _load_json(path: Path) -> dict:
 
 def _resolve_report_paths(period_slug: str) -> tuple[Path, Path, Path | None]:
     period_dir = REPORTS_DIR / period_slug
+
     metadata_path = period_dir / "metadata.json"
     html_path = period_dir / "report.html"
-    pptx_path = period_dir / "report.pptx"
+
     if not metadata_path.exists():
-        raise FileNotFoundError(f"No existe metadata.json para el período {period_slug}: {metadata_path}")
+        raise FileNotFoundError(
+            f"No existe metadata.json para el período {period_slug}: {metadata_path}"
+        )
+
     if not html_path.exists():
-        raise FileNotFoundError(f"No existe report.html para el período {period_slug}: {html_path}")
-    return metadata_path, html_path, (pptx_path if pptx_path.exists() else None)
+        raise FileNotFoundError(
+            f"No existe report.html para el período {period_slug}: {html_path}"
+        )
+
+    pptx_candidates = sorted(
+        [
+            p
+            for p in period_dir.glob("*.pptx")
+            if p.name != "report.pptx"
+        ]
+    )
+
+    if pptx_candidates:
+        pptx_path = pptx_candidates[0]
+    else:
+        legacy = period_dir / "report.pptx"
+        pptx_path = legacy if legacy.exists() else None
+
+    return metadata_path, html_path, pptx_path
 
 
 def _build_email_bodies(metadata: dict, attachment_label: str) -> tuple[str, str]:
@@ -126,7 +147,9 @@ def send_period_report(period_slug: str) -> None:
     attachments: list[Path] = []
     attachment_label = "PPTX"
     if not pptx_path or not pptx_path.exists():
-        raise FileNotFoundError(f"No existe report.pptx para el período {period_slug}")
+        raise FileNotFoundError(
+            f"No existe ningún archivo PPTX para el período {period_slug}"
+        )
 
     attachments.append(pptx_path)
 

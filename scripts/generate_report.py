@@ -115,12 +115,6 @@ def write_report_artifacts(
         template_mode="full",
     )
 
-    shutil.copy2(
-        pptx_path,
-        legacy_pptx_path,
-    )
-
-
     html_content = (
         "<html><body>"
         f"<h2>{metadata['title']}</h2>"
