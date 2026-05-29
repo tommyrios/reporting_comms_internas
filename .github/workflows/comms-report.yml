@@ -92,11 +92,11 @@ jobs:
           echo "Running report mode=$REPORT_MODE year=$REPORT_YEAR quarter=$REPORT_QUARTER"
           python scripts/run_scheduled_reports.py
 
-      - name: Upload report.pptx artifacts required
+      - name: Upload PPTX artifacts
         uses: actions/upload-artifact@v4
         with:
           name: comms-period-report-pptx
-          path: output/reports/**/report.pptx
+          path: output/reports/**/*.pptx
           if-no-files-found: error
 
       - name: Upload generated artifacts
