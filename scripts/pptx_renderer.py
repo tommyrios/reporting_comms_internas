@@ -287,7 +287,6 @@ def _add_logo(slide, white=False):
 def _add_section_header(slide, subtitle: str):
     _add_text(slide, 0.48, 0.18, 8.0, 0.35, _period_title(report_context), size=19, color=COLORS["bbva_dark"], bold=True, font="Georgia")
     _add_logo(slide, white=False)
-    # Canal visible y legible en todas las slides de contenido.
     _add_text(slide, 0.48, 0.52, 7.0, 0.34, subtitle, size=14, color=COLORS["muted"], bold=False, font="Arial")
     line = slide.shapes.add_shape(MSO_AUTO_SHAPE_TYPE.RECTANGLE, _in(0.48), _in(0.88), _in(12.35), _in(0.02))
     line.fill.solid(); line.fill.fore_color.rgb = COLORS["border"]; line.line.color.rgb = COLORS["border"]
@@ -440,8 +439,6 @@ def _planning_compare(slide, scopes, report):
     _add_section_header(slide, "Planificación | Argentina vs Holding")
     arg = scopes["argentina"]; hol = scopes["holding"]
 
-    # Caja visual para agrupar resultado + gráficos de Holding sin sombra.
-    # Se agrega antes de los elementos internos para que funcione como fondo.
     _add_rect(slide, 6.72, 1.00, 6.26, 4.95, COLORS["purple_light_3"], line=COLORS["purple_light_3"], radius=True, corner_radius=0.06)
 
     # Centramos cada tarjeta respecto del bloque de gráficos correspondiente.
@@ -614,7 +611,7 @@ def _content_slide(slide, scopes, report):
 
     # Top Five solo Argentina.
     _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_uu"), 1.75, 3.68, 9.80, 1.70)
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_tgm"), 1.75, 5.72, 9.80, 1.58)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_tgm"), 1.75, 5.72, 9.80, 1.70)
 
 
 def _closing(slide):

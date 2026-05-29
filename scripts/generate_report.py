@@ -1,4 +1,5 @@
 import argparse
+from cProfile import label
 import json
 import logging
 import os
@@ -61,7 +62,8 @@ def load_manual_context(period_slug: str) -> dict[str, Any]:
 
 def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_extra: dict[str, Any] | None = None) -> str:
     report_dir = ensure_dir(REPORTS_DIR / period_slug)
-    period_label = report.get("period", {}).get("label", "-")
+    period_info = report.get("period", {})
+    period_label = str(period_info.get("label", "")).strip()
     metadata = {
         "title": "Comunicaciones Internas",
         "subtitle": "Informe de gestión",
@@ -72,9 +74,14 @@ def write_report_artifacts(period_slug: str, report: dict[str, Any], metadata_ex
     if metadata_extra:
         metadata.update(metadata_extra)
 
+    if label:
+        pptx_filename = f"Informe de Gestión CI - {label}.pptx"
+    else:
+        pptx_filename = f"Informe de Gestión CI - {period_slug}.pptx"
+
     metadata_path = report_dir / "metadata.json"
     raw_path = report_dir / "report_raw.json"
-    pptx_path = report_dir / "report.pptx"
+    pptx_path = report_dir / pptx_filename
     html_path = report_dir / "report.html"
 
     metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
