@@ -6,7 +6,6 @@ import os
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
-import shutil
 from typing import Any
 
 from analyzer import (
@@ -92,8 +91,6 @@ def write_report_artifacts(
 
     pptx_path = report_dir / pptx_filename
 
-    legacy_pptx_path = report_dir / "report.pptx"
-
     metadata_path = report_dir / "metadata.json"
     raw_path = report_dir / "report_raw.json"
     html_path = report_dir / "report.html"
@@ -131,7 +128,7 @@ def write_report_artifacts(
     required = [
         metadata_path,
         html_path,
-        legacy_pptx_path,
+        pptx_path,
     ]
 
     missing = [
