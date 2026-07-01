@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.2.2 - hotfix mails enviados en PPTX
+
+- Corrige la tarjeta `Mails enviados` del PPTX para usar el KPI de mailing (`mail_total` / `mail_send_total`).
+- Evita derivar ese número desde planificación (`plan_total * % Mail`), que mide comunicaciones Mail planificadas y no envíos del dashboard de mailing.
+- Agrega test de regresión para el caso Argentina Q2 2026: 134 enviados vs. 104 planificados por mix.
+
 ## v1.2.0 - flujo productivo trimestral/anual
 
 - Deja el repo en modo Python-only para producción.

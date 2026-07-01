@@ -488,15 +488,25 @@ def _add_crop_title(slide, x, y, w, title):
     _add_text(slide, x, y, w, 0.16, title, size=7, color=COLORS["bbva_blue"], bold=True)
 
 
-def _planning_mail_total(scope_data: dict[str, Any]) -> int:
-    """Return the unique mail volume implied by Planning, not Mailing rows.
+def _mail_sent_total(scope_data: dict[str, Any]) -> int:
+    """Return the sent-mail KPI from the mailing dashboard.
 
-    The mailing dashboard can count the same communication more than once when a
-    mail is segmented across audiences. For management reporting we need the
-    planning-consistent value: plan_total * %Mail from planning.channel_mix.
-    If that distribution is unavailable, fall back to the deterministic derived
-    field and finally to the raw mailing totals.
+    This card must show the raw "Mails enviados" value extracted from the
+    mailing page. Do not derive it from Planning's channel mix: that gives the
+    number of planned Mail communications, not the number of mailing sends.
     """
+    for key in ("mail_total", "mail_send_total"):
+        value = scope_data.get(key)
+        if value not in (None, ""):
+            parsed = int(round(_parse_num(value)))
+            if parsed > 0:
+                return parsed
+
+    # Fallback only for legacy summaries without the mailing KPI.
+    fallback = scope_data.get("mail_unique_total")
+    if fallback not in (None, ""):
+        return int(round(_parse_num(fallback)))
+
     plan_total = _parse_num(scope_data.get("plan_total"))
     channel_mix = scope_data.get("channel_mix") if isinstance(scope_data.get("channel_mix"), list) else []
     for row in channel_mix:
@@ -507,10 +517,7 @@ def _planning_mail_total(scope_data: dict[str, Any]) -> int:
             pct = _parse_num(row.get("pct") or row.get("percentage") or row.get("value"))
             if plan_total > 0 and pct > 0:
                 return int(round(plan_total * pct / 100.0))
-    fallback = scope_data.get("mail_unique_total")
-    if fallback not in (None, ""):
-        return int(round(_parse_num(fallback)))
-    return int(round(_parse_num(scope_data.get("mail_total") or scope_data.get("mail_send_total"))))
+    return 0
 
 
 def _add_mail_kpi_cards(slide, scope_data: dict[str, Any], x: float, y: float, w: float):
@@ -522,7 +529,7 @@ def _add_mail_kpi_cards(slide, scope_data: dict[str, Any], x: float, y: float, w
     gap = 0.12
     cw = (w - gap * 2) / 3
     cards = [
-        ("Mails enviados", _fmt_int(_planning_mail_total(scope_data))),
+        ("Mails enviados", _fmt_int(_mail_sent_total(scope_data))),
         ("Apertura prom.", _fmt_pct(scope_data.get("mail_open_rate"))),
         ("Interacción / abiertos", _fmt_pct(scope_data.get("mail_interaction_rate_over_opened"))),
     ]

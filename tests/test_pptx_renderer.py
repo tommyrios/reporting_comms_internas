@@ -9,7 +9,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.append(str(SCRIPTS_DIR))
 
-from pptx_renderer import create_pptx
+from pptx_renderer import create_pptx, _mail_sent_total
 
 
 def _slide_texts(slide) -> str:
@@ -75,6 +75,17 @@ class PptxRendererManagementDeckTests(unittest.TestCase):
             self.assertNotIn("Interacción / enviados", all_text)
             self.assertNotIn("Observaciones del manager", all_text)
             self.assertNotIn("Agregar análisis", all_text)
+
+
+    def test_mail_kpi_uses_mailing_total_not_planning_mix(self):
+        scope = self._scope("Argentina", plan_total=213)
+        scope["mail_total"] = 134
+        scope["mail_send_total"] = 134
+        scope["mail_unique_total"] = 104
+        scope["channel_mix"] = [{"label": "Mail", "value": 48.8}]
+
+        self.assertEqual(_mail_sent_total(scope), 134)
+        self.assertNotEqual(_mail_sent_total(scope), 104)
 
     def test_renderer_does_not_include_legacy_executive_language(self):
         with tempfile.TemporaryDirectory() as tmp:
