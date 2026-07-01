@@ -161,6 +161,7 @@ def normalize_monthly_summary(summary: dict[str, Any]) -> dict[str, Any]:
         "mail_total": _to_int(summary.get("mail_total", data.get("push_volume", summary.get("plan_total", 0)))),
         "mail_open_rate": _normalize_pct(summary.get("mail_open_rate", data.get("push_opens_pct", 0))),
         "mail_interaction_rate": _normalize_pct(summary.get("mail_interaction_rate", data.get("push_interaction_pct", 0))),
+        "mail_interaction_rate_over_opened": _normalize_pct(summary.get("mail_interaction_rate_over_opened", summary.get("mail_interaction_rate", data.get("push_interaction_pct", 0)))),
         "strategic_axes": summary.get("strategic_axes") if isinstance(summary.get("strategic_axes"), list) else insights.get("strategic_axes", []),
         "internal_clients": summary.get("internal_clients") if isinstance(summary.get("internal_clients"), list) else insights.get("internal_clients", []),
         "channel_mix": summary.get("channel_mix") if isinstance(summary.get("channel_mix"), list) else [],
@@ -332,6 +333,7 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
  
     weighted_open_num = 0.0
     weighted_inter_num = 0.0
+    weighted_inter_opened_num = 0.0
     weighted_den = 0
     for row in normalized_rows:
         row_mail_total = _to_int(row.get("mail_total"))
@@ -339,10 +341,12 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
             continue
         weighted_open_num += _normalize_pct(row.get("mail_open_rate")) * row_mail_total
         weighted_inter_num += _normalize_pct(row.get("mail_interaction_rate")) * row_mail_total
+        weighted_inter_opened_num += _normalize_pct(row.get("mail_interaction_rate_over_opened", row.get("mail_interaction_rate"))) * row_mail_total
         weighted_den += row_mail_total
  
     mail_open_rate = round(weighted_open_num / weighted_den, 2) if weighted_den else 0.0
     mail_interaction_rate = round(weighted_inter_num / weighted_den, 2) if weighted_den else 0.0
+    mail_interaction_rate_over_opened = round(weighted_inter_opened_num / weighted_den, 2) if weighted_den else 0.0
  
     strategic_axes, strategic_axes_is_distribution = _aggregate_distribution([row.get("strategic_axes", []) for row in normalized_rows])
     internal_clients, internal_clients_is_distribution = _aggregate_distribution([row.get("internal_clients", []) for row in normalized_rows])
@@ -469,6 +473,7 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
             "mail_send_total": mail_total,
             "mail_open_rate": mail_open_rate,
             "mail_interaction_rate": mail_interaction_rate,
+            "mail_interaction_rate_over_opened": mail_interaction_rate_over_opened,
             "total_events": total_events,
             "total_event_participants": total_event_participants,
             "latest_push_volume": latest_push,
@@ -481,6 +486,7 @@ def compute_kpis(monthly_summaries: list[dict]) -> dict[str, Any]:
             "pull_reads_period": site_total_views,
             "average_open_rate": mail_open_rate,
             "average_interaction_rate": mail_interaction_rate,
+            "average_interaction_rate_over_opened": mail_interaction_rate_over_opened,
         },
         "mixes": {
             "strategic_axes": strategic_axes,

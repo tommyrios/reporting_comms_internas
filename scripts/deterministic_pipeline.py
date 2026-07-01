@@ -111,9 +111,12 @@ KNOWN_KPI_LABELS = [
     "Total Páginas Vistas",
     "Noticias Publicadas",
     "Promedio Vistas",
+    "Promedio Páginas vistas",
     "Tasa de apertura promedio",
+    "Promedio Tasa de apertura",
     "Tasa de interacción sobre mails enviados",
     "Tasa de interacción sobre mails abiertos",
+    "Promedio Tasa de clic",
     "Mails enviados",
 ]
 
@@ -130,12 +133,12 @@ REQUIRED_METRIC_KEYS = {
     "site_total_views",
     "mail_total",
     "mail_open_rate",
-    "mail_interaction_rate",
 }
 
 OPTIONAL_METRIC_KEYS = {
     "plan_daily_average",
     "site_average_views",
+    "mail_interaction_rate",
     "mail_interaction_rate_over_opened",
 }
 
@@ -185,6 +188,7 @@ def _clean_mail_title(value: str | None, max_len: int = CANON_TITLE_MAX_LENGTH) 
     text = text.replace("_", " ")
     text = text.replace(" - ", " - ")
     text = re.sub(r"\s+", " ", text).strip(" -–—_\t")
+    text = re.sub(r"^\d{1,2}:\d{2}:\d{2}\s*-\s*", "", text)
     text = re.sub(r"\s+([:;,.!?])", r"\1", text)
     text = re.sub(r"([¿¡])\s+", r"\1", text)
 
@@ -559,28 +563,39 @@ def _extract_mail_table(page_text: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
 
     for line in lines:
-        if not re.match(r"^[A-Z][a-z]{2}\s\d{1,2},\s20\d{2}", line):
+        line_norm = _normalize_number_spacing(line.replace("\u00a0", " "))
+        english_date = r"[A-Z][a-z]{2}\s\d{1,2},\s20\d{2}"
+        spanish_date = r"\d{1,2}\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{3,}\s+20(?:\d{2}|…)"
+
+        if not re.match(rf"^(?:{english_date}|{spanish_date})", line_norm):
             continue
 
-        percents = re.findall(r"\d+(?:[.,]\d+)?%", line)
+        percents = re.findall(r"\d+(?:[.,]\d+)?%", line_norm)
 
-        if len(percents) < 3:
+        if len(percents) < 2:
             continue
 
-        open_rate = parse_percent_value(percents[-3])
-        ctr = parse_percent_value(percents[-2])
-        ctor = parse_percent_value(percents[-1])
+        if len(percents) >= 3:
+            open_rate = parse_percent_value(percents[-3])
+            ctr = parse_percent_value(percents[-2])
+            ctor = parse_percent_value(percents[-1])
+        else:
+            # Layout actual: Aperturas (%) y Clics (%). La tasa de clic es
+            # sobre aperturas; no existe más la proporción de clics sobre enviados.
+            open_rate = parse_percent_value(percents[-2])
+            ctr = parse_percent_value(percents[-1])
+            ctor = parse_percent_value(percents[-1])
 
-        date_match = re.match(r"^([A-Z][a-z]{2}\s\d{1,2},\s20\d{2})\s+(.*)$", line)
+        date_match = re.match(rf"^({english_date}|{spanish_date})\s+(.*)$", line_norm)
         date = date_match.group(1) if date_match else None
-        rest = date_match.group(2) if date_match else line
+        rest = date_match.group(2) if date_match else line_norm
 
         body = rest
         for pct in percents[-3:]:
             body = body.replace(pct, "")
 
         metric_match = re.search(
-            r"\s*Argentina\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s*$",
+            r"\s*Argentina\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s*$",
             body,
             flags=re.IGNORECASE,
         )
@@ -625,7 +640,7 @@ def _build_push_rankings(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any
     return top_open, top_interaction
 
 
-def _extract_top_mail_ranking_section(page_text: str, anchor: str, metric_key: str) -> list[dict[str, Any]]:
+def _extract_top_mail_ranking_section(page_text: str, anchor: str | list[str], metric_key: str) -> list[dict[str, Any]]:
     """Lee las tablas Top five del dashboard de mailing.
 
     Son más confiables que reordenar la tabla principal porque allí Looker suele
@@ -635,10 +650,11 @@ def _extract_top_mail_ranking_section(page_text: str, anchor: str, metric_key: s
     lines = [line.strip() for line in page_text.splitlines() if line.strip()]
     rows: list[dict[str, Any]] = []
     capture = False
+    anchors = anchor if isinstance(anchor, list) else [anchor]
 
     for line in lines:
         norm = _normalize_text(line)
-        if _normalize_text(anchor) in norm:
+        if any(_normalize_text(item) in norm for item in anchors):
             capture = True
             continue
 
@@ -647,16 +663,25 @@ def _extract_top_mail_ranking_section(page_text: str, anchor: str, metric_key: s
 
         if rows and (norm == "▼" or norm.startswith("top five - ")):
             break
-        if norm in {"titulo tasa de apertura", "titulo tasa de interaccion", "titulo", "tasa de apertura", "tasa de interaccion"}:
+        if norm in {
+            "titulo tasa de apertura",
+            "titulo tasa de interaccion",
+            "titulo tasa de clic",
+            "titulo",
+            "tasa de apertura",
+            "tasa de interaccion",
+            "tasa de clic",
+        }:
             continue
 
-        pct_matches = re.findall(r"\d+(?:[.,]\d+)?\s*%", _normalize_number_spacing(line))
-        if not pct_matches:
+        line_norm = _normalize_number_spacing(line.replace("\u00a0", " "))
+        pct_match = re.search(r"(\d+(?:[.,]\d+)?)%\s*$", line_norm)
+        if not pct_match:
             continue
 
-        pct_raw = pct_matches[-1].replace(" ", "")
+        pct_raw = f"{pct_match.group(1)}%"
         value = parse_percent_value(pct_raw)
-        title_raw = line[: line.rfind(pct_matches[-1])].strip()
+        title_raw = line_norm[: pct_match.start()].strip()
         title = _clean_mail_title(title_raw)
         if value is None or not title or title == "Sin título":
             continue
@@ -740,7 +765,11 @@ def _enrich_push_ranking(rows: list[dict[str, Any]], mail_rows: list[dict[str, A
 
 def _extract_top_mail_rankings(page_text: str, mail_rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     top_open = _extract_top_mail_ranking_section(page_text, "Top five - Mayor Tasa de Apertura", "open_rate")
-    top_interaction_raw = _extract_top_mail_ranking_section(page_text, "Top five - Mayor Tasa de Interacción", "interaction")
+    top_interaction_raw = _extract_top_mail_ranking_section(
+        page_text,
+        ["Top five - Mayor Tasa de Clic", "Top five - Mayor Tasa de Interacción"],
+        "interaction",
+    )
 
     if top_open:
         top_open = _enrich_push_ranking(top_open, mail_rows, "open_rate")
@@ -770,8 +799,9 @@ def _extract_top_pull_notes(page_text: str) -> list[dict[str, Any]]:
             continue
 
         date_match = re.match(
-            r"^([A-Z][a-z]{2}\s\d{1,2},\s(?:20\d{2}|20…))\s+(.*)$",
+            r"^((?:[A-Z][a-z]{2}\s\d{1,2},\s(?:20\d{2}|20…))|(?:\d{1,2}\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{3,}\s+20(?:\d{2}|…)))\s+(.*)$",
             line,
+            flags=re.IGNORECASE,
         )
 
         if not date_match:
@@ -1203,7 +1233,7 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
             "plan_daily_average",
             "Media comunicaciones diarias",
             "float",
-            1,
+            3,
             None,
             PLAN_TOTAL_LABEL_VARIANTS,
         ),
@@ -1211,7 +1241,7 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
             "plan_total",
             "Nº total de comunicaciones",
             "count",
-            1,
+            3,
             PLAN_TOTAL_LABEL_VARIANTS,
             None,
         ),
@@ -1219,57 +1249,57 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
             "site_total_views",
             "Total Páginas Vistas",
             "count",
-            2,
-            None,
-            ["Noticias Publicadas"],
+            1,
+            ["Total Páginas Vistas", "Total Páginas vistas"],
+            ["Promedio Páginas vistas", "Promedio Vistas", "Noticias Publicadas"],
         ),
         (
             "site_notes_total",
             "Noticias Publicadas",
             "count",
-            2,
-            None,
-            ["Promedio Vistas"],
+            1,
+            ["Noticias Publicadas", "Noticias publicadas"],
+            ["Total Páginas Vistas", "Total Páginas vistas", "Promedio Páginas vistas", "Promedio Vistas"],
         ),
         (
             "site_average_views",
-            "Promedio Vistas",
+            "Promedio Páginas vistas",
             "count",
-            2,
-            None,
+            1,
+            ["Promedio Páginas vistas", "Promedio Páginas Vistas", "Promedio Vistas"],
             None,
         ),
         (
             "mail_open_rate",
-            "Tasa de apertura promedio",
+            "Promedio Tasa de apertura",
             "percent",
-            3,
-            None,
-            ["Tasa de interacción sobre mails enviados"],
+            2,
+            ["Promedio Tasa de apertura", "Tasa de apertura promedio"],
+            ["Promedio Tasa de clic", "Tasa de interacción sobre mails enviados"],
         ),
         (
             "mail_interaction_rate",
             "Tasa de interacción sobre mails enviados",
             "percent",
-            3,
+            2,
             None,
             ["Tasa de interacción sobre mails abiertos"],
         ),
         (
             "mail_interaction_rate_over_opened",
-            "Tasa de interacción sobre mails abiertos",
+            "Promedio Tasa de clic",
             "percent",
-            3,
-            None,
+            2,
+            ["Promedio Tasa de clic", "Tasa de interacción sobre mails abiertos"],
             ["Mails enviados"],
         ),
         (
             "mail_total",
             "Mails enviados",
             "count",
-            3,
+            2,
             None,
-            None,
+            ["Promedio Tasa de apertura", "Tasa de apertura promedio"],
         ),
     ]
 
@@ -1289,8 +1319,12 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
         if warning:
             fallback_warnings.append(warning)
 
+    expected_missing_keys = set()
+    if metrics.get("mail_interaction_rate", {}).get("missing") and not metrics.get("mail_interaction_rate_over_opened", {}).get("missing"):
+        expected_missing_keys.add("mail_interaction_rate")
+
     for key, anchor, _, expected_page, _, _ in metric_specs:
-        if metrics.get(key, {}).get("missing"):
+        if metrics.get(key, {}).get("missing") and key not in expected_missing_keys:
             logger.error(
                 "event=metric_missing anchor=%s page=%s candidate_lines=%s",
                 anchor,
@@ -1324,14 +1358,14 @@ def extract_raw_monthly_pdf(month_key: str, pdf_path: Path) -> dict[str, Any]:
     warnings = fallback_warnings + [
         f"missing_anchor:{k}:{v.get('anchor')}"
         for k, v in metrics.items()
-        if v.get("missing")
+        if v.get("missing") and k not in expected_missing_keys
     ]
 
     return {
         "month": month_key,
         "source_pdf": str(pdf_path),
         "extracted_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        "parser": "deterministic_pdf_v7_kpi_sequence_safe",
+        "parser": "deterministic_pdf_v8_current_dashboard_kpis",
         "page_count": len(pages),
         "metrics": metrics,
         "mail_table": mail_rows,
@@ -1468,6 +1502,14 @@ def canonicalize_monthly(raw_extracted: dict[str, Any]) -> dict[str, Any]:
 
     derived_warnings: list[str] = []
 
+    if interaction_rate <= 0 and interaction_rate_over_opened > 0:
+        # Compatibilidad con el contrato histórico: el dashboard actual ya no
+        # publica interacción sobre enviados; su KPI vigente es tasa de clic
+        # sobre mails abiertos. Conservamos el campo legacy apuntando al KPI
+        # disponible para no romper consumidores aguas abajo.
+        interaction_rate = interaction_rate_over_opened
+        derived_warnings.append("derived_metric:mail_interaction_rate:mail_interaction_rate_over_opened")
+
     if site_total_views <= 0 and site_notes_total > 0 and site_average_views > 0:
         site_total_views = site_notes_total * site_average_views
         derived_warnings.append("derived_metric:site_total_views:site_notes_total*site_average_views")
@@ -1585,7 +1627,7 @@ def validate_canonical_monthly(canonical: dict[str, Any]) -> dict[str, Any]:
 
         if key in REQUIRED_METRIC_KEYS and key not in derived_metrics:
             missing_required.append(key)
-        elif key in OPTIONAL_METRIC_KEYS:
+        elif key in OPTIONAL_METRIC_KEYS and key not in derived_metrics:
             missing_optional.append(key)
 
     if missing_required:

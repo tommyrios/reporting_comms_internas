@@ -74,7 +74,45 @@ class DeterministicPipelineTests(unittest.TestCase):
         with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
             raw = extract_raw_monthly_pdf("2026-01", Path("/tmp/fake.pdf"))
         self.assertEqual(raw["metrics"]["mail_open_rate"]["value"], 78.68)
-        self.assertTrue(any("anchor_out_of_expected_page:Tasa de apertura promedio" in w for w in raw["warnings"]))
+        self.assertTrue(any("anchor_out_of_expected_page:Promedio Tasa de apertura" in w for w in raw["warnings"]))
+
+    def test_extract_raw_monthly_pdf_accepts_current_dashboard_labels(self):
+        pages = [
+            (
+                "Página contenidos\nNoticias publicadas\n31\nTotal Páginas vistas\n11.207\n"
+                "Promedio Páginas vistas\n303\nTop five - Notas más leídas (uu)\n"
+                "Fecha Titular Equipo Usuarios … Páginas vistas\n"
+                "25 jun 2026 Llegó Black+: una nueva propuesta radical ARGENTINA 913 1329\n"
+                "Top five - Notas más leídas (colectivo TGM)"
+            ),
+            (
+                "Página mailing\nMails enviados\n"
+                "Fecha Título del mail Equipo Enviados Aperturas (uu) Clics (uu) Aperturas (%) Clics (%)\n"
+                "25 jun 2026 18:01:02_-__Eleg__el_regalo_para_el_D_a_de_la_Ni_ez_ "
+                "Argentina 1.798 1.675 1.577 93,2 % 94,1 %\n"
+                "Top five - Mayor Tasa de Clic\nTitulo Tasa de Interacción\n"
+                "_Eleg__el_regalo_para_el_D_a_de_la_Ni_ez_ 87,71 %\n▼\n"
+                "Mails enviados\n134\nPromedio Tasa de apertura\n82,0%\nPromedio Tasa de clic\n16,5%"
+            ),
+            "Página planificación\nMedia comunicaciones diarias\n0,23\nNº total de comunicaciones\n213",
+        ]
+
+        with patch("deterministic_pipeline._extract_pages_text", return_value=pages):
+            raw = extract_raw_monthly_pdf("quarter_2026_Q2_argentina", Path("/tmp/fake.pdf"))
+
+        canonical = canonicalize_monthly(raw)
+        validation = validate_canonical_monthly(canonical)
+
+        self.assertEqual(canonical["site_notes_total"], 31)
+        self.assertEqual(canonical["site_total_views"], 11207)
+        self.assertEqual(canonical["site_average_views"], 303)
+        self.assertEqual(canonical["mail_total"], 134)
+        self.assertEqual(canonical["mail_open_rate"], 82.0)
+        self.assertEqual(canonical["mail_interaction_rate_over_opened"], 16.5)
+        self.assertEqual(canonical["mail_interaction_rate"], 16.5)
+        self.assertEqual(canonical["top_push_by_interaction"][0]["clicks"], 1577)
+        self.assertEqual(canonical["top_pull_notes"][0]["unique_reads"], 913)
+        self.assertTrue(validation["is_valid"], validation)
 
     def test_extract_raw_monthly_pdf_missing_anchor_returns_null_and_warning(self):
         pages = [

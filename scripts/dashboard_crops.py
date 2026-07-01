@@ -7,24 +7,24 @@ import fitz
 
 logger = logging.getLogger(__name__)
 
-# Convención real del PDF exportado desde el dashboard:
-#   página 0 = Herramienta de planificación
-#   página 1 = Contenidos publicados en el site
-#   página 2 = Herramienta de mailing
+# Convención real del PDF exportado desde el dashboard actual:
+#   página 0 = Contenidos publicados en el site
+#   página 1 = Herramienta de mailing
+#   página 2 = Herramienta de planificación
 #
 # Las cajas están en coordenadas absolutas del PDF (no porcentajes), tomadas
 # sobre el export estándar del dashboard. Esto es intencional: si el layout es
 # estable, las coordenadas fijas son más confiables que buscar por texto/heurística.
 PAGE_INDEX_BY_MODULE: dict[str, int] = {
-    "planning": 0,
-    "contents": 1,
-    "mailing": 2,
+    "contents": 0,
+    "mailing": 1,
+    "planning": 2,
 }
 
 PAGE_ANCHORS: dict[str, list[str]] = {
-    "planning": ["Nº total de comunicaciones", "Listado completo de comunicaciones"],
-    "contents": ["Contenidos publicados en site", "Noticias publicadas", "Top five - Notas más leídas"],
-    "mailing": ["Mails enviados", "Tasa de apertura promedio", "Tasa de interacción sobre mails enviados"],
+    "planning": ["Herramienta de planificación", "Nº total de comunicaciones", "Listado completo de comunicaciones"],
+    "contents": ["Contenidos publicados en site", "Noticias publicadas", "Promedio Páginas vistas", "Top five - Notas más leídas"],
+    "mailing": ["Herramienta de mailing", "Mails enviados", "Promedio Tasa de apertura", "Promedio Tasa de clic"],
 }
 
 # Coordenadas provistas para el dashboard Q1.
