@@ -470,14 +470,15 @@ def _planning_combined(slide, scopes, report):
 
     _kpi_card(slide, 4.62, 1.07, 4.05, 0.64, "Acciones de Comunicación", _fmt_int(cmb.get("plan_total")), dark=True)
 
-    # Ampliamos los gráficos para aprovechar mejor la slide.
-    _add_text(slide, 0.58, 1.82, 3.0, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
-    _add_text(slide, 6.78, 1.82, 2.6, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "strategic_axes"), 0.58, 2.02, 5.95, 2.42)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "channel_mix"), 6.72, 2.02, 5.95, 2.42)
+    # Los crops del dashboard se insertan en cajas proporcionales a cada recorte.
+    # Así evitamos que preserve_aspect genere gutters grandes o escalados desparejos.
+    _add_text(slide, 1.58, 1.82, 3.4, 0.16, "Distribución por Eje Estratégico", size=7, color=COLORS["bbva_blue"], bold=True)
+    _add_text(slide, 7.72, 1.82, 3.0, 0.16, "Distribución por Canales", size=7, color=COLORS["bbva_blue"], bold=True)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "strategic_axes"), 1.58, 2.02, 3.95, 2.42)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "channel_mix"), 7.72, 2.02, 3.95, 2.42)
 
-    _add_text(slide, 0.58, 4.70, 2.4, 0.16, "Área solicitante", size=7, color=COLORS["bbva_blue"], bold=True)
-    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "internal_clients"), 0.58, 4.90, 12.08, 1.84)
+    _add_text(slide, 2.66, 4.72, 2.4, 0.16, "Área solicitante", size=7, color=COLORS["bbva_blue"], bold=True)
+    _image_or_placeholder(slide, _assets_crop(report, "combined", "planning", "internal_clients"), 2.66, 4.94, 8.00, 2.06)
 
 def _add_scope_label(slide, x, y, w, text):
     _add_text(slide, x, y, w, 0.22, text, size=9, color=COLORS["bbva_dark"], bold=True, align=PP_ALIGN.CENTER)
@@ -584,10 +585,10 @@ def _mail_slide(slide, scopes, report):
     _add_mail_kpi_cards(slide, hol, 6.75, 2.70, 5.45)
 
     # Top Five solo Argentina, tal como se valida en la gestión del canal.
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_open_rate"), 0.70, 4.18, 5.70, 1.82)
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_interaction"), 6.70, 4.18, 5.70, 1.82)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_open_rate"), 0.78, 4.08, 5.30, 2.02)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "mailing", "top_interaction"), 7.26, 4.08, 5.30, 2.02)
 
-    _obs_box(slide, 0.70, 6.68, 11.85, 0.48)
+    _obs_box(slide, 0.70, 6.58, 11.85, 0.50)
 
 
 def _content_slide(slide, scopes, report):
@@ -609,9 +610,9 @@ def _content_slide(slide, scopes, report):
     _add_scope_label(slide, 6.82, 2.27, 5.30, "Holding")
     _add_content_kpi_cards(slide, hol, 6.82, 2.55, 5.30)
 
-    # Top Five solo Argentina.
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_uu"), 1.75, 3.68, 9.80, 1.70)
-    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_tgm"), 1.75, 5.72, 9.80, 1.70)
+    # Top Five solo Argentina. Las cajas respetan el ratio ancho/alto de los recortes.
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_uu"), 1.87, 3.46, 9.60, 1.82)
+    _image_or_placeholder(slide, _assets_crop(report, "argentina", "contents", "top_notes_tgm"), 1.87, 5.52, 9.60, 1.82)
 
 
 def _closing(slide):

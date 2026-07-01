@@ -35,20 +35,18 @@ PAGE_ANCHORS: dict[str, list[str]] = {
 # Y agregamos crops nuevos para futuros usos/debug.
 CROP_CONFIG: dict[str, dict[str, dict[str, float]]] = {
     "contents": {
-        "site_notes_total_card": {"x": 100, "y": 300, "w": 205, "h": 80},
-        "site_total_views_card": {"x": 335, "y": 300, "w": 205, "h": 80},
-        "site_average_views_card": {"x": 570, "y": 300, "w": 205, "h": 80},
-        "top_notes_uu": {"x": 25, "y": 2875, "w": 845, "h": 160},
-        "top_notes_tgm": {"x": 25, "y": 3045, "w": 845, "h": 160},
+        "site_notes_total_card": {"x": 40, "y": 290, "w": 135, "h": 45},
+        "site_total_views_card": {"x": 215, "y": 290, "w": 195, "h": 45},
+        "site_average_views_card": {"x": 450, "y": 290, "w": 195, "h": 45},
+        "top_notes_uu": {"x": 25, "y": 2825, "w": 845, "h": 160},
+        "top_notes_tgm": {"x": 25, "y": 3000, "w": 845, "h": 160},
     },
     "mailing": {
-        "mail_total_card": {"x": 35, "y": 270, "w": 130, "h": 80},
-        "mail_open_rate_card": {"x": 180, "y": 270, "w": 205, "h": 80},
-        "mail_interaction_sent_card": {"x": 395, "y": 270, "w": 235, "h": 80},
-        "mail_interaction_opened_card": {"x": 640, "y": 270, "w": 235, "h": 80},
-        "monthly_trend": {"x": 20, "y": 1190, "w": 860, "h": 270},
-        "top_open_rate": {"x": 20, "y": 1475, "w": 420, "h": 160},
-        "top_interaction": {"x": 465, "y": 1475, "w": 420, "h": 160},
+        "mail_total_card": {"x": 25, "y": 290, "w": 135, "h": 45},
+        "mail_open_rate_card": {"x": 205, "y": 290, "w": 190, "h": 45},
+        "mail_interaction_opened_card": {"x": 415, "y": 290, "w": 190, "h": 45},
+        "top_open_rate": {"x": 20, "y": 1185, "w": 420, "h": 160},
+        "top_interaction": {"x": 455, "y": 1185, "w": 420, "h": 160},
     },
     "planning": {
         "plan_total_card": {"x": 690, "y": 300, "w": 150, "h": 50},
